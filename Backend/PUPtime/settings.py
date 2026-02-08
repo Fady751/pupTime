@@ -38,7 +38,16 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'user',
+    'rest_framework',
+    'rest_framework.authtoken',
+    'drf_yasg',
 ]
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
+    ],
+}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -119,3 +128,12 @@ STATIC_URL = 'static/'
 
 # Custom user model
 AUTH_USER_MODEL = 'user.User'
+
+# Custom authentication backend for email-based login
+AUTHENTICATION_BACKENDS = [
+    'user.backends.EmailBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
+
+# Default primary key field type
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
