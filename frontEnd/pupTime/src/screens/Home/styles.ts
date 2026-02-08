@@ -3,82 +3,44 @@ import { StyleSheet } from 'react-native';
 export const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
-    paddingHorizontal: 24,
-    paddingVertical: 32,
-  },
-  scrollContainer: {
-    flexGrow: 1,
+    padding: 20,
     justifyContent: 'center',
-  },
-  header: {
-    marginBottom: 32,
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
   },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 6,
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 30,
+    color: '#333',
   },
-  subtitle: {
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  form: {
-    gap: 16,
-  },
-  inputGroup: {
-    marginBottom: 4,
+  userDataContainer: {
+    backgroundColor: '#fff',
+    padding: 20,
+    borderRadius: 10,
+    marginBottom: 30,
+    width: '100%',
   },
   label: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#374151',
-    marginBottom: 6,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
     fontSize: 16,
-    backgroundColor: '#FFFFFF',
+    marginBottom: 10,
+    color: '#555',
   },
-  inputError: {
-    borderColor: '#EF4444',
+  value: {
+    fontWeight: 'bold',
+    color: '#333',
   },
-  errorText: {
-    marginTop: 4,
-    fontSize: 12,
-    color: '#EF4444',
-  },
-  button: {
-    marginTop: 12,
-    backgroundColor: '#2563EB',
+  logoutButton: {
+    backgroundColor: '#ff6b6b',
+    paddingVertical: 12,
+    paddingHorizontal: 30,
     borderRadius: 8,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  buttonDisabled: {
-    opacity: 0.7,
-  },
-  buttonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  footer: {
-    marginTop: 24,
+    width: '100%',
     alignItems: 'center',
   },
-  footerText: {
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  footerLink: {
-    color: '#2563EB',
-    fontWeight: '600',
+  logoutText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

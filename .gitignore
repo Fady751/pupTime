@@ -62,3 +62,6 @@ frontEnd/pupTime/ios/build/
 
 # Bundle
 *.bundle
+
+#securty
+.env

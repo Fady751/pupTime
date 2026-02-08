@@ -19,10 +19,12 @@ export const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#111827',
     marginBottom: 6,
+    zIndex: -1,
   },
   subtitle: {
     fontSize: 14,
     color: '#6B7280',
+    zIndex: -1,
   },
   form: {
     gap: 16,

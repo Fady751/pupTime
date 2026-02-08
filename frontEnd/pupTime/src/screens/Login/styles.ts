@@ -19,10 +19,12 @@ export const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#111827',
     marginBottom: 6,
+    zIndex: -1,
   },
   subtitle: {
     fontSize: 14,
     color: '#6B7280',
+    zIndex: -1,
   },
   form: {
     gap: 16,
@@ -80,5 +82,24 @@ export const styles = StyleSheet.create({
   footerLink: {
     color: '#2563EB',
     fontWeight: '600',
+  },
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  passwordInput: {
+    flex: 1,
+    paddingRight: 50,
+  },
+  togglePasswordButton: {
+    position: 'absolute',
+    right: 12,
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+  },
+  togglePasswordText: {
+    fontSize: 14,
+    color: '#2563EB',
+    fontWeight: '500',
   },
 });

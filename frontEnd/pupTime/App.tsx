@@ -1,21 +1,14 @@
 import React from 'react';
-import { SafeAreaView, StyleSheet } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
-import AuthNavigator from './src/navigation/AuthNavigator';
+import { Provider } from 'react-redux';
+import { store } from './src/redux/store';
+import Root from './src/navigation/Root';
 
-export default function App() {
+const App = () => {
   return (
-    <NavigationContainer>
-      <SafeAreaView style={styles.safeArea}>
-        <AuthNavigator />
-      </SafeAreaView>
-    </NavigationContainer>
+    <Provider store={store}>
+      <Root />
+    </Provider>
   );
-}
+};
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-  },
-});
+export default App;
