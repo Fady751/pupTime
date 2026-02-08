@@ -17,10 +17,6 @@ db.sqlite3
 media/
 staticfiles/
 
-# Migrations (keep __init__.py)
-**/migrations/**/
-!**/migrations/__init__.py
-
 # IDE / Editor
 .vscode/
 .idea/
@@ -28,3 +24,41 @@ staticfiles/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Node / React Native
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm/
+
+# React Native
+.expo/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+
+# Metro
+.metro-health-check*
+
+# Android
+frontEnd/pupTime/android/app/build/
+frontEnd/pupTime/android/.gradle/
+frontEnd/pupTime/android/build/
+*.apk
+*.aab
+local.properties
+
+# iOS
+frontEnd/pupTime/ios/Pods/
+frontEnd/pupTime/ios/build/
+*.xcworkspace
+!*.xcworkspace/contents.xcworkspacedata
+*.xcuserstate
+*.ipa
+
+# Bundle
+*.bundle
