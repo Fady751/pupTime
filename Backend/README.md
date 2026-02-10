@@ -29,16 +29,25 @@ pip install -r requirements.txt
 ### 4. Run migrations
 
 ```bash
+python manage.py makemigrations
 python manage.py migrate
 ```
 
-### 5. Run the server
+### 5. Load interests data
+
+```bash
+python manage.py load_interests
+```
+
+This reads `user/data.json` and populates the `InterestCategory` and `Interest` tables. Safe to run multiple times (skips existing entries).
+
+### 6. Run the server
 
 ```bash
 python manage.py runserver
 ```
 
-### 6. Run tests
+### 7. Run tests
 
 ```bash
 python manage.py test user
