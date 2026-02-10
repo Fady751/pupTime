@@ -27,11 +27,15 @@ class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)
     email = serializers.EmailField(required=True)
     google_auth_id = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    has_interests = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'password', 'google_auth_id', 'gender', 'birth_day', 'streak_cnt', 'joined_on']
-        read_only_fields = ['id', 'joined_on', 'streak_cnt']
+        fields = ['id', 'username', 'email', 'password', 'google_auth_id', 'gender', 'birth_day', 'streak_cnt', 'joined_on', 'has_interests']
+        read_only_fields = ['id', 'joined_on', 'streak_cnt', 'has_interests']
+
+    def get_has_interests(self, obj):
+        return obj.user_interests.exists()
 
     def validate_email(self, value):
         if User.objects.filter(email__iexact=value).exists():
@@ -65,11 +69,15 @@ class UserUpdateSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8, required=False)
     username = serializers.CharField(required=False)
     email = serializers.EmailField(required=False)
+    has_interests = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'password', 'google_auth_id', 'gender', 'birth_day', 'streak_cnt', 'joined_on']
-        read_only_fields = ['id', 'joined_on', 'streak_cnt']
+        fields = ['id', 'username', 'email', 'password', 'google_auth_id', 'gender', 'birth_day', 'streak_cnt', 'joined_on', 'has_interests']
+        read_only_fields = ['id', 'joined_on', 'streak_cnt', 'has_interests']
+
+    def get_has_interests(self, obj):
+        return obj.user_interests.exists()
 
     def validate_email(self, value):
         user = self.instance
