@@ -1,5 +1,26 @@
 from rest_framework import serializers
-from .models import User
+from .models import User, InterestCategory, Interest, UserInterest
+
+
+class InterestCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InterestCategory
+        fields = ['id', 'name']
+
+
+class InterestSerializer(serializers.ModelSerializer):
+    category = InterestCategorySerializer(read_only=True)
+
+    class Meta:
+        model = Interest
+        fields = ['id', 'title', 'category']
+
+
+class UserInterestSerializer(serializers.Serializer):
+    interest_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        help_text='List of interest IDs to assign to the user',
+    )
 
 
 class UserSerializer(serializers.ModelSerializer):
