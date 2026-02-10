@@ -2,10 +2,13 @@ from rest_framework import status, generics
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.authtoken.models import Token
+from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth import authenticate
+from django.shortcuts import get_object_or_404
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
-from .serializers import UserSerializer, LoginSerializer
+from .serializers import UserSerializer, LoginSerializer, UserUpdateSerializer
+from .models import User
 
 
 class RegisterView(generics.CreateAPIView):
@@ -67,3 +70,74 @@ class LoginView(APIView):
             }, status=status.HTTP_200_OK)
 
         return Response({'error': 'Invalid credentials. Please check your email and password.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+
+class UserDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        responses={
+            200: openapi.Response('User details', UserSerializer),
+            404: openapi.Response('User not found'),
+        }
+    )
+    def get(self, request, user_id):
+        user = get_object_or_404(User, pk=user_id)
+        serializer = UserSerializer(user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @swagger_auto_schema(
+        request_body=UserUpdateSerializer,
+        responses={
+            200: openapi.Response('User updated successfully', UserUpdateSerializer),
+            400: openapi.Response('Bad request - validation errors'),
+            403: openapi.Response('Forbidden - cannot update other users'),
+            404: openapi.Response('User not found'),
+        }
+    )
+    def put(self, request, user_id):
+        user = get_object_or_404(User, pk=user_id)
+        
+        if request.user.id != user.id:
+            return Response({'error': 'You can only update your own profile.'}, status=status.HTTP_403_FORBIDDEN)
+        
+        serializer = UserUpdateSerializer(user, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @swagger_auto_schema(
+        request_body=UserUpdateSerializer,
+        responses={
+            200: openapi.Response('User updated successfully', UserUpdateSerializer),
+            400: openapi.Response('Bad request - validation errors'),
+            403: openapi.Response('Forbidden - cannot update other users'),
+            404: openapi.Response('User not found'),
+        }
+    )
+    def patch(self, request, user_id):
+        user = get_object_or_404(User, pk=user_id)
+        
+        if request.user.id != user.id:
+            return Response({'error': 'You can only update your own profile.'}, status=status.HTTP_403_FORBIDDEN)
+        
+        serializer = UserUpdateSerializer(user, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @swagger_auto_schema(
+        responses={
+            204: openapi.Response('User deleted successfully'),
+            403: openapi.Response('Forbidden - cannot delete other users'),
+            404: openapi.Response('User not found'),
+        }
+    )
+    def delete(self, request, user_id):
+        user = get_object_or_404(User, pk=user_id)
+        
+        if request.user.id != user.id:
+            return Response({'error': 'You can only delete your own profile.'}, status=status.HTTP_403_FORBIDDEN)
+        
+        user.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
