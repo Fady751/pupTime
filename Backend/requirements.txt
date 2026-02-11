@@ -1,5 +1,6 @@
 asgiref==3.11.1
 Django==5.2.11
+django-cors-headers==4.9.0
 djangorestframework==3.16.1
 drf-yasg==1.21.14
 inflection==0.5.1
