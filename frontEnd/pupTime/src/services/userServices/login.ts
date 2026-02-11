@@ -29,7 +29,7 @@ export const loginUser = async (
     return {
       success: response.data?.success ?? true,
       message: response.data?.message || 'Login completed',
-      id: response.data?.id,
+      id: response.data?.user_id,
       token: response.data?.token,
       error: null,
     };
