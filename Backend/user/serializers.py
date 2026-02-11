@@ -1,16 +1,41 @@
 from rest_framework import serializers
-from .models import User
+from .models import User, InterestCategory, Interest, UserInterest
+
+
+class InterestCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InterestCategory
+        fields = ['id', 'name']
+
+
+class InterestSerializer(serializers.ModelSerializer):
+    category = InterestCategorySerializer(read_only=True)
+
+    class Meta:
+        model = Interest
+        fields = ['id', 'title', 'category']
+
+
+class UserInterestSerializer(serializers.Serializer):
+    interest_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        help_text='List of interest IDs to assign to the user',
+    )
 
 
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)
     email = serializers.EmailField(required=True)
     google_auth_id = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    has_interests = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'password', 'google_auth_id', 'gender', 'birth_day', 'streak_cnt', 'joined_on']
-        read_only_fields = ['id', 'joined_on', 'streak_cnt']
+        fields = ['id', 'username', 'email', 'password', 'google_auth_id', 'gender', 'birth_day', 'streak_cnt', 'joined_on', 'has_interests']
+        read_only_fields = ['id', 'joined_on', 'streak_cnt', 'has_interests']
+
+    def get_has_interests(self, obj):
+        return obj.user_interests.exists()
 
     def validate_email(self, value):
         if User.objects.filter(email__iexact=value).exists():
@@ -38,3 +63,39 @@ class UserSerializer(serializers.ModelSerializer):
 class LoginSerializer(serializers.Serializer):
     email = serializers.CharField()
     password = serializers.CharField(write_only=True)
+
+
+class UserUpdateSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, min_length=8, required=False)
+    username = serializers.CharField(required=False)
+    email = serializers.EmailField(required=False)
+    has_interests = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email', 'password', 'google_auth_id', 'gender', 'birth_day', 'streak_cnt', 'joined_on', 'has_interests']
+        read_only_fields = ['id', 'joined_on', 'streak_cnt', 'has_interests']
+
+    def get_has_interests(self, obj):
+        return obj.user_interests.exists()
+
+    def validate_email(self, value):
+        user = self.instance
+        if User.objects.filter(email__iexact=value).exclude(pk=user.pk).exists():
+            raise serializers.ValidationError("A user with this email already exists.")
+        return value.lower()
+
+    def validate_username(self, value):
+        user = self.instance
+        if User.objects.filter(username__iexact=value).exclude(pk=user.pk).exists():
+            raise serializers.ValidationError("A user with this username already exists.")
+        return value
+
+    def update(self, instance, validated_data):
+        password = validated_data.pop('password', None)
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        if password:
+            instance.set_password(password)
+        instance.save()
+        return instance
