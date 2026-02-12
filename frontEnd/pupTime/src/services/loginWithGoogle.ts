@@ -1,10 +1,11 @@
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { googleWebClientId } from '@env';
 
-GoogleSignin.configure({
-  webClientId: googleWebClientId,
-  offlineAccess: true,
-});
+// console.log("googleWebClientId: ", googleWebClientId);
+// GoogleSignin.configure({
+//   webClientId: googleWebClientId,
+//   offlineAccess: true,
+// });
 
 const signInWithGoogle = async () => {
   try {
