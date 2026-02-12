@@ -10,8 +10,10 @@ from drf_yasg import openapi
 from .serializers import (
     UserSerializer, LoginSerializer, UserUpdateSerializer,
     InterestSerializer, InterestCategorySerializer, UserInterestSerializer,
+    GoogleAuthSerializer,
 )
 from .models import User, Interest, InterestCategory, UserInterest
+import uuid
 
 
 class RegisterView(generics.CreateAPIView):
@@ -231,3 +233,67 @@ class UserInterestsView(APIView):
 
         UserInterest.objects.filter(user=user).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class GoogleAuthView(APIView):
+    @swagger_auto_schema(
+        request_body=GoogleAuthSerializer,
+        responses={
+            200: openapi.Response('Login successful', openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'token': openapi.Schema(type=openapi.TYPE_STRING),
+                    'user_id': openapi.Schema(type=openapi.TYPE_INTEGER),
+                    'username': openapi.Schema(type=openapi.TYPE_STRING),
+                    'email': openapi.Schema(type=openapi.TYPE_STRING),
+                    'is_new_user': openapi.Schema(type=openapi.TYPE_BOOLEAN),
+                }
+            )),
+            400: openapi.Response('Invalid token'),
+        }
+    )
+    def post(self, request):
+        serializer = GoogleAuthSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        google_info = serializer.validated_data['id_token']
+        google_id = google_info['google_id']
+        email = google_info['email'].lower()
+        name = google_info['name']
+
+        is_new_user = False
+
+        user = User.objects.filter(google_auth_id=google_id).first()
+
+        if not user:
+            user = User.objects.filter(email__iexact=email).first()
+
+            if user:
+                user.google_auth_id = google_id
+                user.save()
+            else:
+                is_new_user = True
+                base_username = name.replace(' ', '_') if name else email.split('@')[0]
+                username = base_username
+                counter = 1
+                while User.objects.filter(username__iexact=username).exists():
+                    username = f"{base_username}_{counter}"
+                    counter += 1
+
+                user = User.objects.create_user(
+                    username=username,
+                    email=email,
+                    password=uuid.uuid4().hex,
+                    google_auth_id=google_id,
+                )
+
+        token, _ = Token.objects.get_or_create(user=user)
+
+        return Response({
+            'token': token.key,
+            'user_id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'is_new_user': is_new_user,
+            'has_interests': user.user_interests.exists(),
+        }, status=status.HTTP_200_OK)

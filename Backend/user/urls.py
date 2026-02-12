@@ -2,6 +2,7 @@ from django.urls import path
 from .views import (
     RegisterView, LoginView, UserDetailView,
     InterestListView, InterestCategoryListView, UserInterestsView,
+    GoogleAuthView,
 )
 
 urlpatterns = [
@@ -9,6 +10,8 @@ urlpatterns = [
     path('register', RegisterView.as_view(), name='register_no_slash'),
     path('login/', LoginView.as_view(), name='login'),
     path('login', LoginView.as_view(), name='login_no_slash'),
+    path('auth/google/', GoogleAuthView.as_view(), name='google-auth'),
+    path('auth/google', GoogleAuthView.as_view(), name='google-auth_no_slash'),
     path('interests/', InterestListView.as_view(), name='interest-list'),
     path('interests', InterestListView.as_view(), name='interest-list_no_slash'),
     path('interest-categories/', InterestCategoryListView.as_view(), name='interest-category-list'),

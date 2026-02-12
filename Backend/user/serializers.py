@@ -1,5 +1,33 @@
 from rest_framework import serializers
+from django.conf import settings
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
 from .models import User, InterestCategory, Interest, UserInterest
+
+
+class GoogleAuthSerializer(serializers.Serializer):
+    id_token = serializers.CharField(required=True, help_text='Google ID token from frontend')
+
+    def validate_id_token(self, value):
+        try:
+            idinfo = id_token.verify_oauth2_token(
+                value,
+                google_requests.Request(),
+                settings.GOOGLE_WEB_CLIENT_ID
+            )
+
+            if idinfo['iss'] not in ['accounts.google.com', 'https://accounts.google.com']:
+                raise serializers.ValidationError('Invalid token issuer.')
+
+            return {
+                'google_id': idinfo['sub'],
+                'email': idinfo.get('email', ''),
+                'email_verified': idinfo.get('email_verified', False),
+                'name': idinfo.get('name', ''),
+                'picture': idinfo.get('picture', ''),
+            }
+        except ValueError as e:
+            raise serializers.ValidationError(f'Invalid Google token: {str(e)}')
 
 
 class InterestCategorySerializer(serializers.ModelSerializer):

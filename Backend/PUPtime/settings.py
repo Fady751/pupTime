@@ -133,6 +133,12 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 # Custom user model
 AUTH_USER_MODEL = 'user.User'
 
+# Google OAuth Settings
+GOOGLE_WEB_CLIENT_ID = os.environ.get(
+    'GOOGLE_WEB_CLIENT_ID',
+    '492490779826-imbgtg2cphqpqokbve94rn3b9atrn2bh.apps.googleusercontent.com'
+)
+
 # Custom authentication backend for email-based login
 AUTHENTICATION_BACKENDS = [
     'user.backends.EmailBackend',
