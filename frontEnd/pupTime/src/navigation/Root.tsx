@@ -2,14 +2,16 @@ import React, { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '../redux/store';
 import { fetchUser } from '../redux/userSlice';
-import { SafeAreaView, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import AuthNavigator from '../navigation/AuthNavigator';
 import AppNavigator from '../navigation/AppNavigator';
+import LoadingScreen from '../screens/Loading/loading';
 
 export default function Root() {
   const dispatch = useDispatch<AppDispatch>();
-  const user = useSelector((state: RootState) => state.user.data);
+  const { data, loading } = useSelector((state: RootState) => state.user);
 
   useEffect(() => {
     dispatch(fetchUser());
@@ -18,7 +20,7 @@ export default function Root() {
   return (
     <NavigationContainer>
       <SafeAreaView style={styles.safeArea}>
-        {user ? <AppNavigator /> : <AuthNavigator />}
+        {loading ? <LoadingScreen /> : data ? <AppNavigator /> : <AuthNavigator />}
       </SafeAreaView>
     </NavigationContainer>
   );

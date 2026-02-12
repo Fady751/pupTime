@@ -1,21 +1,23 @@
 import { StyleSheet } from 'react-native';
+import type { AppColors } from '../../constants/colors';
 
-export const styles = StyleSheet.create({
+export const createStyles = (colors: AppColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.background,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 30,
-    color: '#333',
+    color: colors.text,
   },
   userDataContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     padding: 20,
     borderRadius: 10,
     marginBottom: 30,
@@ -24,14 +26,14 @@ export const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     marginBottom: 10,
-    color: '#555',
+    color: colors.secondaryText,
   },
   value: {
     fontWeight: 'bold',
-    color: '#333',
+    color: colors.text,
   },
   logoutButton: {
-    backgroundColor: '#ff6b6b',
+    backgroundColor: colors.buttonDanger || colors.primary,
     paddingVertical: 12,
     paddingHorizontal: 30,
     borderRadius: 8,
@@ -39,7 +41,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logoutText: {
-    color: '#fff',
+    color: colors.primaryText,
     fontSize: 16,
     fontWeight: 'bold',
   },

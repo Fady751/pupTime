@@ -16,15 +16,12 @@ export type LoginResponse = {
 export const loginUser = async (
   payload: LoginPayload,
 ): Promise<LoginResponse> => {
-  console.log('Login payload:', payload);
 
   try {
     const response = await api.post(`/user/login/`, {
       email: payload.email,
       password: payload.password,
     });
-
-    console.log('Login response:', response.data);
 
     return {
       success: response.data?.success ?? true,

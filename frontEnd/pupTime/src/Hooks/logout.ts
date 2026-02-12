@@ -8,9 +8,9 @@ export function useLogout() {
     const dispatch = useDispatch<AppDispatch>();
     const navigation = useNavigation();
     
-    return () => {
-        clearData();
-        dispatch(clearUser());
+    return async () => {
+        await clearData();
+        await dispatch(clearUser());
         navigation.navigate('Login' as never);
     };
 }

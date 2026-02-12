@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -14,11 +14,15 @@ import { useDispatch } from 'react-redux';
 import type { AppDispatch } from '../../redux/store';
 import { fetchUser } from '../../redux/userSlice';
 import { saveData } from '../../utils/authStorage';
-import { styles } from './styles';
+import { createStyles } from './styles';
 import { loginUser } from '../../services/userServices/login';
+import LoginGoogle from '../../components/loginGoogle/loginGoogle';
+import useTheme from '../../Hooks/useTheme';
 
 const LoginScreen = ({ navigation }: { navigation: any }) => {
   const dispatch = useDispatch<AppDispatch>();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -32,7 +36,6 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
     setLoading(true);
     try {
       const data = await loginUser({ email, password });
-      console.log('Login data:', data);
       if(!data.success || !data.token || !data.id) {
         throw new Error(data.error || 'Login failed');
       }
@@ -126,6 +129,14 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
                 )}
               </TouchableOpacity>
             </View>
+            
+            <View style={styles.dividerContainer}>
+              <View style={styles.divider} />
+              <Text style={styles.dividerText}>Or</Text>
+              <View style={styles.divider} />
+            </View>
+
+            <LoginGoogle />
 
             <View style={styles.footer}>
               <Text style={styles.footerText}>

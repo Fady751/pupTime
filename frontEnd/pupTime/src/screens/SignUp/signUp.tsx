@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import Toast from 'react-native-toast-message';
 
 import {
@@ -15,9 +15,11 @@ import { Picker } from '@react-native-picker/picker';
 import DateTimePicker, {
   DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
-import { styles } from './styles';
+import { createStyles } from './styles';
 import { signUp, SignUpPayload } from '../../services/userServices/signup';
 import { validate } from '../../utils/validateForm';
+import LoginGoogle from '../../components/loginGoogle/loginGoogle';
+import useTheme from '../../Hooks/useTheme';
 
 type FieldName = 'username' | 'email' | 'password' | 'gender' | 'birth_day';
 
@@ -33,6 +35,8 @@ const initialForm: FormState = {
 };
 
 const SignUp = ({ navigation }: { navigation: any }) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [form, setForm] = useState<FormState>(initialForm);
   const [errors, setErrors] = useState<ErrorState>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -81,7 +85,6 @@ const SignUp = ({ navigation }: { navigation: any }) => {
       };
 
       const response = await signUp(payload);
-      console.log('Sign up response:', response);
 
       if(!response.success) {
         const error = response?.error || {};
@@ -128,6 +131,8 @@ const SignUp = ({ navigation }: { navigation: any }) => {
         <ScrollView
           contentContainerStyle={styles.scrollContainer}
           keyboardShouldPersistTaps="handled"
+          showsHorizontalScrollIndicator={false}
+          showsVerticalScrollIndicator={false}
         >
           <Toast />
           <View>
@@ -216,7 +221,6 @@ const SignUp = ({ navigation }: { navigation: any }) => {
                   <Picker
                     selectedValue={form.gender}
                     onValueChange={value => handleChange('gender', value)}
-                    style={{ color: form.gender ? '#000' : '#9CA3AF', flex: 1 }}
                   >
                     <Picker.Item
                       label="Select gender"
@@ -242,9 +246,9 @@ const SignUp = ({ navigation }: { navigation: any }) => {
                   ]}
                 >
                   <Text
-                    style={{
-                      color: form.birth_day ? '#111827' : '#9CA3AF',
-                    }}
+                    style={[
+                      styles.inputText,
+                    ]}
                   >
                     {form.birth_day || 'Select birth date'}
                   </Text>
@@ -279,6 +283,15 @@ const SignUp = ({ navigation }: { navigation: any }) => {
                   <Text style={styles.buttonText}>Create account</Text>
                 )}
               </TouchableOpacity>
+              
+              <View style={styles.dividerContainer}>
+                <View style={styles.divider} />
+                <Text style={styles.dividerText}>Or</Text>
+                <View style={styles.divider} />
+              </View>
+
+              <LoginGoogle />
+
             </View>
 
             <View style={styles.footer}>

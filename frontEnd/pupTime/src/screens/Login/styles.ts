@@ -1,9 +1,11 @@
 import { StyleSheet } from 'react-native';
+import type { AppColors } from '../../constants/colors';
 
-export const styles = StyleSheet.create({
+export const createStyles = (colors: AppColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: colors.background,
     paddingHorizontal: 24,
     paddingVertical: 32,
   },
@@ -17,13 +19,13 @@ export const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.text,
     marginBottom: 6,
     zIndex: -1,
   },
   subtitle: {
     fontSize: 14,
-    color: '#6B7280',
+    color: colors.secondaryText,
     zIndex: -1,
   },
   form: {
@@ -35,29 +37,30 @@ export const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#374151',
+    color: colors.text,
     marginBottom: 6,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: colors.border,
+    color: colors.text,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
   },
   inputError: {
-    borderColor: '#EF4444',
+    borderColor: colors.error,
   },
   errorText: {
     marginTop: 4,
     fontSize: 12,
-    color: '#EF4444',
+    color: colors.error,
   },
   button: {
     marginTop: 12,
-    backgroundColor: '#2563EB',
+    backgroundColor: colors.primary,
     borderRadius: 8,
     paddingVertical: 14,
     alignItems: 'center',
@@ -69,7 +72,7 @@ export const styles = StyleSheet.create({
   buttonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.primaryText,
   },
   footer: {
     marginTop: 24,
@@ -77,10 +80,10 @@ export const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 14,
-    color: '#6B7280',
+    color: colors.secondaryText,
   },
   footerLink: {
-    color: '#2563EB',
+    color: colors.primary,
     fontWeight: '600',
   },
   passwordContainer: {
@@ -99,7 +102,24 @@ export const styles = StyleSheet.create({
   },
   togglePasswordText: {
     fontSize: 14,
-    color: '#2563EB',
+    color: colors.primary,
     fontWeight: '500',
+  },
+  // Google sign-in styles
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 20,
+    marginBottom: 12,
+  },
+  divider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.divider,
+  },
+  dividerText: {
+    fontSize: 14,
+    color: colors.secondaryText,
+    marginHorizontal: 12,
   },
 });

@@ -14,17 +14,14 @@ export type GetUserResponse = {
 export const getUser = async (
   payload: GetUserPayload,
 ): Promise<GetUserResponse> => {
-  console.log('getUser payload:', payload);
 
   try {
-    const response = await api.get(`/user/${payload.id}`); // add correct endpoint
-
-    console.log('getUser response:', response.data);
+    const response = await api.get(`/user/${payload.id}`);
 
     return {
       success: true,
       message: response.data?.message || 'Get user completed',
-      user: response.data?.user || null,
+      user: response.data || null,
     };
   } catch (error) {
     return {

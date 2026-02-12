@@ -1,13 +1,16 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../redux/store';
 import { useLogout } from '../../Hooks/logout';
-import { styles } from './styles';
+import { createStyles } from './styles';
+import useTheme from '../../Hooks/useTheme';
 
 const Home: React.FC = () => {
   const logout = useLogout();
   const user = useSelector((state: RootState) => state.user.data);
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   return (
     <View style={styles.container}>
