@@ -17,6 +17,11 @@ end
 target 'pupTime' do
   config = use_native_modules!
 
+  # react-native-permissions setup
+  permissions_path = '../node_modules/react-native-permissions/ios'
+  pod 'Permission-Microphone', :path => "#{permissions_path}/Microphone"
+  pod 'Permission-Notifications', :path => "#{permissions_path}/Notifications"
+
   use_react_native!(
     :path => config[:reactNativePath],
     # An absolute path to your application root.

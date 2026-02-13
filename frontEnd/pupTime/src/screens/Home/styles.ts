@@ -45,4 +45,17 @@ export const createStyles = (colors: AppColors) =>
     fontSize: 16,
     fontWeight: 'bold',
   },
+  tryIntroButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    borderRadius: 8,
+    width: '100%',
+    alignItems: 'center',
+  },
+  tryIntroButtonText: {
+    color: colors.primaryText,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
 });

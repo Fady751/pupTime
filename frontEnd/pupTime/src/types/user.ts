@@ -8,5 +8,5 @@ export type User = {
   streak_cnt: number;
   joined_on: Date;
   token: string;
-  has_interests?: string;
+  has_interests?: boolean;
 };

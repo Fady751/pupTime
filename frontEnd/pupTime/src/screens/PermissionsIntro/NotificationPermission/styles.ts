@@ -1,25 +1,11 @@
 import { StyleSheet } from "react-native";
+import { AppColors } from "../../../constants/colors";
 
-export default StyleSheet.create({
+const createStyles = (colors: AppColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F4F6FA",
+    backgroundColor: colors.background,
     paddingHorizontal: 20,
-  },
-  progressWrapper: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginTop: 20,
-  },
-  dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: "#D1D5DB",
-    marginHorizontal: 5,
-  },
-  activeDot: {
-    backgroundColor: "#4F46E5",
   },
   heroSection: {
     flex: 1,
@@ -30,16 +16,16 @@ export default StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: "500",
-    color: "#111827",
+    color: colors.text,
   },
   brand: {
     fontSize: 32,
     fontWeight: "700",
-    color: "#4F46E5",
+    color: colors.primary,
     marginTop: 5,
   },
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.surface,
     padding: 20,
     borderRadius: 16,
     marginBottom: 40,
@@ -52,24 +38,39 @@ export default StyleSheet.create({
   cardTitle: {
     fontSize: 20,
     fontWeight: "600",
-    color: "#111827",
+    color: colors.text,
     marginBottom: 10,
   },
   cardText: {
     fontSize: 16,
-    color: "#6B7280",
+    color: colors.secondaryText,
     marginBottom: 20,
     lineHeight: 22,
   },
   button: {
-    backgroundColor: "#4F46E5",
+    backgroundColor: colors.primary,
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: "center",
   },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
   buttonText: {
-    color: "#FFFFFF",
+    color: colors.primaryText,
     fontSize: 16,
     fontWeight: "600",
   },
+  skipButton: {
+    marginTop: 12,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  skipText: {
+    color: colors.secondaryText,
+    fontSize: 14,
+    fontWeight: "500",
+  },
 });
+
+export default createStyles;

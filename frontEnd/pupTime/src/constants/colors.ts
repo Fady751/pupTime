@@ -27,8 +27,8 @@ const lightColors: AppColors = {
 };
 
 const darkColors: AppColors = {
-  background: '#020617',
-  surface: '#020617',
+  background: '#0F172A',
+  surface: '#1E293B',
   primary: '#3B82F6',
   primaryText: '#FFFFFF',
   text: '#F9FAFB',

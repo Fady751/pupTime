@@ -7,14 +7,29 @@ import { googleWebClientId } from '@env';
 //   offlineAccess: true,
 // });
 
-const signInWithGoogle = async () => {
+export type GoogleUserInfo = {
+  idToken: string;
+  scopes: string[];
+  serverAuthCode: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    photo: string;
+    givenName: string;
+    familyName: string;
+  };
+};
+
+const signInWithGoogle = async (): Promise<GoogleUserInfo | null> => {
   try {
     await GoogleSignin.hasPlayServices();
     const userInfo = await GoogleSignin.signIn();
 
-    console.log("userInfo: ", userInfo);
+    return userInfo?.data as GoogleUserInfo;
   } catch (error) {
     console.error('Google sign-in error:', error);
+    return null;
   }
 };
 

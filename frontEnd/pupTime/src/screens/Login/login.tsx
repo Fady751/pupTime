@@ -15,7 +15,7 @@ import type { AppDispatch } from '../../redux/store';
 import { fetchUser } from '../../redux/userSlice';
 import { saveData } from '../../utils/authStorage';
 import { createStyles } from './styles';
-import { loginUser } from '../../services/userServices/login';
+import { loginUser } from '../../services/userAuthServices/login';
 import LoginGoogle from '../../components/loginGoogle/loginGoogle';
 import useTheme from '../../Hooks/useTheme';
 
@@ -60,6 +60,8 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
         <ScrollView
           contentContainerStyle={styles.scrollContainer}
           keyboardShouldPersistTaps="handled"
+          showsHorizontalScrollIndicator={false}
+          showsVerticalScrollIndicator={false}
         >
           <View>
             <View style={styles.header}>
@@ -136,7 +138,7 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
               <View style={styles.divider} />
             </View>
 
-            <LoginGoogle />
+            <LoginGoogle navigation={navigation} />
 
             <View style={styles.footer}>
               <Text style={styles.footerText}>

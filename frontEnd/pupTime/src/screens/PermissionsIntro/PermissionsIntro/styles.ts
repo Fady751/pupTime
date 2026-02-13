@@ -1,31 +1,12 @@
 import { StyleSheet } from "react-native";
+import { AppColors } from "../../../constants/colors";
 
-const styles = StyleSheet.create({
+const createStyles = (colors: AppColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F4F6FA",
+    backgroundColor: colors.background,
     paddingHorizontal: 24,
     justifyContent: "space-between",
-  },
-
-  /* Progress Dots */
-  progressWrapper: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginTop: 20,
-    gap: 8,
-  },
-
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#D0D5DD",
-  },
-
-  activeDot: {
-    backgroundColor: "#6C63FF",
-    width: 20,
   },
 
   /* Hero Section */
@@ -36,19 +17,19 @@ const styles = StyleSheet.create({
 
   title: {
     fontSize: 22,
-    color: "#555",
+    color: colors.secondaryText,
   },
 
   brand: {
     fontSize: 36,
     fontWeight: "bold",
-    color: "#6C63FF",
+    color: colors.primary,
     marginTop: 4,
   },
 
   subtitle: {
     textAlign: "center",
-    color: "#667085",
+    color: colors.secondaryText,
     marginTop: 16,
     fontSize: 15,
     lineHeight: 22,
@@ -58,7 +39,7 @@ const styles = StyleSheet.create({
   /* Permission Card */
   card: {
     width: "100%",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.surface,
     borderRadius: 20,
     padding: 24,
     marginBottom: 30,
@@ -71,31 +52,47 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 20,
     fontWeight: "600",
-    color: "#101828",
+    color: colors.text,
     marginBottom: 10,
   },
 
   cardText: {
     fontSize: 15,
-    color: "#667085",
+    color: colors.secondaryText,
     lineHeight: 22,
     marginBottom: 25,
   },
 
   /* Button */
   button: {
-    backgroundColor: "#6C63FF",
+    backgroundColor: colors.primary,
     height: 52,
     borderRadius: 14,
     justifyContent: "center",
     alignItems: "center",
   },
 
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+
   buttonText: {
-    color: "#FFFFFF",
+    color: colors.primaryText,
     fontSize: 16,
     fontWeight: "600",
   },
+
+  skipButton: {
+    marginTop: 12,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+
+  skipText: {
+    color: colors.secondaryText,
+    fontSize: 14,
+    fontWeight: "500",
+  },
 });
 
-export default styles;
+export default createStyles;

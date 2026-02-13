@@ -16,7 +16,7 @@ import DateTimePicker, {
   DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
 import { createStyles } from './styles';
-import { signUp, SignUpPayload } from '../../services/userServices/signup';
+import { signUp, SignUpPayload } from '../../services/userAuthServices/signup';
 import { validate } from '../../utils/validateForm';
 import LoginGoogle from '../../components/loginGoogle/loginGoogle';
 import useTheme from '../../Hooks/useTheme';
@@ -290,7 +290,7 @@ const SignUp = ({ navigation }: { navigation: any }) => {
                 <View style={styles.divider} />
               </View>
 
-              <LoginGoogle />
+              <LoginGoogle navigation={navigation} />
 
             </View>
 

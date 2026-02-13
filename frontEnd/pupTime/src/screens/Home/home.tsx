@@ -6,9 +6,9 @@ import { useLogout } from '../../Hooks/logout';
 import { createStyles } from './styles';
 import useTheme from '../../Hooks/useTheme';
 
-const Home: React.FC = () => {
+const Home = ({ navigation }: { navigation: any }) => {
   const logout = useLogout();
-  const user = useSelector((state: RootState) => state.user.data);
+  const user = useSelector((state: RootState) => state?.user.data);
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -25,6 +25,14 @@ const Home: React.FC = () => {
 
       <TouchableOpacity style={styles.logoutButton} onPress={logout}>
         <Text style={styles.logoutText}>Logout</Text>
+      </TouchableOpacity>
+
+      <View style={{ height: 20 }} />
+
+      <TouchableOpacity style={styles.tryIntroButton} onPress={() => {
+        navigation.navigate('Intro');
+      }}>
+        <Text style={styles.tryIntroButtonText}>Try Intro</Text>
       </TouchableOpacity>
     </View>
   );
