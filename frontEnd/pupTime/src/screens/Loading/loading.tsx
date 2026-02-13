@@ -11,7 +11,7 @@ const LoadingScreen = () => {
 		<View style={styles.container}>
 			<View style={styles.iconContainer}>
 				<Image
-					source={require('../../assets/Ai-icon.png')}
+					source={require('../../assets/Ai-icon-light.png')}
 					style={styles.icon}
 					resizeMode="contain"
 				/>
