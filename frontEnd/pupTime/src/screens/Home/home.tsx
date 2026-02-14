@@ -41,6 +41,13 @@ const Home = ({ navigation }: { navigation: any }) => {
       }}>
         <Text style={styles.tryIntroButtonText}>Try Profile</Text>
       </TouchableOpacity>
+      <View style={{ height: 20 }} />
+
+      <TouchableOpacity style={styles.tryIntroButton} onPress={() => {
+        navigation.navigate('Schedule');
+      }}>
+        <Text style={styles.tryIntroButtonText}>Try Schedule</Text>
+      </TouchableOpacity>
     </View>
   );
 };

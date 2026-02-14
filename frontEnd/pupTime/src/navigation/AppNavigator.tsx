@@ -4,12 +4,15 @@ import Home from '../screens/Home/home';
 import IntroNavigator from '../screens/PermissionsIntro/IntroNavigator';
 import ProfileScreen from '../screens/ProfileScreen/ProfileScreen';
 import EditProfileScreen from '../screens/ProfileScreen/editProfile/EditProfile';
+import ScheduleScreen from '../screens/Schedule/ScheduleScreen';
 import AiButton from '../components/AiBottom/AiButtom';
+
 export type AppStackParamList = {
   Home: undefined;
   Intro: undefined;
   Profile: undefined;
   EditProfile: undefined;
+  Schedule: undefined;
 };
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
@@ -22,6 +25,7 @@ const AppNavigator: React.FC = () => {
         <Stack.Screen name="Intro" component={IntroNavigator} />
         <Stack.Screen name="Profile" component={ProfileScreen} />
         <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+        <Stack.Screen name="Schedule" component={ScheduleScreen} />
       </Stack.Navigator>
       
       <AiButton onPress={() => console.log('AI assistant pressed')} />
