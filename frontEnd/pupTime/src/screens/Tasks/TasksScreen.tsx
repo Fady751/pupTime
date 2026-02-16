@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -6,39 +6,66 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { Swipeable } from "react-native-gesture-handler";
-import styles from "./Tasks.styles";
+import { createStyles } from "./Tasks.styles";
 import { useNavigation } from "@react-navigation/native";
-
-export type Task = {
-  id: number;
-  title: string;
-  status: "pending" | "completed";
-  categories?: number[];
-  priority?: "low" | "medium" | "high" | "none";
-  startTime?: string;
-  reminder?: number | null;
-  emoji?: string;
-};
+import { Task } from "../../types/task";
+import useTheme from "../../Hooks/useTheme";
 
 const TasksScreen: React.FC = () => {
   const navigation = useNavigation<any>();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [tasks, setTasks] = useState<Task[]>([
-    { id: 1, title: "Go To Gym", status: "pending" },
-    { id: 2, title: "Study React Native", status: "pending" },
-    { id: 3, title: "Buy Groceries", status: "completed" },
+    {
+      id: 1,
+      user_id: 0,
+      title: "Go To Gym",
+      status: "pending",
+      Categorys: [],
+      reminderTime: null,
+      startTime: new Date(),
+      endTime: null,
+      priority: "none",
+      repetition: [],
+      emoji: "💪",
+    },
+    {
+      id: 2,
+      user_id: 0,
+      title: "Study React Native",
+      status: "pending",
+      Categorys: [],
+      reminderTime: null,
+      startTime: new Date(),
+      endTime: null,
+      priority: "medium",
+      repetition: [],
+      emoji: "📚",
+    },
+    {
+      id: 3,
+      user_id: 0,
+      title: "Buy Groceries",
+      status: "completed",
+      Categorys: [],
+      reminderTime: null,
+      startTime: new Date(),
+      endTime: null,
+      priority: "low",
+      repetition: [],
+      emoji: "🛒",
+    },
   ]);
 
   const handleAddTask = () => {
-    navigation.navigate("AddEditTask", {
-      mode: "add",
+    navigation.navigate("AddTask", {
       onSave: (newTask: Task) => setTasks(prev => [newTask, ...prev]),
     });
   };
 
   const handleEditTask = (task: Task) => {
-    navigation.navigate("AddEditTask", {
-      mode: "edit",
+    navigation.navigate("EditTask", {
       task,
       onSave: (updatedTask: Task) =>
         setTasks(prev => prev.map(t => (t.id === updatedTask.id ? updatedTask : t))),

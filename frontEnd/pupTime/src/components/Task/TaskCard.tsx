@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 import { View, Text, Pressable } from "react-native";
-import { Task } from "../../types/task";
+import { Task, RepetitionFrequency } from "../../types/task";
 import createTaskCardStyles, { PRIORITY_COLORS } from "./TaskCard.styles";
 import useTheme from "../../Hooks/useTheme";
 
@@ -8,6 +8,27 @@ type TaskCardProps = {
   task: Task;
   onPress?: (task: Task) => void;
   compact?: boolean;
+};
+
+// Get the time (hours/minutes) from the first repetition entry that has a time, or from startTime
+const getTaskTime = (task: Task): { hours: number; minutes: number } => {
+  if (task.repetition && task.repetition.length > 0) {
+    const withTime = task.repetition.find((r) => r.time);
+    if (withTime?.time) {
+      const t = new Date(withTime.time);
+      return { hours: t.getHours(), minutes: t.getMinutes() };
+    }
+  }
+  const t = new Date(task.startTime);
+  return { hours: t.getHours(), minutes: t.getMinutes() };
+};
+
+// Get a display date for the task (startTime date + repetition time hours/minutes)
+const getTaskBaseDate = (task: Task): Date => {
+  const base = new Date(task.startTime);
+  const time = getTaskTime(task);
+  base.setHours(time.hours, time.minutes, 0, 0);
+  return base;
 };
 
 const formatTime = (date: Date): string => {
@@ -28,6 +49,37 @@ const formatDate = (date: Date): string => {
     day: "numeric",
   };
   return d.toLocaleDateString("en-US", options);
+};
+
+const formatRepetitionLabel = (frequency: RepetitionFrequency): string => {
+  switch (frequency) {
+    case "once":
+      return "Once";
+    case "daily":
+      return "Daily";
+    case "weekly":
+      return "Weekly";
+    case "monthly":
+      return "Monthly";
+    case "yearly":
+      return "Yearly";
+    case "sunday":
+      return "Sun";
+    case "monday":
+      return "Mon";
+    case "tuesday":
+      return "Tue";
+    case "wednesday":
+      return "Wed";
+    case "thursday":
+      return "Thu";
+    case "friday":
+      return "Fri";
+    case "saturday":
+      return "Sat";
+    default:
+      return String(frequency).slice(0, 3);
+  }
 };
 
 const getPriorityStyle = (priority: Task["priority"]) => {
@@ -66,6 +118,8 @@ export const TaskCardCompact: React.FC<TaskCardProps> = ({
     onPress?.(task);
   };
 
+  const baseDate = getTaskBaseDate(task);
+
   return (
     <Pressable
       onPress={handlePress}
@@ -82,7 +136,7 @@ export const TaskCardCompact: React.FC<TaskCardProps> = ({
         <Text style={styles.compactTitle} numberOfLines={1}>
           {task.title}
         </Text>
-        <Text style={styles.compactTime}>{formatTime(task.reminderTime)}</Text>
+        <Text style={styles.compactTime}>{formatTime(baseDate)}</Text>
       </View>
       <View
         style={[
@@ -111,6 +165,8 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onPress, compact }) => {
     onPress?.(task);
   };
 
+  const baseDate = getTaskBaseDate(task);
+
   return (
     <Pressable
       onPress={handlePress}
@@ -129,11 +185,11 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onPress, compact }) => {
         </View>
         <View style={styles.headerText}>
           <Text style={styles.title}>{task.title}</Text>
-          {task.interests && (
-            <View style={styles.interestBadge}>
-              <Text style={styles.interestText}>{task.interests.title}</Text>
-            </View>
-          )}
+            {task.Categorys && task.Categorys.length > 0 && (
+              <View style={styles.interestBadge}>
+                <Text style={styles.interestText}>{task.Categorys[0].name}</Text>
+              </View>
+            )}
         </View>
       </View>
 
@@ -144,17 +200,13 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onPress, compact }) => {
         <View style={styles.detailItem}>
           <Text style={styles.detailIcon}>📅</Text>
           <Text style={styles.detailLabel}>Date:</Text>
-          <Text style={styles.detailValue}>
-            {formatDate(task.reminderTime)}
-          </Text>
+          <Text style={styles.detailValue}>{formatDate(baseDate)}</Text>
         </View>
 
         <View style={styles.detailItem}>
           <Text style={styles.detailIcon}>⏰</Text>
           <Text style={styles.detailLabel}>Time:</Text>
-          <Text style={styles.detailValue}>
-            {formatTime(task.reminderTime)}
-          </Text>
+          <Text style={styles.detailValue}>{formatTime(baseDate)}</Text>
         </View>
 
         <View style={styles.detailItem}>
@@ -164,12 +216,13 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onPress, compact }) => {
             {getPriorityLabel(task.priority)}
           </Text>
         </View>
-
-        {task.interests?.category && (
+        {task.Categorys && task.Categorys.length > 0 && (
           <View style={styles.detailItem}>
             <Text style={styles.detailIcon}>🏷️</Text>
             <Text style={styles.detailLabel}>Category:</Text>
-            <Text style={styles.detailValue}>{task.interests.category.name}</Text>
+            <Text style={styles.detailValue}>
+              {task.Categorys.map((c) => c.name).join(", ")}
+            </Text>
           </View>
         )}
       </View>
@@ -209,7 +262,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onPress, compact }) => {
             {task.repetition.slice(0, 3).map((rep, idx) => (
               <View key={idx} style={styles.repetitionBadge}>
                 <Text style={styles.repetitionText}>
-                  {rep === "once" ? "Once" : rep.slice(0, 3)}
+                  {formatRepetitionLabel(rep.frequency)}
                 </Text>
               </View>
             ))}

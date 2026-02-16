@@ -1,10 +1,11 @@
-import { Interests } from "./interests";
+import { Category } from "./category";
 
-export type RepetitionFrequency = 
+export type RepetitionFrequency =  
   | 'once' 
   | 'daily' 
   | 'weekly' 
-  | 'monthly'
+  | 'monthly' 
+  | 'yearly' 
 
   | 'sunday' 
   | 'monday' 
@@ -14,14 +15,21 @@ export type RepetitionFrequency =
   | 'friday' 
   | 'saturday';
 
+export type TaskRepetition = {
+  frequency: RepetitionFrequency;
+  time: Date | null; // time can be null if the repetition for all day
+};
+
 export type Task = {
     id: number;
     user_id: number;
     title: string;
-    interests: Interests;
+    Categorys: Category[];
     status: 'pending' | 'completed';
-    reminderTime: Date;
+    reminderTime: number | null; // number of minutes before the task is due to send a reminder, null if no reminder is set
+    startTime: Date;
+    endTime: Date | null; // endTime can be null if the task forever
     priority: 'low' | 'medium' | 'high' | 'none';
-    repetition: RepetitionFrequency[];
+    repetition: TaskRepetition[];
     emoji: string;
 };

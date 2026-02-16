@@ -1,22 +1,23 @@
 import { StyleSheet } from "react-native";
+import { AppColors } from "../../constants/colors";
 
-const styles = StyleSheet.create({
+export const createStyles = (colors: AppColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0F172A",
+    backgroundColor: colors.background,
     paddingTop: 60,
     paddingHorizontal: 20,
   },
 
   header: {
     fontSize: 28,
-    color: "#FFF",
+    color: colors.text,
     fontWeight: "bold",
     marginBottom: 20,
   },
 
   taskCard: {
-    backgroundColor: "#1E293B",
+    backgroundColor: colors.surface,
     padding: 20,
     borderRadius: 16,
     marginBottom: 12,
@@ -26,18 +27,18 @@ const styles = StyleSheet.create({
   },
 
   taskText: {
-    color: "#FFF",
+    color: colors.text,
     fontSize: 16,
     fontWeight: "600",
   },
 
   completedText: {
     textDecorationLine: "line-through",
-    color: "#64748B",
+    color: colors.secondaryText,
   },
 
   completeBtn: {
-    backgroundColor: "#38BDF8",
+    backgroundColor: colors.primary,
     paddingVertical: 6,
     paddingHorizontal: 14,
     borderRadius: 8,
@@ -48,12 +49,12 @@ const styles = StyleSheet.create({
   },
 
   completeText: {
-    color: "#FFF",
+    color: colors.primaryText,
     fontWeight: "bold",
   },
 
   deleteBox: {
-    backgroundColor: "#EF4444",
+    backgroundColor: colors.error,
     justifyContent: "center",
     alignItems: "center",
     width: 90,
@@ -73,17 +74,17 @@ const styles = StyleSheet.create({
     width: 65,
     height: 65,
     borderRadius: 32,
-    backgroundColor: "#6366F1",
+    backgroundColor: colors.primary,
     justifyContent: "center",
     alignItems: "center",
     elevation: 5,
   },
 
   addText: {
-    color: "#FFF",
+    color: colors.primaryText,
     fontSize: 30,
     marginTop: -2,
   },
 });
 
-export default styles;
+export default createStyles;

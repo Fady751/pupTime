@@ -69,25 +69,71 @@ const isSameDay = (d1: Date, d2: Date): boolean => {
   );
 };
 
-const isTaskOnDate = (task: Task, date: Date): boolean => {
-  const taskDate = new Date(task.reminderTime);
-  
-  // Check if it's the exact date
-  if (isSameDay(taskDate, date)) return true;
-  
-  // Check repetition patterns
-  if (!task.repetition || task.repetition.length === 0) return false;
-  
-  const dayOfWeek = date.getDay();
-  const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
-  
-  for (const rep of task.repetition) {
-    if (rep === "daily") return date >= taskDate;
-    if (rep === "weekly" && taskDate.getDay() === dayOfWeek && date >= taskDate) return true;
-    if (rep === "monthly" && taskDate.getDate() === date.getDate() && date >= taskDate) return true;
-    if (dayNames.includes(rep) && dayNames[dayOfWeek] === rep && date >= taskDate) return true;
+const toDateOnly = (d: Date): Date => {
+  const result = new Date(d);
+  result.setHours(0, 0, 0, 0);
+  return result;
+};
+
+const isDateInRange = (date: Date, start: Date, end: Date | null): boolean => {
+  const dateOnly = toDateOnly(date);
+  const startOnly = toDateOnly(start);
+  if (dateOnly < startOnly) return false;
+  if (end) {
+    const endOnly = toDateOnly(end);
+    if (dateOnly > endOnly) return false;
   }
-  
+  return true;
+};
+
+const isTaskOnDate = (task: Task, date: Date): boolean => {
+  const startDate = new Date(task.startTime);
+  const endDate = task.endTime ? new Date(task.endTime) : null;
+
+  if (!isDateInRange(date, startDate, endDate)) {
+    return false;
+  }
+
+  const hasRepetition = task.repetition && task.repetition.length > 0;
+  const hasOnce =
+    hasRepetition && task.repetition.some((r) => r.frequency === "once");
+
+  if (!hasRepetition || hasOnce) {
+    return isSameDay(startDate, date);
+  }
+
+  const dayOfWeek = date.getDay();
+  const dayNames = [
+    "sunday",
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+  ];
+
+  for (const rep of task.repetition) {
+    const freq = rep.frequency;
+
+    if (freq === "daily") {
+      return true;
+    } else if (freq === "weekly") {
+      if (startDate.getDay() === dayOfWeek) return true;
+    } else if (freq === "monthly") {
+      if (startDate.getDate() === date.getDate()) return true;
+    } else if (freq === "yearly") {
+      if (
+        startDate.getDate() === date.getDate() &&
+        startDate.getMonth() === date.getMonth()
+      ) {
+        return true;
+      }
+    } else if (dayNames.includes(freq)) {
+      if (dayNames[dayOfWeek] === freq) return true;
+    }
+  }
+
   return false;
 };
 
