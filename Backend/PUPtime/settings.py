@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'user',
     'friendship',
+    'task',
     'rest_framework',
     'rest_framework.authtoken',
     'drf_yasg',
