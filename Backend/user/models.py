@@ -27,6 +27,9 @@ class Interest(models.Model):
     def __str__(self):
         return self.title
 
+# class Gender(models.TextChoices):
+#     FEMALE = 0 , "Female"
+#     MALE  = 1 , "Male"
 
 class User(AbstractUser):
     google_auth_id = models.CharField(max_length=255, unique=True, null=True, blank=True)
