@@ -1,0 +1,17 @@
+[
+  {"sender": 1, "receiver": 2, "status": 0, "sent_at": "2026-02-15T10:00:00Z", "accepted_at": null, "blocked_By": null},
+  {"sender": 2, "receiver": 3, "status": 1, "sent_at": "2026-02-14T15:30:00Z", "accepted_at": "2026-02-14T16:00:00Z", "blocked_By": null},
+  {"sender": 3, "receiver": 1, "status": 2, "sent_at": "2026-02-13T12:20:00Z", "accepted_at": null, "blocked_By": null},
+  {"sender": 4, "receiver": 5, "status": 0, "sent_at": "2026-02-12T09:45:00Z", "accepted_at": null, "blocked_By": null},
+  {"sender": 5, "receiver": 1, "status": 1, "sent_at": "2026-02-11T18:00:00Z", "accepted_at": "2026-02-11T19:15:00Z", "blocked_By": null},
+  {"sender": 1, "receiver": 3, "status": 0, "sent_at": "2026-02-10T11:10:00Z", "accepted_at": null, "blocked_By": null},
+  {"sender": 2, "receiver": 4, "status": 3, "sent_at": "2026-02-09T14:25:00Z", "accepted_at": null, "blocked_By": 2},
+  {"sender": 3, "receiver": 5, "status": 1, "sent_at": "2026-02-08T16:40:00Z", "accepted_at": "2026-02-08T17:00:00Z", "blocked_By": null},
+  {"sender": 4, "receiver": 1, "status": 0, "sent_at": "2026-02-07T08:50:00Z", "accepted_at": null, "blocked_By": null},
+  {"sender": 5, "receiver": 2, "status": 1, "sent_at": "2026-02-06T20:30:00Z", "accepted_at": "2026-02-06T21:00:00Z", "blocked_By": null},
+  {"sender": 1, "receiver": 4, "status": 2, "sent_at": "2026-02-05T13:15:00Z", "accepted_at": null, "blocked_By": null},
+  {"sender": 2, "receiver": 5, "status": 0, "sent_at": "2026-02-04T12:00:00Z", "accepted_at": null, "blocked_By": null},
+  {"sender": 3, "receiver": 2, "status": 1, "sent_at": "2026-02-03T17:20:00Z", "accepted_at": "2026-02-03T17:45:00Z", "blocked_By": null},
+  {"sender": 4, "receiver": 3, "status": 0, "sent_at": "2026-02-02T09:00:00Z", "accepted_at": null, "blocked_By": null},
+  {"sender": 5, "receiver": 4, "status": 3, "sent_at": "2026-02-01T15:35:00Z", "accepted_at": null, "blocked_By": 5}
+]
