@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../redux/store';
-import { useLogout } from '../../Hooks/logout';
+import { useLogout } from '../../Hooks/useLogout';
 import { createStyles } from './styles';
 import useTheme from '../../Hooks/useTheme';
 

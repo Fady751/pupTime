@@ -290,7 +290,7 @@ const SignUp = ({ navigation }: { navigation: any }) => {
                 <View style={styles.divider} />
               </View>
 
-              <LoginGoogle navigation={navigation} />
+              <LoginGoogle />
 
             </View>
 

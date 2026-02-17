@@ -34,7 +34,6 @@ const AppNavigator: React.FC = () => {
         <Stack.Screen name="Tasks" component={TasksScreen} />
         <Stack.Screen name="AddTask" component={AddTaskScreen} />
         <Stack.Screen name="EditTask" component={EditTaskScreen} />
-
       </Stack.Navigator>
       
       <AiButton onPress={() => console.log('AI assistant pressed')} />

@@ -1,20 +1,18 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   ScrollView,
-  Modal,
   Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import createStyles from "./ProfileScreen.styles";
 import { useSelector } from "react-redux";
 import { RootState } from "../../redux/store";
-import { useLogout } from "../../Hooks/logout";
+// import { useLogout } from "../../Hooks/useLogout";
 import { BottomBar } from "../../components/BottomBar/BottomBar";
 import useTheme from "../../Hooks/useTheme";
-// import EditProfile from "./EditProfile/EditProfile";
 
 const schedule = [
   { time: "8 AM", title: "Lecture", color: "#6C8CFF" },
@@ -24,10 +22,11 @@ const schedule = [
 ];
 
 const ProfileSettingsScreen = ( { navigation }: { navigation: any }) => {
-  const logout = useLogout();
+  // const logout = useLogout();
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { data } = useSelector((state: RootState) => state.user);
+  const { isConnected } = useSelector((state: RootState) => state.network);
 
   console.log("user data: ", data);
   const photo = data?.gender === 'female'? require("../../assets/avatar_Female.png"): require("../../assets/avatar_Male.png");
@@ -54,12 +53,12 @@ const ProfileSettingsScreen = ( { navigation }: { navigation: any }) => {
           <Text style={styles.name}>{data?.username}</Text>
           <Text style={styles.email}>{data?.email}</Text>
 
-          <TouchableOpacity 
+          {isConnected && <TouchableOpacity 
             style={styles.editBtn}
             onPress={() => navigation.navigate('EditProfile')}
           >
             <Text style={styles.editTxt} onPress={() => navigation.navigate('EditProfile')}>Edit Profile</Text>
-          </TouchableOpacity>
+          </TouchableOpacity> }
         </View>
 
         {/* STATS */}

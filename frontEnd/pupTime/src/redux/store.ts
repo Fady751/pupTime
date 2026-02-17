@@ -1,10 +1,11 @@
 import { configureStore } from '@reduxjs/toolkit';
 import userReducer from './userSlice';
+import networkReducer from './networkSlice';
 
 export const store = configureStore({
   reducer: {
     user: userReducer,
-    // ...add other reducers here...
+    network: networkReducer,
   },
 });
 

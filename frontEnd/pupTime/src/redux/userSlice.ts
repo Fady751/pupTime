@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { getData } from '../utils/authStorage';
+import { getData, saveData } from '../utils/authStorage';
 import { User } from '../types/user';
 import { getUser, GetUserResponse } from '../services/userAuthServices/getuser';
 
@@ -26,6 +26,8 @@ export const fetchUser = createAsyncThunk<User | null>(
     if (!response.success || !response.user) {
       return rejectWithValue('Failed to fetch user');
     }
+
+    await saveData({ token: authData.token, id: authData.id, user: response.user });
 
     return response.user;
   }

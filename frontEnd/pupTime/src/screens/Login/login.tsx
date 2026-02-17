@@ -10,17 +10,14 @@ import {
   ScrollView,
   SafeAreaView,
 } from 'react-native';
-import { useDispatch } from 'react-redux';
-import type { AppDispatch } from '../../redux/store';
-import { fetchUser } from '../../redux/userSlice';
-import { saveData } from '../../utils/authStorage';
 import { createStyles } from './styles';
 import { loginUser } from '../../services/userAuthServices/login';
 import LoginGoogle from '../../components/loginGoogle/loginGoogle';
 import useTheme from '../../Hooks/useTheme';
+import { useLogin } from '../../Hooks/useLogin';
 
 const LoginScreen = ({ navigation }: { navigation: any }) => {
-  const dispatch = useDispatch<AppDispatch>();
+  const login = useLogin();
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -39,11 +36,7 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
       if(!data.success || !data.token || !data.id) {
         throw new Error(data.error || 'Login failed');
       }
-      await saveData({ token: data.token, id: data.id });
-
-      await dispatch(fetchUser());
-
-      navigation.replace('Home');
+      await login({ token: data.token, id: data.id });
     } catch (e: any) {
       setError(e.message || 'Login failed');
     } finally {
@@ -138,7 +131,7 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
               <View style={styles.divider} />
             </View>
 
-            <LoginGoogle navigation={navigation} />
+            <LoginGoogle />
 
             <View style={styles.footer}>
               <Text style={styles.footerText}>

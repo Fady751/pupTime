@@ -3,7 +3,7 @@ import { Schedule } from "../../components/Schedule";
 import { Task } from "../../types/task";
 
 // Mock tasks for demonstration, aligned with Task schema
-const MOCK_TASKS: Task[] = [
+export const MOCK_TASKS: Task[] = [
   {
     id: 1,
     user_id: 1,
