@@ -1,15 +1,11 @@
 import React, { useMemo, useState } from "react";
-import {
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-} from "react-native";
+import { View, Text, FlatList, TouchableOpacity } from "react-native";
 import { Swipeable } from "react-native-gesture-handler";
 import { createStyles } from "./Tasks.styles";
 import { useNavigation } from "@react-navigation/native";
 import { Task } from "../../types/task";
 import useTheme from "../../Hooks/useTheme";
+import TaskCard from "../../components/Task/TaskCard";
 
 const TasksScreen: React.FC = () => {
   const navigation = useNavigation<any>();
@@ -100,31 +96,25 @@ const TasksScreen: React.FC = () => {
 
   const renderItem = ({ item }: { item: Task }) => (
     <Swipeable renderRightActions={() => renderRightActions(item.id)}>
-      <TouchableOpacity
-        style={styles.taskCard}
-        onPress={() => handleEditTask(item)}
-      >
-        <Text
-          style={[
-            styles.taskText,
-            item.status === "completed" && styles.completedText,
-          ]}
-        >
-          {item.title}
-        </Text>
+      <View style={styles.cardWrapper}>
+        <TaskCard task={item} onPress={handleEditTask} />
 
         <TouchableOpacity
-          style={[
-            styles.completeBtn,
-            item.status === "completed" && styles.completedBtn,
-          ]}
+          style={styles.completeBtnContainer}
           onPress={() => toggleComplete(item.id)}
         >
-          <Text style={styles.completeText}>
-            {item.status === "completed" ? "Done" : "Mark"}
-          </Text>
+          <View
+            style={[
+              styles.completeBtn,
+              item.status === "completed" && styles.completedBtn,
+            ]}
+          >
+            <Text style={styles.completeText}>
+              {item.status === "completed" ? "Done" : "Mark"}
+            </Text>
+          </View>
         </TouchableOpacity>
-      </TouchableOpacity>
+      </View>
     </Swipeable>
   );
 

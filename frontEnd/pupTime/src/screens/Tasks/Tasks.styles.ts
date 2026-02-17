@@ -16,6 +16,10 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
     marginBottom: 20,
   },
 
+  cardWrapper: {
+    position: "relative",
+  },
+
   taskCard: {
     backgroundColor: colors.surface,
     padding: 20,
@@ -51,6 +55,12 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
   completeText: {
     color: colors.primaryText,
     fontWeight: "bold",
+  },
+
+  completeBtnContainer: {
+    position: "absolute",
+    top: 16,
+    right: 16,
   },
 
   deleteBox: {

@@ -1,6 +1,9 @@
-import React from "react";
+import React, { useMemo } from "react";
+import { View, TouchableOpacity, Text, StyleSheet } from "react-native";
+import { useNavigation } from "@react-navigation/native";
 import { Schedule } from "../../components/Schedule";
 import { Task } from "../../types/task";
+import useTheme from "../../Hooks/useTheme";
 
 // Mock tasks for demonstration, aligned with Task schema
 export const MOCK_TASKS: Task[] = [
@@ -186,11 +189,53 @@ export const MOCK_TASKS: Task[] = [
 ];
 
 const ScheduleScreen: React.FC = () => {
+  const navigation = useNavigation<any>();
+  const { colors } = useTheme();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+        },
+        addButton: {
+          position: "absolute",
+          bottom: 30,
+          right: 20,
+          width: 65,
+          height: 65,
+          borderRadius: 32,
+          backgroundColor: colors.primary,
+          justifyContent: "center",
+          alignItems: "center",
+          elevation: 5,
+        },
+        addText: {
+          color: colors.primaryText,
+          fontSize: 30,
+          marginTop: -2,
+        },
+      }),
+    [colors]
+  );
+
   const handleTaskPress = (task: Task) => {
     console.log("Task pressed:", task.title);
   };
 
-  return <Schedule tasks={MOCK_TASKS} onTaskPress={handleTaskPress} />;
+  const handleAddTask = () => {
+    navigation.navigate("AddTask");
+  };
+
+  return (
+    <View style={styles.container}>
+      <Schedule tasks={MOCK_TASKS} onTaskPress={handleTaskPress} />
+
+      <TouchableOpacity style={styles.addButton} onPress={handleAddTask}>
+        <Text style={styles.addText}>＋</Text>
+      </TouchableOpacity>
+    </View>
+  );
 };
 
 export default ScheduleScreen;
