@@ -1,0 +1,14 @@
+# Django Settings
+SECRET_KEY="xxxxxxxx"
+DEBUG=True
+ALLOWED_HOSTS="*"
+
+# When True use local SQLite (db.sqlite3), when False use Supabase/PostgreSQL
+USE_SQLITE=False
+
+# Supabase PostgreSQL Database - Session Pooler (IPv4 compatible)
+DB_NAME="xxxx"
+DB_USER="xxxxxxx"
+DB_PASSWORD="xxxxxxxxxxx"
+DB_HOST="xxxxxxxxxxxxx"
+DB_PORT=xxxx
