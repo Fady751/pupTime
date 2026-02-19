@@ -3,13 +3,6 @@ from user.models import User, InterestCategory
 
 
 class Task(models.Model):
-    STATUS_PENDING = 'pending'
-    STATUS_COMPLETED = 'completed'
-    STATUS_CHOICES = [
-        (STATUS_PENDING, 'Pending'),
-        (STATUS_COMPLETED, 'Completed'),
-    ]
-
     PRIORITY_NONE = 'none'
     PRIORITY_LOW = 'low'
     PRIORITY_MEDIUM = 'medium'
@@ -25,7 +18,6 @@ class Task(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='tasks')
     title = models.CharField(max_length=255)
     categories = models.ManyToManyField(InterestCategory, blank=True, related_name='tasks')
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
     reminder_time = models.IntegerField(null=True, blank=True)
     start_time = models.DateTimeField()
     end_time = models.DateTimeField(null=True, blank=True)
@@ -72,3 +64,11 @@ class TaskRepetition(models.Model):
 
     def __str__(self):
         return f"{self.task_id} - {self.frequency} @ {self.time}" if self.time else f"{self.task_id} - {self.frequency}"
+    
+class TaskHistory(models.Model):
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='history')
+    completion_time = models.DateTimeField()
+    class Meta:
+        indexes = [models.Index(fields=['task', 'completion_time'])]
+    def __str__(self):
+        return f"{self.task_id} completed at {self.completion_time}"

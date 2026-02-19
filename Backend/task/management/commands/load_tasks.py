@@ -1,9 +1,9 @@
-import json
 import os
+import json
 from datetime import datetime, timezone
 
 from django.core.management.base import BaseCommand
-from task.models import Task, TaskRepetition
+from task.models import Task, TaskRepetition, TaskHistory
 from user.models import User, InterestCategory
 
 
@@ -24,20 +24,20 @@ class Command(BaseCommand):
         tasks_created = 0
         tasks_skipped = 0
         repetitions_created = 0
+        history_created = 0
 
         for item in data:
             # Find the user
             try:
                 user = User.objects.get(username=item['username'])
             except User.DoesNotExist:
-                self.stderr.write(self.style.WARNING(
-                    f'User "{item["username"]}" not found, skipping task "{item["title"]}"'
-                ))
+                self.stderr.write(self.style.WARNING(f"User '{item['username']}' not found, skipping task '{item['title']}'"))
                 tasks_skipped += 1
                 continue
 
             # Skip if task already exists for this user
             if Task.objects.filter(user=user, title=item['title']).exists():
+                self.stdout.write(self.style.WARNING(f"Task '{item['title']}' already exists for user '{user.username}', skipping"))
                 tasks_skipped += 1
                 continue
 
@@ -45,22 +45,25 @@ class Command(BaseCommand):
             task = Task.objects.create(
                 user=user,
                 title=item['title'],
-                status=item.get('status', 'pending'),
-                priority=item.get('priority', 'none'),
-                emoji=item.get('emoji', ''),
-                start_time=item['start_time'],
-                end_time=item.get('end_time'),
+                start_time=datetime.fromisoformat(item['start_time']),
+                end_time=datetime.fromisoformat(item['end_time']) if item.get('end_time') else None,
                 reminder_time=item.get('reminder_time'),
+                priority=item.get('priority', Task.PRIORITY_NONE),
+                emoji=item.get('emoji', ''),
             )
 
-            # Link categories
-            category_names = item.get('categories', [])
-            categories = InterestCategory.objects.filter(name__in=category_names)
-            task.categories.set(categories)
+            # Add categories
+            for cat_name in item.get('categories', []):
+                try:
+                    category = InterestCategory.objects.get(name=cat_name)
+                    task.categories.add(category)
+                except InterestCategory.DoesNotExist:
+                    self.stderr.write(self.style.WARNING(f"Category '{cat_name}' not found, skipping for task '{item['title']}'"))
 
-            # Create repetition if present
-            rep = item.get('repetition')
-            if rep:
+            tasks_created += 1
+
+            # Create repetitions
+            for rep in item.get('repetitions', []):
                 TaskRepetition.objects.create(
                     task=task,
                     frequency=rep['frequency'],
@@ -68,10 +71,17 @@ class Command(BaseCommand):
                 )
                 repetitions_created += 1
 
-            tasks_created += 1
+            # Create history entries (completion records)
+            for completion in item.get('history', []):
+                TaskHistory.objects.create(
+                    task=task,
+                    completion_time=datetime.fromisoformat(completion['completion_time']),
+                )
+                history_created += 1
 
         self.stdout.write(self.style.SUCCESS(
             f'Done! Tasks created: {tasks_created}, '
             f'Tasks skipped: {tasks_skipped}, '
-            f'Repetitions created: {repetitions_created}'
+            f'Repetitions created: {repetitions_created}, '
+            f'History entries created: {history_created}'
         ))
