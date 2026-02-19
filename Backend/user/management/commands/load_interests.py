@@ -9,7 +9,7 @@ class Command(BaseCommand):
     help = 'Load interests from data.json into the database'
 
     def handle(self, *args, **options):
-        data_file = os.path.join(os.path.dirname(__file__), '..', '..', 'data.json')
+        data_file = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'interests_data.json')
         data_file = os.path.abspath(data_file)
 
         if not os.path.exists(data_file):
