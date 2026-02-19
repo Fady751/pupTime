@@ -1,0 +1,123 @@
+[
+  {
+    "username": "fadylord55",
+    "email": "fady.soly55@gmail.com",
+    "password": "12345678",
+    "gender": "Male",
+    "birth_day": "2004-11-24",
+    "interests": ["Quantum Physics" , "League of Legends" , "Competitive Programming"]
+  },
+  {
+  "username": "omarhussien",
+  "email": "omar.hussien@gmail.com",
+  "password": "12345678",
+  "gender": "Male",
+  "birth_day": "2004-07-25",
+  "interests": ["Bodybuilding" , "Watching Movies & Shows" ,"Surfing"]
+  },
+  {
+    "username": "mechan",
+    "email": "miral.mourad@gmail.com",
+    "password": "12345678",
+    "gender": "Female",
+    "birth_day": "2004-04-24",
+    "interests": ["Creative Writing" , "Self-Improvement" ,"Surfing","League of Legends","Watching Movies & Shows"]
+  },
+  {
+    "username": "febyashraf",
+    "email": "feby.ashraf@gmail.com",
+    "password": "12345678",
+    "gender": "Female",
+    "birth_day": "2004-12-20",
+    "interests": ["Volunteering" , "Community Service","Web Development"]
+  },
+  {
+    "username": "hany_maged04",
+    "email": "hany.maged9102@gmail.com",
+    "password": "12345678",
+    "gender": "Male",
+    "birth_day": "2004-06-01",
+    "interests": ["Watching Movies & Shows" , "Walking" , "Podcasting" , "Wine Tasting" , "Chess"]
+  },
+  {
+    "username": "ahmed_ali",
+    "email": "ahmed.ali@example.com",
+    "password": "TestPass123!",
+    "gender": "Male",
+    "birth_day": "1998-03-15",
+    "interests": ["Marathon Running", "Cycling", "Baking"]
+  },
+  {
+    "username": "sara_hassan",
+    "email": "sara.hassan@example.com",
+    "password": "TestPass123!",
+    "gender": "Female",
+    "birth_day": "2000-07-22",
+    "interests": ["Yoga & Pilates", "Philosophy", "Photography"]
+  },
+  {
+    "username": "mohamed_khaled",
+    "email": "mohamed.khaled@example.com",
+    "password": "TestPass123!",
+    "gender": "Male",
+    "birth_day": "1995-11-03",
+    "interests": ["Swimming", "Chess", "Cycling"]
+  },
+  {
+    "username": "nour_ibrahim",
+    "email": "nour.ibrahim@example.com",
+    "password": "TestPass123!",
+    "gender": "Female",
+    "birth_day": "1999-01-28",
+    "interests": ["Digital Art", "Hiking & Trekking", "Fashion Design"]
+  },
+  {
+    "username": "omar_youssef",
+    "email": "omar.youssef@example.com",
+    "password": "TestPass123!",
+    "gender": "Male",
+    "birth_day": "1997-05-10",
+    "interests": ["E-sports", "Podcasting", "Classical Music"]
+  },
+  {
+    "username": "fatma_ahmed",
+    "email": "fatma.ahmed@example.com",
+    "password": "TestPass123!",
+    "gender": "Female",
+    "birth_day": "2001-09-14",
+    "interests": ["Tennis", "Creative Writing", "Baking"]
+  },
+  {
+    "username": "youssef_magdy",
+    "email": "youssef.magdy@example.com",
+    "password": "TestPass123!",
+    "gender": "Male",
+    "birth_day": "1996-12-01",
+    "interests": ["Martial Arts", "Marathon Running", "Photography"]
+  },
+  {
+    "username": "mona_tarek",
+    "email": "mona.tarek@example.com",
+    "password": "TestPass123!",
+    "gender": "Female",
+    "birth_day": "1998-06-18",
+    "interests": ["Yoga & Pilates", "Meditation & Mindfulness", "Philosophy"]
+  },
+  {
+    "username": "ali_samir",
+    "email": "ali.samir@example.com",
+    "password": "TestPass123!",
+    "gender": "Male",
+    "birth_day": "2000-02-25",
+    "interests": ["Cycling", "Hiking & Trekking", "Camping"]
+  },
+  {
+    "username": "hana_mostafa",
+    "email": "hana.mostafa@example.com",
+    "password": "TestPass123!",
+    "gender": "Female",
+    "birth_day": "1999-08-07",
+    "interests": ["Digital Art", "Singing", "Fashion Design"]
+  }
+  
+]
