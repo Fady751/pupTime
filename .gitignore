@@ -65,3 +65,4 @@ frontEnd/pupTime/ios/build/
 
 #securty
 .env
+*.pyc
