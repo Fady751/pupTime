@@ -22,11 +22,11 @@ export const useTasks = (userId: number | null) => {
   const toSerializableTask = (task: Task): SerializedTask => {
     return {
       ...task,
-      startTime: task.startTime.toISOString(),
-      endTime: task.endTime ? task.endTime.toISOString() : null,
+      startTime: task.startTime.toString(),
+      endTime: task.endTime ? task.endTime.toString() : null,
       repetition: (task.repetition || []).map((rep) => ({
         ...rep,
-        time: rep.time ? rep.time.toISOString() : null,
+        time: rep.time ? rep.time.toString() : null,
       })),
     };
   };

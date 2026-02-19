@@ -80,100 +80,110 @@ const reconstructTaskDates = (data: any): Task => {
  * Maintains a local→backend ID map so that items queued against a
  * locally-created task get the correct backend ID.
  */
+
+let isApplyingQueue = false;
 const applyQueue = async (): Promise<void> => {
+  if (isApplyingQueue) {
+      console.warn('[Sync] Already applying queue – skipping');
+      return;
+  }
   if (!isOnline()) {
     console.warn('[Sync] Offline – skipping queue apply');
     return;
   }
-  console.log('[Sync] Applying queue items...');
   
   const token = (await getData())?.token;
   if (!token) {
       console.warn('[Sync] No token – skipping queue apply');
       return;
   }
+  isApplyingQueue = true;
 
-  const items = await getPendingSyncItems();
-  if (items.length === 0) return;
+  try {
+    const items = await getPendingSyncItems();
+    if (items.length === 0) return;
 
-  // Track local ID → backend ID re-mappings produced by "create" items
-  const idMap = new Map<string, string>();
+    // Track local ID → backend ID re-mappings produced by "create" items
+    const idMap = new Map<string, string>();
 
-  for (const item of items) {
-    if (item.retries >= MAX_RETRIES) {
-      console.warn(`[Sync] Dropping item ${item.id} – max retries (${MAX_RETRIES}) reached`);
-      await removeSyncItem(item.id);
-      continue;
-    }
-
-    try {
-      // If a previous create remapped this task's ID, use the new one
-      const resolvedTaskId = item.task_id
-        ? idMap.get(item.task_id) ?? item.task_id
-        : null;
-
-      switch (item.type) {
-        // ─── CREATE ───────────────────────────────
-        case 'create': {
-          const taskData = reconstructTaskDates(item.data);
-
-          // Send to backend
-          const backendTask = await TaskAPI.createTask(taskData);
-          const backendId = backendTask.id.toString();
-          const localId = item.task_id!;
-
-          // Remember the mapping
-          idMap.set(localId, backendId);
-
-          // Replace local row with the real backend ID
-          await deleteLocalTask(localId);
-          await createTaskWithId(backendId, taskData);
-
-          await removeSyncItem(item.id);
-          break;
-        }
-
-        // ─── UPDATE ───────────────────────────────
-        case 'update': {
-          if (!resolvedTaskId) {
-            console.warn('[Sync] Update item has no task_id – removing');
-            await removeSyncItem(item.id);
-            break;
-          }
-
-          const updateData = reconstructTaskDates(item.data);
-          await TaskAPI.updateTask(resolvedTaskId, updateData);
-
-          // If the ID was remapped (offline-created task), update local row too
-          if (resolvedTaskId !== item.task_id) {
-            await updateLocalTask(resolvedTaskId, updateData);
-          }
-
-          await removeSyncItem(item.id);
-          break;
-        }
-
-        // ─── DELETE ───────────────────────────────
-        case 'delete': {
-          if (!resolvedTaskId) {
-            console.warn('[Sync] Delete item has no task_id – removing');
-            await removeSyncItem(item.id);
-            break;
-          }
-
-          // Only hit the backend if the task once had a real backend ID
-          if (!isLocalId(resolvedTaskId)) {
-            await TaskAPI.deleteTask(resolvedTaskId);
-          }
-
-          await removeSyncItem(item.id);
-          break;
-        }
+    for (const item of items) {
+      if (item.retries >= MAX_RETRIES) {
+        console.warn(`[Sync] Dropping item ${item.id} – max retries (${MAX_RETRIES}) reached`);
+        await removeSyncItem(item.id);
+        continue;
       }
-    } catch (error) {
-      console.error(`[Sync] Error processing queue item ${item.id}:`, error);
-      await incrementSyncItemRetries(item.id);
+
+      try {
+        // If a previous create remapped this task's ID, use the new one
+        const resolvedTaskId = item.task_id
+          ? idMap.get(item.task_id) ?? item.task_id
+          : null;
+
+        switch (item.type) {
+          // ─── CREATE ───────────────────────────────
+          case 'create': {
+            const taskData = reconstructTaskDates(item.data);
+
+            // Send to backend
+            const backendTask = await TaskAPI.createTask(taskData);
+            const backendId = backendTask.id.toString();
+            const localId = item.task_id!;
+
+            // Remember the mapping
+            idMap.set(localId, backendId);
+
+            // Replace local row with the real backend ID
+            await deleteLocalTask(localId);
+            await createTaskWithId(backendId, taskData);
+
+            await removeSyncItem(item.id);
+            break;
+          }
+
+          // ─── UPDATE ───────────────────────────────
+          case 'update': {
+            if (!resolvedTaskId) {
+              console.warn('[Sync] Update item has no task_id – removing');
+              await removeSyncItem(item.id);
+              break;
+            }
+
+            const updateData = reconstructTaskDates(item.data);
+            await TaskAPI.updateTask(resolvedTaskId, updateData);
+
+            // If the ID was remapped (offline-created task), update local row too
+            if (resolvedTaskId !== item.task_id) {
+              await updateLocalTask(resolvedTaskId, updateData);
+            }
+
+            await removeSyncItem(item.id);
+            break;
+          }
+
+          // ─── DELETE ───────────────────────────────
+          case 'delete': {
+            if (!resolvedTaskId) {
+              console.warn('[Sync] Delete item has no task_id – removing');
+              await removeSyncItem(item.id);
+              break;
+            }
+
+            // Only hit the backend if the task once had a real backend ID
+            if (!isLocalId(resolvedTaskId)) {
+              await TaskAPI.deleteTask(resolvedTaskId);
+            }
+
+            await removeSyncItem(item.id);
+            break;
+          }
+        }
+      } catch (error) {
+        console.error(`[Sync] Error processing queue item ${item.id}:`, error);
+        await incrementSyncItemRetries(item.id);
+      }
     }
+  } finally {
+    isApplyingQueue = false;
   }
 };
 

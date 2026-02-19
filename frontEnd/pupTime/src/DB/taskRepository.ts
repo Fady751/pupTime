@@ -18,8 +18,8 @@ export const createTask = async (task: Omit<Task, 'id'>): Promise<number> => {
           task.title,
           task.status,
           task.reminderTime,
-          task.startTime.toISOString(),
-          task.endTime ? task.endTime.toISOString() : null,
+          task.startTime.toString(),
+          task.endTime ? task.endTime.toString() : null,
           task.priority,
           task.emoji,
         ]
@@ -43,7 +43,7 @@ export const createTask = async (task: Omit<Task, 'id'>): Promise<number> => {
         for (const rep of task.repetition) {
           await db.execute(
             'INSERT INTO task_repetitions (task_id, frequency, time) VALUES (?, ?, ?);',
-            [taskId, rep.frequency, rep.time ? rep.time.toISOString() : null]
+            [taskId, rep.frequency, rep.time ? rep.time.toString() : null]
           );
         }
       }
@@ -202,11 +202,11 @@ export const updateTask = async (taskId: string, updates: Partial<Task>): Promis
         }
         if (updates.startTime !== undefined) {
           setClause.push('startTime = ?');
-          values.push(updates.startTime.toISOString());
+          values.push(updates.startTime.toString());
         }
         if (updates.endTime !== undefined) {
           setClause.push('endTime = ?');
-          values.push(updates.endTime ? updates.endTime.toISOString() : null);
+          values.push(updates.endTime ? updates.endTime.toString() : null);
         }
         if (updates.priority !== undefined) {
           setClause.push('priority = ?');
@@ -241,7 +241,7 @@ export const updateTask = async (taskId: string, updates: Partial<Task>): Promis
         for (const rep of updates.repetition) {
           await db.execute(
             'INSERT INTO task_repetitions (task_id, frequency, time) VALUES (?, ?, ?);',
-            [taskId, rep.frequency, rep.time ? rep.time.toISOString() : null]
+            [taskId, rep.frequency, rep.time ? rep.time.toString() : null]
           );
         }
       }
@@ -324,8 +324,8 @@ export const createTaskWithId = async (taskId: string, task: Omit<Task, 'id'>): 
           task.title,
           task.status,
           task.reminderTime,
-          task.startTime.toISOString(),
-          task.endTime ? task.endTime.toISOString() : null,
+          task.startTime.toString(),
+          task.endTime ? task.endTime.toString() : null,
           task.priority,
           task.emoji,
         ]
@@ -351,7 +351,7 @@ export const createTaskWithId = async (taskId: string, task: Omit<Task, 'id'>): 
         for (const rep of task.repetition) {
           await db.execute(
             'INSERT INTO task_repetitions (task_id, frequency, time) VALUES (?, ?, ?);',
-            [taskId, rep.frequency, rep.time ? rep.time.toISOString() : null]
+            [taskId, rep.frequency, rep.time ? rep.time.toString() : null]
           );
         }
       }
@@ -441,7 +441,7 @@ export const getTasksByDateRange = async (
        AND startTime >= ? 
        AND startTime <= ?
        ORDER BY startTime ASC;`,
-      [userId, startDate.toISOString(), endDate.toISOString()]
+      [userId, startDate.toString(), endDate.toString()]
     );
 
     const tasks: Task[] = [];
