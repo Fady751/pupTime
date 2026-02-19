@@ -295,17 +295,17 @@ const Schedule: React.FC<ScheduleProps> = ({ tasks, onTaskPress }) => {
   };
 
   const getTaskIndicatorColors = (dayTasks: Task[]): string[] => {
-    const colors: string[] = [];
+    const indicatorColors: string[] = [];
     const priorities = ["high", "medium", "low", "none"];
     
     for (const priority of priorities) {
       const hasTask = dayTasks.some((t) => t.priority === priority);
-      if (hasTask && colors.length < 3) {
-        colors.push(PRIORITY_COLORS[priority as keyof typeof PRIORITY_COLORS]);
+      if (hasTask && indicatorColors.length < 3) {
+        indicatorColors.push(PRIORITY_COLORS[priority as keyof typeof PRIORITY_COLORS]);
       }
     }
     
-    return colors;
+    return indicatorColors;
   };
 
   return (
@@ -446,6 +446,7 @@ const Schedule: React.FC<ScheduleProps> = ({ tasks, onTaskPress }) => {
           {selectedDayTasks.length > 0 ? (
             selectedDayTasks.map((task) => (
               <TaskCard
+                day={selectedDate ?? task.startTime}
                 key={task.id}
                 task={task}
                 compact
@@ -572,7 +573,10 @@ const Schedule: React.FC<ScheduleProps> = ({ tasks, onTaskPress }) => {
 
             <ScrollView style={styles.modalScroll}>
               {selectedTask && (
-                <TaskCard task={selectedTask} />
+                <TaskCard
+                  task={selectedTask}
+                  day={selectedDate ?? selectedTask.startTime}
+                />
               )}
             </ScrollView>
           </View>

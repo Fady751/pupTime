@@ -6,11 +6,9 @@ export const createTask = async (task: Omit<Task, 'id'>): Promise<number> => {
   try {
     const db = await getDatabase();
 
-    // Start transaction
     await db.execute('BEGIN TRANSACTION;');
 
     try {
-      // Insert task
       const result = await db.execute(
         `INSERT INTO tasks 
         (user_id, title, status, reminderTime, startTime, endTime, priority, emoji) 
@@ -26,13 +24,13 @@ export const createTask = async (task: Omit<Task, 'id'>): Promise<number> => {
           task.emoji,
         ]
       );
+      console.log('[DB] Task created with ID:', result.insertId);
 
       const taskId = result.insertId!;
 
-      // Insert categories
       if (task.Categorys && task.Categorys.length > 0) {
         for (const category of task.Categorys) {
-          const categoryId = await ensureCategoryExists(category.name);
+          const categoryId = await ensureCategoryExists(category.name, category.id);
 
           await db.execute(
             'INSERT INTO task_categories (task_id, category_id) VALUES (?, ?);',
@@ -41,7 +39,6 @@ export const createTask = async (task: Omit<Task, 'id'>): Promise<number> => {
         }
       }
 
-      // Insert repetitions
       if (task.repetition && task.repetition.length > 0) {
         for (const rep of task.repetition) {
           await db.execute(
@@ -64,11 +61,10 @@ export const createTask = async (task: Omit<Task, 'id'>): Promise<number> => {
   }
 };
 
-export const getTaskById = async (taskId: number): Promise<Task | null> => {
+export const getTaskById = async (taskId: string): Promise<Task | null> => {
   try {
     const db = await getDatabase();
 
-    // Get task
     const taskResult = await db.execute('SELECT * FROM tasks WHERE id = ?;', [taskId]);
 
     if (!taskResult.rows || taskResult.rows.length === 0) {
@@ -77,7 +73,6 @@ export const getTaskById = async (taskId: number): Promise<Task | null> => {
 
     const taskRow = taskResult.rows[0];
 
-    // Get categories
     const categoriesResult = await db.execute(
       `SELECT c.id, c.name 
        FROM categories c
@@ -88,7 +83,6 @@ export const getTaskById = async (taskId: number): Promise<Task | null> => {
 
     const categories: Category[] = (categoriesResult.rows || []) as Category[];
 
-    // Get repetitions
     const repetitionsResult = await db.execute(
       'SELECT frequency, time FROM task_repetitions WHERE task_id = ?;',
       [taskId]
@@ -99,20 +93,19 @@ export const getTaskById = async (taskId: number): Promise<Task | null> => {
       time: rep.time ? new Date(rep.time) : null,
     }));
 
-    // Construct task object
-    const task: Task = {
-      id: taskRow.id as number,
-      user_id: taskRow.user_id as number,
-      title: taskRow.title as string,
+    const task = {
+      id: taskRow.id,
+      user_id: taskRow.user_id,
+      title: taskRow.title,
       Categorys: categories,
-      status: taskRow.status as 'pending' | 'completed',
-      reminderTime: taskRow.reminderTime as number | null,
+      status: taskRow.status,
+      reminderTime: taskRow.reminderTime,
       startTime: new Date(taskRow.startTime as string),
-      endTime: taskRow.endTime ? new Date(taskRow.endTime as string) : null,
-      priority: taskRow.priority as 'low' | 'medium' | 'high' | 'none',
+      endTime: taskRow.endTime? new Date(taskRow.endTime as string) : null,
+      priority: taskRow.priority,
       repetition: repetitions,
-      emoji: taskRow.emoji as string,
-    };
+      emoji: taskRow.emoji,
+    } as Task;
 
     return task;
   } catch (error) {
@@ -134,7 +127,7 @@ export const getTasksByUserId = async (userId: number): Promise<Task[]> => {
     const taskIds = tasksResult.rows || [];
 
     for (const row of taskIds) {
-      const task = await getTaskById(row.id as number);
+      const task = await getTaskById(row.id as string);
       if (task) {
         tasks.push(task);
       }
@@ -163,7 +156,7 @@ export const getTasksByStatus = async (
     const taskIds = tasksResult.rows || [];
 
     for (const row of taskIds) {
-      const task = await getTaskById(row.id as number);
+      const task = await getTaskById(row.id as string);
       if (task) {
         tasks.push(task);
       }
@@ -176,14 +169,13 @@ export const getTasksByStatus = async (
   }
 };
 
-export const updateTask = async (taskId: number, updates: Partial<Task>): Promise<void> => {
+export const updateTask = async (taskId: string, updates: Partial<Task>): Promise<void> => {
   try {
     const db = await getDatabase();
 
     await db.execute('BEGIN TRANSACTION;');
 
     try {
-      // Update basic task fields
       if (
         updates.title !== undefined ||
         updates.status !== undefined ||
@@ -231,12 +223,11 @@ export const updateTask = async (taskId: number, updates: Partial<Task>): Promis
         await db.execute(`UPDATE tasks SET ${setClause.join(', ')} WHERE id = ?;`, values);
       }
 
-      // Update categories
       if (updates.Categorys !== undefined) {
         await db.execute('DELETE FROM task_categories WHERE task_id = ?;', [taskId]);
 
         for (const category of updates.Categorys) {
-          const categoryId = await ensureCategoryExists(category.name);
+          const categoryId = await ensureCategoryExists(category.name, category.id);
           await db.execute(
             'INSERT INTO task_categories (task_id, category_id) VALUES (?, ?);',
             [taskId, categoryId]
@@ -244,7 +235,6 @@ export const updateTask = async (taskId: number, updates: Partial<Task>): Promis
         }
       }
 
-      // Update repetitions
       if (updates.repetition !== undefined) {
         await db.execute('DELETE FROM task_repetitions WHERE task_id = ?;', [taskId]);
 
@@ -267,7 +257,7 @@ export const updateTask = async (taskId: number, updates: Partial<Task>): Promis
   }
 };
 
-export const deleteTask = async (taskId: number): Promise<void> => {
+export const deleteTask = async (taskId: string): Promise<void> => {
   try {
     const db = await getDatabase();
 
@@ -275,6 +265,104 @@ export const deleteTask = async (taskId: number): Promise<void> => {
 
   } catch (error) {
     console.error('[DB] Error deleting task:', error);
+    throw error;
+  }
+};
+
+export const deleteTasksByUserId = async (userId: number): Promise<void> => {
+  try {
+    const db = await getDatabase();
+
+    await db.execute(
+      'DELETE FROM task_categories WHERE task_id IN (SELECT id FROM tasks WHERE user_id = ?);',
+      [userId]
+    );
+    await db.execute(
+      'DELETE FROM task_repetitions WHERE task_id IN (SELECT id FROM tasks WHERE user_id = ?);',
+      [userId]
+    );
+    await db.execute('DELETE FROM tasks WHERE user_id = ?;', [userId]);
+
+    console.log(`[DB] Deleted all tasks (and related data) for user ${userId}`);
+  } catch (error) {
+    console.error('[DB] Error deleting tasks by user ID:', error);
+    throw error;
+  }
+};
+
+export const clearAllTaskData = async (): Promise<void> => {
+  try {
+    const db = await getDatabase();
+
+    await db.execute('DELETE FROM task_repetitions;');
+    await db.execute('DELETE FROM task_categories;');
+    await db.execute('DELETE FROM tasks;');
+    await db.execute('DELETE FROM categories;');
+
+  } catch (error) {
+    console.error('[DB] Error clearing all task data:', error);
+    throw error;
+  }
+};
+
+export const createTaskWithId = async (taskId: string, task: Omit<Task, 'id'>): Promise<void> => {
+  try {
+    const db = await getDatabase();
+
+    // Start transaction
+    await db.execute('BEGIN TRANSACTION;');
+
+    try {
+      // Insert task with specific ID
+      await db.execute(
+        `INSERT INTO tasks 
+        (id, user_id, title, status, reminderTime, startTime, endTime, priority, emoji) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+        [
+          taskId,
+          task.user_id,
+          task.title,
+          task.status,
+          task.reminderTime,
+          task.startTime.toISOString(),
+          task.endTime ? task.endTime.toISOString() : null,
+          task.priority,
+          task.emoji,
+        ]
+      );
+
+      // Insert categories
+      if (task.Categorys && task.Categorys.length > 0) {
+        for (const category of task.Categorys) {
+          console.log(`[DB] Ensuring category exists for task ${taskId}: ${category.name}`);
+          const categoryId = await ensureCategoryExists(category.name, category.id);
+
+          console.log(`[DB] Linking task ${taskId} to category ${category.name} (ID: ${categoryId})`);
+          await db.execute(
+            'INSERT INTO task_categories (task_id, category_id) VALUES (?, ?);',
+            [taskId, categoryId]
+          );
+          console.log(`[DB] Linked task ${taskId} to category ${category.name} (ID: ${categoryId})`);
+        }
+      }
+
+      // Insert repetitions
+      if (task.repetition && task.repetition.length > 0) {
+        for (const rep of task.repetition) {
+          await db.execute(
+            'INSERT INTO task_repetitions (task_id, frequency, time) VALUES (?, ?, ?);',
+            [taskId, rep.frequency, rep.time ? rep.time.toISOString() : null]
+          );
+        }
+      }
+
+      await db.execute('COMMIT;');
+    } catch (error) {
+      await db.execute('ROLLBACK;');
+      throw error;
+    }
+  } catch (error) {
+    console.error('[DB] Error creating task with ID:', error);
     throw error;
   }
 };
@@ -292,7 +380,7 @@ export const getAllCategories = async (): Promise<Category[]> => {
   }
 };
 
-const ensureCategoryExists = async (categoryName: string): Promise<number> => {
+export const ensureCategoryExists = async (categoryName: string, categoryId: number): Promise<number> => {
   try {
     const db = await getDatabase();
 
@@ -304,7 +392,7 @@ const ensureCategoryExists = async (categoryName: string): Promise<number> => {
     }
 
     // Create new category
-    const insertResult = await db.execute('INSERT INTO categories (name) VALUES (?);', [categoryName]);
+    const insertResult = await db.execute('INSERT INTO categories (id, name) VALUES (?, ?);', [categoryId, categoryName]);
 
     return insertResult.insertId!;
   } catch (error) {
@@ -326,7 +414,7 @@ export const searchTasksByTitle = async (userId: number, searchQuery: string): P
     const taskIds = tasksResult.rows || [];
 
     for (const row of taskIds) {
-      const task = await getTaskById(row.id as number);
+      const task = await getTaskById(row.id as string);
       if (task) {
         tasks.push(task);
       }
@@ -360,7 +448,7 @@ export const getTasksByDateRange = async (
     const taskIds = tasksResult.rows || [];
 
     for (const row of taskIds) {
-      const task = await getTaskById(row.id as number);
+      const task = await getTaskById(row.id as string);
       if (task) {
         tasks.push(task);
       }

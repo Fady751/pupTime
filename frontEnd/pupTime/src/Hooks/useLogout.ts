@@ -1,4 +1,4 @@
-import { clearData } from '../utils/authStorage';
+import { clearData } from '../utils/storage/auth';
 import { useDispatch } from 'react-redux';
 import { AppDispatch } from '../redux/store';
 import { clearUser } from '../redux/userSlice';

@@ -10,9 +10,10 @@ import { useSelector } from "react-redux";
 import { useNavigation } from "@react-navigation/native";
 import type { RootState } from "../../redux/store";
 import useTheme from "../../Hooks/useTheme";
-import { useTodayTasks } from "../../Hooks/useTasks";
+import { useTasks } from "../../Hooks/useTasks";
 import createHomeStyles from "./HomeScreen.styles";
 import { BottomBar } from "../../components/BottomBar/BottomBar";
+import { Task } from "../../types/task";
 
 // Priority colors for task cards
 const PRIORITY_COLORS = {
@@ -113,7 +114,7 @@ const HomeScreen: React.FC = () => {
 
   const user = useSelector((state: RootState) => state.user.data);
   const userId = user?.id ?? null;
-  const { tasks: todayTasks } = useTodayTasks(userId);
+  const { tasks: todayTasks, updateTask } = useTasks(userId);
 
   // Pick a random quote (stable for session)
   const quote = useMemo(() => QUOTES[Math.floor(Math.random() * QUOTES.length)], []);
@@ -226,7 +227,8 @@ const HomeScreen: React.FC = () => {
                     styles.taskPreviewCard,
                     { borderLeftColor: priorityColor },
                   ]}
-                  onPress={() => navigation.navigate("EditTask", { task })}
+                  onPress={() => navigation.navigate("EditTask", { task,
+                    onSave: (updatedTask: Task) => updateTask(updatedTask.id, updatedTask) })}
                 >
                   <Text style={styles.taskPreviewEmoji}>
                     {task.emoji || "📌"}

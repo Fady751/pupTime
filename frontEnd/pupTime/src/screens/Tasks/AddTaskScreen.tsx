@@ -12,7 +12,7 @@ import DateTimePicker, {
 } from "@react-native-community/datetimepicker";
 import { createStyles } from "./styles";
 import { Task, RepetitionFrequency, TaskRepetition } from "../../types/task";
-import { getCategories } from "../../services/interestService/getCategories";
+import { getCategories } from "../../services/TaskService/syncService";
 import { Category } from "../../types/category";
 import {
   PRIORITIES,
@@ -164,7 +164,7 @@ const AddTaskScreen: React.FC<Props> = ({ route, navigation }) => {
     }
 
     const task: Task = {
-      id: Date.now(),
+      id: "",
       user_id: 0,
       title,
       Categorys: selectedCategories.map(id => 
@@ -212,7 +212,10 @@ const AddTaskScreen: React.FC<Props> = ({ route, navigation }) => {
   };
 
   return (
-    <ScrollView style={styles.container}>
+        <ScrollView
+          style={styles.container}
+          contentContainerStyle={styles.scrollContent}
+        >
       <Text style={styles.header}>Add Task</Text>
 
       {/* Title */}

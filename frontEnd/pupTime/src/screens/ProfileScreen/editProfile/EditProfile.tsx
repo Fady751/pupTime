@@ -20,7 +20,7 @@ import { setUser } from "../../../redux/userSlice";
 import useTheme from "../../../Hooks/useTheme";
 import createStyles from "./EditProfile.styles";
 import { editUser, EditUserPayload } from "../../../services/userAuthServices/editUser";
-import { patchData } from "../../../utils/authStorage";
+import { patchData } from "../../../utils/storage/auth";
 
 type Props = {
 	navigation: any;
@@ -121,6 +121,7 @@ const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
 
 			dispatch(setUser(res.user));
 			await patchData({ user: res.user });
+
 			Toast.show({
 				type: "success",
 				text1: "Profile updated",
@@ -129,6 +130,7 @@ const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
 				visibilityTime: 2000,
 				autoHide: true,
 			});
+			console.log("[EditProfile] User updated successfully:", res.user);
 			navigation.goBack();
 		} catch {
 			Toast.show({

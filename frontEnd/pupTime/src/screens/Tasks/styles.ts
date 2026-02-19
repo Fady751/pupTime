@@ -204,6 +204,10 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
     alignItems: "center",
   },
   saveText: { color: colors.primaryText, fontWeight: "bold", fontSize: 16 },
+
+  scrollContent: {
+    paddingBottom: 120,
+  },
 });
 
 export default createStyles;

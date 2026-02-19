@@ -8,7 +8,7 @@ import createStyles from "./styles";
 import StepIndicator from "../StepIndicator";
 import { Category } from "../../../types/category";
 import { Interests } from "../../../types/interests";
-import { getCategories } from "../../../services/interestService/getCategories";
+import { getCategories } from "../../../services/TaskService/syncService";
 import { getInterests } from "../../../services/interestService/getInterests";
 import { useSelector } from "react-redux";
 import { RootState } from "../../../redux/store";
