@@ -96,5 +96,9 @@
 {"id": 95, "name": "Web Development", "category": "Technology"},
 {"id": 96, "name": "Wine Tasting", "category": "Food & Drink"},
 {"id": 97, "name": "Woodworking", "category": "Hobbies"},
-{"id": 98, "name": "Yoga", "category": "Health & Wellness"}
+{"id": 98, "name": "Yoga", "category": "Health & Wellness"},
+{"id": 99, "name": "Competitive Programming", "category": "Technology"},
+{"id": 100, "name": "League of Legends", "category": "Gaming"},
+{"id": 101, "name": "Walking", "category": "Sports & Fitness"},
+{"id": 102, "name": "Watching Movies & Shows", "category": "Entertainment"}
 ]
