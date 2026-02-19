@@ -59,14 +59,20 @@ export const getTasks = async (request: getTasksRequest): Promise<getTasksRespon
           return category ? { id: category.id, name: category.name } : null;
         }).filter((cat: any) => cat !== null);
         return {
-            ...task,
-            repetition: task.repetitions as TaskRepetition[],
             id: task.id.toString(),
             user_id: task.user,
+            title: task.title,
             Categorys: taskCategories,
+            status: task.status,
             reminderTime: task.reminder_time,
             startTime: new Date(task.start_time),
             endTime: task.end_time ? new Date(task.end_time) : null,
+            priority: task.priority,
+            repetition: task.repetitions.map((rep: any) => {
+              const repTime = rep.time ? new Date(`1970-01-01T${rep.time}Z`) : null;
+              return { ...rep, time: repTime };
+            }) as TaskRepetition[],
+            emoji: task.emoji,
         };
       });
 
