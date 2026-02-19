@@ -3,35 +3,74 @@ import { View, Text, Pressable } from "react-native";
 import { Task, RepetitionFrequency } from "../../types/task";
 import createTaskCardStyles, { PRIORITY_COLORS } from "./TaskCard.styles";
 import useTheme from "../../Hooks/useTheme";
+import { WEEKDAY_OPTIONS } from "../../constants/taskConstants";
 
 type TaskCardProps = {
   task: Task;
   onPress?: (task: Task) => void;
   compact?: boolean;
+  day?: Date | null;
 };
 
-// Get the time (hours/minutes) from the first repetition entry that has a time, or from startTime
-const getTaskTime = (task: Task): { hours: number; minutes: number } => {
+const getDayOfWeek = (date: Date | null): string => {
+  if (!date) return "";
+  const dayIndex = date.getDay();
+  return WEEKDAY_OPTIONS[dayIndex].toLowerCase();
+};
+
+const getDayKey = (day: Date): string => {
+  return getDayOfWeek(day);
+};
+
+// Get the time from the matching repetition entry (by day), or from startTime
+const getTaskTime = (
+  task: Task,
+  day?: Date | null
+): { hours?: number; minutes?: number; allDay: boolean } => {
+  const dayKey = getDayKey(day ?? task.startTime);
+
   if (task.repetition && task.repetition.length > 0) {
-    const withTime = task.repetition.find((r) => r.time);
-    if (withTime?.time) {
-      const t = new Date(withTime.time);
-      return { hours: t.getHours(), minutes: t.getMinutes() };
+    let dailyRep: typeof task.repetition[number] | null = null;
+
+    for (const rep of task.repetition) {
+      if (rep.frequency === dayKey) {
+        if (!rep.time) return { allDay: true };
+        const t = new Date(rep.time);
+        return { hours: t.getHours(), minutes: t.getMinutes(), allDay: false };
+      }
+
+      if (!dailyRep && rep.frequency === "daily") {
+        dailyRep = rep;
+      }
+    }
+
+    if (dailyRep) {
+      if (!dailyRep.time) return { allDay: true };
+      const t = new Date(dailyRep.time);
+      return { hours: t.getHours(), minutes: t.getMinutes(), allDay: false };
     }
   }
+
   const t = new Date(task.startTime);
-  return { hours: t.getHours(), minutes: t.getMinutes() };
+  return { hours: t.getHours(), minutes: t.getMinutes(), allDay: false };
 };
 
 // Get a display date for the task (startTime date + repetition time hours/minutes)
-const getTaskBaseDate = (task: Task): Date => {
-  const base = new Date(task.startTime);
-  const time = getTaskTime(task);
+const getDisplayDate = (task: Task, day?: Date | null): Date => {
+  return day ? new Date(day) : new Date(task.startTime);
+};
+
+const getTaskBaseDate = (task: Task, day?: Date | null): Date | null => {
+  const time = getTaskTime(task, day);
+  if (time.allDay || time.hours == null || time.minutes == null) return null;
+
+  const base = getDisplayDate(task, day ?? task.startTime);
   base.setHours(time.hours, time.minutes, 0, 0);
   return base;
 };
 
-const formatTime = (date: Date): string => {
+const formatTime = (date: Date | null): string => {
+  if (!date) return "All day";
   const d = new Date(date);
   const hours = d.getHours();
   const minutes = d.getMinutes();
@@ -111,6 +150,7 @@ const getPriorityLabel = (priority: Task["priority"]): string => {
 export const TaskCardCompact: React.FC<TaskCardProps> = ({
   task,
   onPress,
+  day,
 }) => {
   const { colors } = useTheme();
   const styles = useMemo(() => createTaskCardStyles(colors), [colors]);
@@ -118,7 +158,7 @@ export const TaskCardCompact: React.FC<TaskCardProps> = ({
     onPress?.(task);
   };
 
-  const baseDate = getTaskBaseDate(task);
+  const baseDate = getTaskBaseDate(task, day);
 
   return (
     <Pressable
@@ -153,19 +193,20 @@ export const TaskCardCompact: React.FC<TaskCardProps> = ({
   );
 };
 
-const TaskCard: React.FC<TaskCardProps> = ({ task, onPress, compact }) => {
-  if (compact) {
-    return <TaskCardCompact task={task} onPress={onPress} />;
-  }
-
+const TaskCard: React.FC<TaskCardProps> = ({ task, onPress, compact, day }) => {
   const { colors } = useTheme();
   const styles = useMemo(() => createTaskCardStyles(colors), [colors]);
+
+  if (compact) {
+    return <TaskCardCompact task={task} onPress={onPress} day={day} />;
+  }
 
   const handlePress = () => {
     onPress?.(task);
   };
 
-  const baseDate = getTaskBaseDate(task);
+  const baseDate = getTaskBaseDate(task, day);
+  const displayDate = getDisplayDate(task, day ?? task.startTime);
 
   return (
     <Pressable
@@ -200,7 +241,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onPress, compact }) => {
         <View style={styles.detailItem}>
           <Text style={styles.detailIcon}>📅</Text>
           <Text style={styles.detailLabel}>Date:</Text>
-          <Text style={styles.detailValue}>{formatDate(baseDate)}</Text>
+          <Text style={styles.detailValue}>{formatDate(displayDate)}</Text>
         </View>
 
         <View style={styles.detailItem}>

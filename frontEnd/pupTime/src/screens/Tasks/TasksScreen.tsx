@@ -1,62 +1,27 @@
-import React, { useMemo, useState } from "react";
-import { View, Text, FlatList, TouchableOpacity } from "react-native";
+import React, { useMemo } from "react";
+import { View, Text, FlatList, TouchableOpacity, Alert } from "react-native";
 import { Swipeable } from "react-native-gesture-handler";
 import { createStyles } from "./Tasks.styles";
 import { useNavigation } from "@react-navigation/native";
 import { Task } from "../../types/task";
 import useTheme from "../../Hooks/useTheme";
 import TaskCard from "../../components/Task/TaskCard";
+import { useTasks } from "../../Hooks/useTasks";
+import { useSelector } from "react-redux";
+import { RootState } from "../../redux/store";
 
 const TasksScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const { data } = useSelector((state: RootState) => state.user);
 
-  const [tasks, setTasks] = useState<Task[]>([
-    {
-      id: 1,
-      user_id: 0,
-      title: "Go To Gym",
-      status: "pending",
-      Categorys: [],
-      reminderTime: null,
-      startTime: new Date(),
-      endTime: null,
-      priority: "none",
-      repetition: [],
-      emoji: "💪",
-    },
-    {
-      id: 2,
-      user_id: 0,
-      title: "Study React Native",
-      status: "pending",
-      Categorys: [],
-      reminderTime: null,
-      startTime: new Date(),
-      endTime: null,
-      priority: "medium",
-      repetition: [],
-      emoji: "📚",
-    },
-    {
-      id: 3,
-      user_id: 0,
-      title: "Buy Groceries",
-      status: "completed",
-      Categorys: [],
-      reminderTime: null,
-      startTime: new Date(),
-      endTime: null,
-      priority: "low",
-      repetition: [],
-      emoji: "🛒",
-    },
-  ]);
+  const { tasks, createTask, updateTask, deleteTask } = useTasks(data?.id as number);
+  // const [tasks, setTasks] = useState<Task[]>([]);
 
   const handleAddTask = () => {
     navigation.navigate("AddTask", {
-      onSave: (newTask: Task) => setTasks(prev => [newTask, ...prev]),
+      onSave: (newTask: Task) => createTask(newTask),
     });
   };
 
@@ -64,28 +29,33 @@ const TasksScreen: React.FC = () => {
     navigation.navigate("EditTask", {
       task,
       onSave: (updatedTask: Task) =>
-        setTasks(prev => prev.map(t => (t.id === updatedTask.id ? updatedTask : t))),
+        updateTask(updatedTask.id, updatedTask),
     });
   };
 
-  const handleDelete = (id: number) => {
-    setTasks(prev => prev.filter(task => task.id !== id));
-  };
-
-  const toggleComplete = (id: number) => {
-    setTasks(prev =>
-      prev.map(task =>
-        task.id === id
-          ? {
-              ...task,
-              status: task.status === "completed" ? "pending" : "completed",
-            }
-          : task
-      )
+  const handleDelete = (id: string) => {
+    Alert.alert(
+      "Delete Task",
+      "Are you sure you want to delete this task?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete", style: "destructive", onPress: () => {
+          deleteTask(id);
+          Alert.alert("Task Deleted", "The task has been deleted successfully.", [{ text: "OK" }]);
+        }}
+      ]
     );
   };
 
-  const renderRightActions = (id: number) => (
+  const toggleComplete = (id: string) => {
+      // Find the task and toggle its status
+      const task = tasks.find(t => t.id === id);
+      if (task) {
+        updateTask(id, { ...task, status: task.status === "completed" ? "pending" : "completed" });
+      }
+  };
+
+  const renderRightActions = (id: string) => (
     <TouchableOpacity
       style={styles.deleteBox}
       onPress={() => handleDelete(id)}
@@ -97,7 +67,7 @@ const TasksScreen: React.FC = () => {
   const renderItem = ({ item }: { item: Task }) => (
     <Swipeable renderRightActions={() => renderRightActions(item.id)}>
       <View style={styles.cardWrapper}>
-        <TaskCard task={item} onPress={handleEditTask} />
+        <TaskCard task={item} onPress={handleEditTask} day={item.startTime} />
 
         <TouchableOpacity
           style={styles.completeBtnContainer}
@@ -126,7 +96,22 @@ const TasksScreen: React.FC = () => {
         data={tasks}
         keyExtractor={item => item.id.toString()}
         renderItem={renderItem}
-        contentContainerStyle={{ paddingBottom: 100 }}
+        contentContainerStyle={[
+          styles.listContent,
+          tasks.length === 0 && styles.listContentEmpty,
+        ]}
+        ListEmptyComponent={
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyEmoji}>🗓️</Text>
+            <Text style={styles.emptyTitle}>Your schedule is clear</Text>
+            <Text style={styles.emptySubtitle}>
+              Add your first task to get started. We’ll keep it organized and on time.
+            </Text>
+            <TouchableOpacity style={styles.emptyAction} onPress={handleAddTask}>
+              <Text style={styles.emptyActionText}>Create your first task</Text>
+            </TouchableOpacity>
+          </View>
+        }
       />
 
       {/* Add Button */}

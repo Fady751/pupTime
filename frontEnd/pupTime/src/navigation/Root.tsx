@@ -11,7 +11,8 @@ import AppNavigator from '../navigation/AppNavigator';
 import LoadingScreen from '../screens/Loading/loading';
 import OfflineBar from '../components/OfflineBar/offlineBar';
 import NetInfo from '@react-native-community/netinfo';
-import { getData } from '../utils/authStorage';
+import { getData } from '../utils/storage/auth';
+import { applyQueue } from '../services/TaskService/syncService';
 
 export default function Root() {
   const dispatch = useDispatch<AppDispatch>();
@@ -43,6 +44,7 @@ export default function Root() {
   // Check for offline data if user is not authenticated and we're offline
   useEffect(() => {
     const checkOfflineData = async () => {
+    // console.log('token = ', (await getData())?.token);
       if(!data && (!loading || !networkLoading) && !isConnected) {
         const offlineData = await getData();
         if(offlineData?.user) {
@@ -52,6 +54,23 @@ export default function Root() {
     };
     checkOfflineData();
   }, [data, loading, isConnected, dispatch, networkLoading]);
+
+  // sync queue when regaining connectivity
+  useEffect(() => {
+    const syncTasks = async () => {
+      if(isConnected && !networkLoading) {
+        await applyQueue();
+      }
+    };
+    syncTasks();
+  }, [isConnected, networkLoading]);
+
+  // useEffect(() => {
+  //   const test = async () => {
+      
+  //   };
+  //   test();
+  // }, []);
 
   return (
     <>

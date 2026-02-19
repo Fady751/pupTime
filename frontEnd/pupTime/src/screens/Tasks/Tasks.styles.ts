@@ -95,6 +95,61 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
     fontSize: 30,
     marginTop: -2,
   },
+
+  listContent: {
+    paddingBottom: 100,
+  },
+
+  listContentEmpty: {
+    flexGrow: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingBottom: 60,
+  },
+
+  emptyCard: {
+    width: "100%",
+    backgroundColor: colors.surface,
+    borderRadius: 18,
+    paddingVertical: 28,
+    paddingHorizontal: 20,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+
+  emptyEmoji: {
+    fontSize: 38,
+    marginBottom: 10,
+  },
+
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: colors.text,
+    marginBottom: 6,
+  },
+
+  emptySubtitle: {
+    fontSize: 14,
+    color: colors.secondaryText,
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: 18,
+  },
+
+  emptyAction: {
+    backgroundColor: colors.primary,
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+
+  emptyActionText: {
+    color: colors.primaryText,
+    fontWeight: "700",
+    fontSize: 14,
+  },
 });
 
 export default createStyles;

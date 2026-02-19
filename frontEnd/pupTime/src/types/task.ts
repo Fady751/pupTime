@@ -21,7 +21,7 @@ export type TaskRepetition = {
 };
 
 export type Task = {
-    id: number;
+    id: string;
     user_id: number;
     title: string;
     Categorys: Category[];

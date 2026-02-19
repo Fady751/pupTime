@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { getData } from '../utils/authStorage';
+import { getData } from '../utils/storage/auth';
 import { API_URL } from '@env';
 
 const api = axios.create({

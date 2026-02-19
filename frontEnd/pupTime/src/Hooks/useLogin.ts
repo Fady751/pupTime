@@ -1,7 +1,9 @@
-import { saveData } from '../utils/authStorage';
+import { saveData } from '../utils/storage/auth';
 import { useDispatch } from 'react-redux';
 import { AppDispatch } from '../redux/store';
 import { fetchUser } from '../redux/userSlice';
+import { fullSyncTasks } from '../services/TaskService/syncService';
+import { dropAllTables } from '../DB';
 
 export type LoginData = {
     token: string;
@@ -13,6 +15,9 @@ export function useLogin() {
     
     return async (data: LoginData) => {
         await saveData({ token: data.token, id: data.id });
+
+        await dropAllTables();
+        await fullSyncTasks();
 
         await dispatch(fetchUser());
     };

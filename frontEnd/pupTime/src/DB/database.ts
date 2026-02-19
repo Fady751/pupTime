@@ -1,6 +1,5 @@
 import { open, type DB } from '@op-engineering/op-sqlite';
-
-const DATABASE_NAME = 'puptime.db';
+import { DATABASE_NAME } from '@env';
 
 let databaseInstance: DB | null = null;
 
@@ -36,7 +35,7 @@ const initializeTables = async (db: DB): Promise<void> => {
     // Create Tasks table
     await db.execute(`
       CREATE TABLE IF NOT EXISTS tasks (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
         user_id INTEGER NOT NULL,
         title TEXT NOT NULL,
         status TEXT CHECK(status IN ('pending', 'completed')) DEFAULT 'pending',
@@ -54,7 +53,7 @@ const initializeTables = async (db: DB): Promise<void> => {
     await db.execute(`
       CREATE TABLE IF NOT EXISTS task_categories (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        task_id INTEGER NOT NULL,
+        task_id TEXT NOT NULL,
         category_id INTEGER NOT NULL,
         FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
         FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE,
@@ -66,7 +65,7 @@ const initializeTables = async (db: DB): Promise<void> => {
     await db.execute(`
       CREATE TABLE IF NOT EXISTS task_repetitions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        task_id INTEGER NOT NULL,
+        task_id TEXT NOT NULL,
         frequency TEXT NOT NULL CHECK(frequency IN (
           'once', 'daily', 'weekly', 'monthly', 'yearly',
           'sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'
@@ -93,6 +92,22 @@ const initializeTables = async (db: DB): Promise<void> => {
       CREATE INDEX IF NOT EXISTS idx_task_repetitions_task_id ON task_repetitions(task_id);
     `);
 
+    // Create Sync Queue table for offline operations
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS sync_queue (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        type TEXT NOT NULL CHECK(type IN ('create', 'update', 'delete')),
+        task_id TEXT,
+        data TEXT,
+        timestamp INTEGER NOT NULL,
+        retries INTEGER NOT NULL DEFAULT 0
+      );
+    `);
+
+    await db.execute(`
+      CREATE INDEX IF NOT EXISTS idx_sync_queue_task_id ON sync_queue(task_id);
+    `);
+
   } catch (error) {
     console.error('[DB] Error creating tables:', error);
     throw error;
@@ -117,8 +132,9 @@ export const dropAllTables = async (): Promise<void> => {
 
     await db.execute('DROP TABLE IF EXISTS task_repetitions;');
     await db.execute('DROP TABLE IF EXISTS task_categories;');
-    await db.execute('DROP TABLE IF EXISTS tasks;');
     await db.execute('DROP TABLE IF EXISTS categories;');
+    await db.execute('DROP TABLE IF EXISTS tasks;');
+    await db.execute('DROP TABLE IF EXISTS sync_queue;');
 
     // Reinitialize tables
     await initializeTables(db);
@@ -128,22 +144,22 @@ export const dropAllTables = async (): Promise<void> => {
   }
 };
 
-export const getDatabaseStats = async (): Promise<{
-  tasksCount: number;
-  categoriesCount: number;
-}> => {
-  try {
-    const db = await getDatabase();
+// export const getDatabaseStats = async (): Promise<{
+//   tasksCount: number;
+//   categoriesCount: number;
+// }> => {
+//   try {
+//     const db = await getDatabase();
 
-    const tasksResult = await db.execute('SELECT COUNT(*) as count FROM tasks;');
-    const categoriesResult = await db.execute('SELECT COUNT(*) as count FROM categories;');
+//     const tasksResult = await db.execute('SELECT COUNT(*) as count FROM tasks;');
+//     const categoriesResult = await db.execute('SELECT COUNT(*) as count FROM categories;');
 
-    return {
-      tasksCount: (tasksResult.rows[0]?.count as number) || 0,
-      categoriesCount: (categoriesResult.rows[0]?.count as number) || 0,
-    };
-  } catch (error) {
-    console.error('[DB] Error getting database stats:', error);
-    throw error;
-  }
-};
+//     return {
+//       tasksCount: (tasksResult.rows[0]?.count as number) || 0,
+//       categoriesCount: (categoriesResult.rows[0]?.count as number) || 0,
+//     };
+//   } catch (error) {
+//     console.error('[DB] Error getting database stats:', error);
+//     throw error;
+//   }
+// };

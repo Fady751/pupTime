@@ -13,7 +13,7 @@ import DateTimePicker, {
 } from "@react-native-community/datetimepicker";
 import { createStyles } from "./styles";
 import { Task, RepetitionFrequency, TaskRepetition } from "../../types/task";
-import { getCategories } from "../../services/interestService/getCategories";
+import { getCategories } from "../../services/TaskService/syncService";
 import { Category } from "../../types/category";
 import {
   PRIORITIES,
@@ -37,6 +37,7 @@ const WEEKDAY_SHORT: Record<string, string> = {
 type Props = {
   route?: any;
   navigation?: any;
+  onSave?: (task: Task) => void;
 };
 
 const EditTaskScreen: React.FC<Props> = ({ route, navigation }) => {
@@ -215,7 +216,7 @@ const EditTaskScreen: React.FC<Props> = ({ route, navigation }) => {
     }
 
     const task: Task = {
-      id: taskToEdit?.id || Date.now(),
+      id: taskToEdit?.id,
       user_id: taskToEdit?.user_id || 0,
       title,
       Categorys: selectedCategories.map(id => 
@@ -253,7 +254,10 @@ const EditTaskScreen: React.FC<Props> = ({ route, navigation }) => {
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.scrollContent}
+    >
       <Text style={styles.header}>Edit Task</Text>
 
       {/* Title */}
