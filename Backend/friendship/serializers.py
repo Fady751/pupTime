@@ -92,7 +92,7 @@ class BlockFriendshipSerializer(serializers.ModelSerializer):
         if instance.status == Status.BLOCKED:
             raise serializers.ValidationError("This user is already blocked.")
         
-        if request_user != instance.sender and request_user != instance.receiver:
+        if request_user != instance.sender:
             raise serializers.ValidationError("You can only block users you have a relationship with.")
         
         instance.status = Status.BLOCKED

@@ -2,8 +2,6 @@ from django.db import models
 from django.utils import timezone
 from user.models import User
 
-# Create your models here.
-
 class Status(models.IntegerChoices):
         PENDING  = 0 , "pending"
         ACCEPTED = 1 , "accepted"
@@ -26,4 +24,4 @@ class Friendship(models.Model):
 
     class Meta:
         unique_together = ('sender', 'receiver')
-        ordering = ['-sent_at']
+        ordering = ['sent_at']
