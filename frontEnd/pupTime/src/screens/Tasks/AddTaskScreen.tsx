@@ -61,6 +61,8 @@ const AddTaskScreen: React.FC<Props> = ({ route, navigation }) => {
   const [selectedWeekdays, setSelectedWeekdays] = useState<RepetitionFrequency[]>([]);
   const [weekdayTimes, setWeekdayTimes] = useState<Record<string, Date | null>>({});
   const [activeWeekdayTimePicker, setActiveWeekdayTimePicker] = useState<string | null>(null);
+  const [repetitionTime, setRepetitionTime] = useState<Date | null>(null);
+  const [showRepetitionTimePicker, setShowRepetitionTimePicker] = useState(false);
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -113,6 +115,15 @@ const AddTaskScreen: React.FC<Props> = ({ route, navigation }) => {
     }
   };
 
+  const handleRepetitionTimeChange = (
+    event: DateTimePickerEvent,
+    selectedTime?: Date
+  ) => {
+    setShowRepetitionTimePicker(false);
+    if (event.type === "dismissed") return;
+    if (selectedTime) setRepetitionTime(selectedTime);
+  };
+
   const toggleWeekdayAllDay = (day: string) => {
     setWeekdayTimes(prev => ({
       ...prev,
@@ -149,7 +160,7 @@ const AddTaskScreen: React.FC<Props> = ({ route, navigation }) => {
         : [
             {
               frequency: repetitionFrequency,
-              time: null, // non-weekly frequencies don't need specific time
+              time: repetitionTime, // user-selected time or null for all day
             },
           ]
       : [];
@@ -170,13 +181,13 @@ const AddTaskScreen: React.FC<Props> = ({ route, navigation }) => {
       Categorys: selectedCategories.map(id => 
         categories.find(c => c.id === id)!
       ).filter(Boolean),
+      completions: [],
       priority,
       startTime: startDateOnly,
       endTime: endDateOnly,
       repetition,
       reminderTime: reminder,
       emoji,
-      status: "pending",
     };
 
     if (onSave) onSave(task);
@@ -338,6 +349,9 @@ const AddTaskScreen: React.FC<Props> = ({ route, navigation }) => {
                 setSelectedWeekdays([]);
                 setWeekdayTimes({});
               }
+              if (option === "weekly") {
+                setRepetitionTime(null);
+              }
             }}
           >
             <Text style={styles.reminderText}>{option}</Text>
@@ -349,6 +363,7 @@ const AddTaskScreen: React.FC<Props> = ({ route, navigation }) => {
             setRepetitionFrequency(null);
             setSelectedWeekdays([]);
             setWeekdayTimes({});
+            setRepetitionTime(null);
           }}
         >
           <Text style={styles.reminderText}>None</Text>
@@ -429,6 +444,55 @@ const AddTaskScreen: React.FC<Props> = ({ route, navigation }) => {
           mode="time"
           display="default"
           onChange={handleWeekdayTimeChange}
+        />
+      )}
+
+      {/* Time picker for non-weekly repetitions */}
+      {repetitionFrequency && repetitionFrequency !== "weekly" && (
+        <View style={styles.weekdayTimeRow}>
+          <Text style={styles.weekdayTimeLabel}>Time</Text>
+          <TouchableOpacity
+            style={[
+              styles.weekdayTimeToggle,
+              !repetitionTime && styles.weekdayTimeToggleActive,
+            ]}
+            onPress={() => setRepetitionTime(null)}
+          >
+            <Text
+              style={[
+                styles.weekdayTimeToggleText,
+                !repetitionTime && styles.weekdayTimeToggleTextActive,
+              ]}
+            >
+              All Day
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.weekdayTimeToggle,
+              !!repetitionTime && styles.weekdayTimeToggleActive,
+            ]}
+            onPress={() => setShowRepetitionTimePicker(true)}
+          >
+            <Text
+              style={[
+                styles.weekdayTimeToggleText,
+                !!repetitionTime && styles.weekdayTimeToggleTextActive,
+              ]}
+            >
+              {repetitionTime
+                ? repetitionTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                : "Set Time"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+      {showRepetitionTimePicker && (
+        <DateTimePicker
+          value={repetitionTime || new Date()}
+          mode="time"
+          display="default"
+          onChange={handleRepetitionTimeChange}
         />
       )}
 

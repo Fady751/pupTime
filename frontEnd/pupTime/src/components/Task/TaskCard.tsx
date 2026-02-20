@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 import { View, Text, Pressable } from "react-native";
-import { Task, RepetitionFrequency } from "../../types/task";
+import { Task, RepetitionFrequency, isTaskCompletedForDate } from "../../types/task";
 import createTaskCardStyles, { PRIORITY_COLORS } from "./TaskCard.styles";
 import useTheme from "../../Hooks/useTheme";
 import { WEEKDAY_OPTIONS } from "../../constants/taskConstants";
@@ -159,6 +159,7 @@ export const TaskCardCompact: React.FC<TaskCardProps> = ({
   };
 
   const baseDate = getTaskBaseDate(task, day);
+  const isCompleted = isTaskCompletedForDate(task, day ?? task.startTime);
 
   return (
     <Pressable
@@ -182,10 +183,9 @@ export const TaskCardCompact: React.FC<TaskCardProps> = ({
         style={[
           styles.compactStatus,
           {
-            backgroundColor:
-              task.status === "completed"
-                ? PRIORITY_COLORS.high
-                : PRIORITY_COLORS.medium,
+            backgroundColor: isCompleted
+              ? PRIORITY_COLORS.high
+              : PRIORITY_COLORS.medium,
           },
         ]}
       />
@@ -270,33 +270,38 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onPress, compact, day }) => {
 
       {/* Status + Repetition */}
       <View style={styles.statusContainer}>
-        <View
-          style={[
-            styles.statusBadge,
-            task.status === "completed"
-              ? styles.statusCompleted
-              : styles.statusPending,
-          ]}
-        >
-          <View
-            style={[
-              styles.statusDot,
-              task.status === "completed"
-                ? styles.statusDotCompleted
-                : styles.statusDotPending,
-            ]}
-          />
-          <Text
-            style={[
-              styles.statusText,
-              task.status === "completed"
-                ? styles.statusTextCompleted
-                : styles.statusTextPending,
-            ]}
-          >
-            {task.status === "completed" ? "Completed" : "Pending"}
-          </Text>
-        </View>
+        {(() => {
+          const isCompleted = isTaskCompletedForDate(task, day ?? task.startTime);
+          return (
+            <View
+              style={[
+                styles.statusBadge,
+                isCompleted
+                  ? styles.statusCompleted
+                  : styles.statusPending,
+              ]}
+            >
+              <View
+                style={[
+                  styles.statusDot,
+                  isCompleted
+                    ? styles.statusDotCompleted
+                    : styles.statusDotPending,
+                ]}
+              />
+              <Text
+                style={[
+                  styles.statusText,
+                  isCompleted
+                    ? styles.statusTextCompleted
+                    : styles.statusTextPending,
+                ]}
+              >
+                {isCompleted ? "Completed" : "Pending"}
+              </Text>
+            </View>
+          );
+        })()}
 
         {task.repetition && task.repetition.length > 0 && (
           <View style={styles.repetitionContainer}>

@@ -1,5 +1,5 @@
 import api from '../api';
-import { Task, TaskRepetition, TaskCompletion } from '../../types/task';
+import { Task, TaskRepetition, TaskCompletion, toLocalDateString } from '../../types/task';
 import { getCategories } from '../interestService/getCategories';
 
 export const formatTime = (date: Date) => {
@@ -10,7 +10,6 @@ export const createTask = async (taskData: Task): Promise<Task> => {
   const formattedTaskData = {
     title: taskData.title,
     categories: taskData.Categorys.map(category => category.id),
-    status: taskData.status,
     reminder_time: taskData.reminderTime,
     start_time: taskData.startTime.toISOString(),
     end_time: taskData.endTime ? taskData.endTime.toISOString() : null,
@@ -34,7 +33,6 @@ export const createTask = async (taskData: Task): Promise<Task> => {
 export type getTasksRequest = {
   page?: number;
   page_size?: number;
-  status?: 'pending' | 'completed';
   priority?: 'low' | 'medium' | 'high' | 'none';
   category?: number;
   ordering?: 'start_time' | '-start_time' | 'priority' | '-priority' | 'end_time' | '-end_time';
@@ -63,7 +61,7 @@ export const getTasks = async (request: getTasksRequest): Promise<getTasksRespon
             user_id: task.user,
             title: task.title,
             Categorys: taskCategories,
-            status: task.status,
+            completions: [], // completions are fetched separately via historyTask
             reminderTime: task.reminder_time,
             startTime: new Date(task.start_time),
             endTime: task.end_time ? new Date(task.end_time) : null,
@@ -105,7 +103,6 @@ export const updateTask = async (id: string, taskData: Task): Promise<Task> => {
   const formattedTaskData = {
     title: taskData.title,
     categories: taskData.Categorys.map(category => category.id),
-    status: taskData.status,
     reminder_time: taskData.reminderTime,
     start_time: taskData.startTime.toISOString(),
     end_time: taskData.endTime ? taskData.endTime.toISOString() : null,
@@ -139,7 +136,6 @@ export const patchTask = async (id: string, taskData: Partial<Task>): Promise<Ta
     const formattedTaskData: any = {};
     if (taskData.title) formattedTaskData.title = taskData.title;
     if (taskData.Categorys) formattedTaskData.categories = taskData.Categorys.map(category => category.id);
-    if (taskData.status) formattedTaskData.status = taskData.status;
     if (taskData.reminderTime !== undefined) formattedTaskData.reminder_time = taskData.reminderTime;
     if (taskData.startTime) formattedTaskData.start_time = taskData.startTime.toISOString();
     if (taskData.endTime !== undefined) formattedTaskData.end_time = taskData.endTime ? taskData.endTime.toISOString() : null;
@@ -164,11 +160,12 @@ export const patchTask = async (id: string, taskData: Partial<Task>): Promise<Ta
 
 export const completeTask = async (id: string, completion_time: Date): Promise<TaskCompletion> => {
     try {
-        const response = await api.post(`/task/${id}/complete`, { completion_time: completion_time.toISOString() });
+        const response = await api.post(`/task/${id}/complete`, { completion_time: toLocalDateString(completion_time) });
         return {
           id: response.data.id.toString(),
           completion_time: new Date(response.data.completion_time),
           task_id: response.data.task.toString(),
+          date: new Date(response.data.date || toLocalDateString(completion_time)),
         };
     } catch (error: any) {
         console.error(error);
@@ -194,7 +191,7 @@ export const uncompleteTask = async (id: string, data: {id?: string, date?: Date
     try {
         const requestData: any = {};
         if (data.id) requestData.completion_id = data.id;
-        if (data.date) requestData.date = data.date.toISOString().substring(0, 10);
+        if (data.date) requestData.date = toLocalDateString(data.date);
         const response = await api.post(`/task/${id}/uncomplete`, requestData);
         return {
           message: response.data.message,

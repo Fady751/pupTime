@@ -1,5 +1,5 @@
 import { store } from '../../redux/store';
-import { Task } from '../../types/task';
+import { Task, TaskCompletion, toLocalDateString, canCompleteForDate } from '../../types/task';
 import uuid from 'react-native-uuid';
 
 // Backend API services
@@ -11,12 +11,13 @@ import {
   createTaskWithId,
   getTaskById as getLocalTaskById,
   getTasksByUserId as getLocalTasksByUserId,
-  getTasksByStatus as getLocalTasksByStatus,
   getTasksByDateRange as getLocalTasksByDateRange,
   searchTasksByTitle as searchLocalTasksByTitle,
   updateTask as updateLocalTask,
   deleteTask as deleteLocalTask,
   clearAllTaskData,
+  addTaskCompletion as addLocalCompletion,
+  removeTaskCompletionByDate as removeLocalCompletionByDate,
 } from '../../DB';
 
 // Sync queue operations
@@ -28,6 +29,8 @@ import {
   queueCreateTask,
   queueUpdateTask,
   queueDeleteTask,
+  queueCompleteTask,
+  queueUncompleteTask,
   deleteSyncItemsForTask,
 } from '../../DB/sync_queue';
 import { getData } from '../../utils/storage/auth';
@@ -176,6 +179,41 @@ const applyQueue = async (): Promise<void> => {
             await removeSyncItem(item.id);
             break;
           }
+
+          // ─── COMPLETE ─────────────────────────────
+          case 'complete': {
+            if (!resolvedTaskId) {
+              console.warn('[Sync] Complete item has no task_id – removing');
+              await removeSyncItem(item.id);
+              break;
+            }
+
+            if (!isLocalId(resolvedTaskId)) {
+              console.log(`[Sync] Applying completion for task ${resolvedTaskId} on date ${item.data.completion_time}`);
+              const completionTime = new Date(item.data.completion_time);
+              await TaskAPI.completeTask(resolvedTaskId, completionTime);
+            }
+
+            await removeSyncItem(item.id);
+            break;
+          }
+
+          // ─── UNCOMPLETE ───────────────────────────
+          case 'uncomplete': {
+            if (!resolvedTaskId) {
+              console.warn('[Sync] Uncomplete item has no task_id – removing');
+              await removeSyncItem(item.id);
+              break;
+            }
+
+            if (!isLocalId(resolvedTaskId)) {
+              const date = new Date(item.data.date);
+              await TaskAPI.uncompleteTask(resolvedTaskId, { date });
+            }
+
+            await removeSyncItem(item.id);
+            break;
+          }
         }
       } catch (error) {
         console.error(`[Sync] Error processing queue item ${item.id}:`, error);
@@ -224,6 +262,21 @@ const syncBackend = async (): Promise<void> => {
 
     for (const task of response.results) {
       await createTaskWithId(task.id, task);
+
+      // Fetch completions for this task from the backend
+      try {
+        const completions = await TaskAPI.historyTask(task.id);
+        for (const c of completions) {
+          await addLocalCompletion({
+            id: c.id,
+            task_id: task.id,
+            completion_time: c.completion_time,
+            date: c.date,
+          });
+        }
+      } catch (err) {
+        console.warn(`[Sync] Failed to fetch completions for task ${task.id}:`, err);
+      }
     }
 
     hasMore = response.next !== null;
@@ -283,13 +336,6 @@ const getTask = async (taskId: string): Promise<Task | null> => {
 
 const getTasks = async (userId: number): Promise<Task[]> => {
   return getLocalTasksByUserId(userId);
-};
-
-const getTasksByStatus = async (
-  userId: number,
-  status: 'pending' | 'completed',
-): Promise<Task[]> => {
-  return getLocalTasksByStatus(userId, status);
 };
 
 const getTasksByDateRange = async (
@@ -383,6 +429,87 @@ const deleteTask = async (taskId: string): Promise<void> => {
   }
 };
 
+// ── 8. Complete Task ─────────────────────────────────────
+/**
+ * Mark a task as completed for a specific date.
+ * Always write locally first for instant UI feedback.
+ * Online  → push to backend
+ * Offline → queue the complete
+ */
+const completeTask = async (taskId: string, date: Date): Promise<TaskCompletion> => {
+  if (!canCompleteForDate(date)) {
+    throw new Error('Cannot complete a task for a future date');
+  }
+
+  const localCompletionId = `local_completion_${uuid.v4()}`;
+  const dateStr = toLocalDateString(date);
+
+  const completion: TaskCompletion = {
+    id: localCompletionId,
+    task_id: taskId,
+    completion_time: date,
+    date: new Date(dateStr),
+  };
+
+  // Write locally first
+  await addLocalCompletion(completion);
+
+  if (isOnline() && !isLocalId(taskId)) {
+    try {
+      const backendCompletion = await TaskAPI.completeTask(taskId, date);
+      // Update local record with backend ID
+      await removeLocalCompletionByDate(taskId, date);
+      await addLocalCompletion({
+        id: backendCompletion.id,
+        task_id: taskId,
+        completion_time: backendCompletion.completion_time,
+        date: new Date(dateStr),
+      });
+      return {
+        ...completion,
+        id: backendCompletion.id,
+        completion_time: backendCompletion.completion_time,
+      };
+    } catch (error) {
+      console.error('[Sync] Online complete failed, queuing:', error);
+    }
+  }
+
+  // Offline or failed: queue
+  await queueCompleteTask(taskId, {
+    completion_time: date.toISOString(),
+    date: dateStr,
+  });
+
+  return completion;
+};
+
+// ── 9. Uncomplete Task ───────────────────────────────────
+/**
+ * Remove a completion for a task on a specific date.
+ * Always remove locally first for instant UI feedback.
+ * Online  → push to backend
+ * Offline → queue the uncomplete
+ */
+const uncompleteTask = async (taskId: string, date: Date): Promise<void> => {
+  const dateStr = toLocalDateString(date);
+
+  // Remove locally first
+  await removeLocalCompletionByDate(taskId, date);
+
+  if (isOnline() && !isLocalId(taskId)) {
+    try {
+      await TaskAPI.uncompleteTask(taskId, { date });
+      return;
+    } catch (error) {
+      console.error('[Sync] Online uncomplete failed, queuing:', error);
+    }
+  }
+
+  // Offline or failed: queue
+  await queueUncompleteTask(taskId, { date: dateStr });
+};
+
 export {
     // Sync operations
     applyQueue,
@@ -393,12 +520,14 @@ export {
     // Read operations are always from local DB for speed and offline access
     getTask,
     getTasks,
-    getTasksByStatus,
     getTasksByDateRange,
     searchTasksByTitle,
     getCategories,
     // Update
     updateTask,
     // Delete
-    deleteTask
+    deleteTask,
+    // Completion
+    completeTask,
+    uncompleteTask,
 };

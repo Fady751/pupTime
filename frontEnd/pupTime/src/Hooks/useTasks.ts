@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { Task, TaskRepetition } from '../types/task';
+import { Task, TaskRepetition, TaskCompletion, isTaskCompletedForDate } from '../types/task';
 import * as taskService from '../services/TaskService/syncService';
 import type { RootState, AppDispatch } from '../redux/store';
 import {
@@ -11,7 +11,7 @@ import {
   setTasks,
   upsertTask,
 } from '../redux/tasksSlice';
-import type { SerializedTask } from '../redux/tasksSlice';
+import type { SerializedTask, SerializedTaskCompletion } from '../redux/tasksSlice';
 
 export const useTasks = (userId: number | null) => {
   const dispatch = useDispatch<AppDispatch>();
@@ -28,6 +28,12 @@ export const useTasks = (userId: number | null) => {
         ...rep,
         time: rep.time ? rep.time.toString() : null,
       })),
+      completions: (task.completions || []).map((c) => ({
+        id: c.id,
+        task_id: c.task_id,
+        completion_time: c.completion_time.toISOString(),
+        date: c.date.toISOString(),
+      })),
     };
   };
 
@@ -40,6 +46,12 @@ export const useTasks = (userId: number | null) => {
         ...rep,
         time: rep.time ? new Date(rep.time) : null,
       })) as TaskRepetition[],
+      completions: (task.completions || []).map((c) => ({
+        id: c.id,
+        task_id: c.task_id,
+        completion_time: new Date(c.completion_time),
+        date: new Date(c.date),
+      })) as TaskCompletion[],
     };
   };
 
@@ -106,15 +118,25 @@ export const useTasks = (userId: number | null) => {
     }
   };
 
-  // const completeTask = async (taskId: number) => {
-  //   try {
-  //     await taskService.completeTask(taskId);
-  //     await loadTasks();
-  //   } catch (err) {
-  //     setError(err instanceof Error ? err.message : 'Failed to complete task');
-  //     throw err;
-  //   }
-  // };
+  const completeTask = async (taskId: string, date: Date) => {
+    try {
+      await taskService.completeTask(taskId, date);
+      await loadTasks();
+    } catch (err) {
+      dispatch(setError(err instanceof Error ? err.message : 'Failed to complete task'));
+      throw err;
+    }
+  };
+
+  const uncompleteTask = async (taskId: string, date: Date) => {
+    try {
+      await taskService.uncompleteTask(taskId, date);
+      await loadTasks();
+    } catch (err) {
+      dispatch(setError(err instanceof Error ? err.message : 'Failed to uncomplete task'));
+      throw err;
+    }
+  };
 
   return {
     tasks,
@@ -123,7 +145,9 @@ export const useTasks = (userId: number | null) => {
     createTask,
     updateTask,
     deleteTask,
-    // completeTask,
+    completeTask,
+    uncompleteTask,
+    isTaskCompletedForDate,
     refresh: loadTasks,
   };
 };

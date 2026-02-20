@@ -7,7 +7,6 @@ export {
   createTaskWithId,
   getTaskById,
   getTasksByUserId,
-  getTasksByStatus,
   updateTask,
   deleteTask,
   deleteTasksByUserId,
@@ -15,6 +14,11 @@ export {
   getAllCategories,
   searchTasksByTitle,
   getTasksByDateRange,
+  addTaskCompletion,
+  removeTaskCompletionById,
+  removeTaskCompletionByDate,
+  getTaskCompletions,
+  clearTaskCompletions,
 } from './taskRepository';
 
 // Sync queue
@@ -23,6 +27,8 @@ export {
   queueCreateTask,
   queueUpdateTask,
   queueDeleteTask,
+  queueCompleteTask,
+  queueUncompleteTask,
   getPendingSyncItems,
   removeSyncItem,
   clearSyncQueue,
