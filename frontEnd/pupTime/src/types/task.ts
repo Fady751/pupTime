@@ -33,3 +33,10 @@ export type Task = {
     repetition: TaskRepetition[];
     emoji: string;
 };
+
+export type TaskCompletion = {
+    id: string;
+    completion_time?: Date;
+    task_id?: string;
+    date?: Date;
+};

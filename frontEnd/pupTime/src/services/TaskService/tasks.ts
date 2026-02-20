@@ -1,5 +1,5 @@
 import api from '../api';
-import { Task, TaskRepetition } from '../../types/task';
+import { Task, TaskRepetition, TaskCompletion } from '../../types/task';
 import { getCategories } from '../interestService/getCategories';
 
 export const formatTime = (date: Date) => {
@@ -160,4 +160,56 @@ export const patchTask = async (id: string, taskData: Partial<Task>): Promise<Ta
         console.error(error);
     throw error;
   }
+};
+
+export const completeTask = async (id: string, completion_time: Date): Promise<TaskCompletion> => {
+    try {
+        const response = await api.post(`/task/${id}/complete`, { completion_time: completion_time.toISOString() });
+        return {
+          id: response.data.id.toString(),
+          completion_time: new Date(response.data.completion_time),
+          task_id: response.data.task.toString(),
+        };
+    } catch (error: any) {
+        console.error(error);
+    throw error;
+  };
+};
+
+export const historyTask = async (id: string): Promise<TaskCompletion[]> => {
+    try {
+        const response = await api.get(`/task/${id}/history`);
+        return response.data.map((item: any) => ({
+          id: item.id.toString(),
+          completion_time: new Date(item.completion_time),
+          date: new Date(item.date),
+        }));
+    } catch (error: any) {
+        console.error(error);
+    throw error;
+  };
+};
+
+export const uncompleteTask = async (id: string, data: {id?: string, date?: Date}): Promise<{ message: string, deleted_completion_time: Date }> => {
+    try {
+        const requestData: any = {};
+        if (data.id) requestData.completion_id = data.id;
+        if (data.date) requestData.date = data.date.toISOString().substring(0, 10);
+        const response = await api.post(`/task/${id}/uncomplete`, requestData);
+        return {
+          message: response.data.message,
+          deleted_completion_time: new Date(response.data.deleted_completion_time),
+        };
+    } catch (error: any) {
+        console.error(error);
+    throw error;
+  };
+};
+
+export const toggleTaskCompletion = async (id: string, completion_time: Date, completed: boolean): Promise<void> => {
+    if (completed) {
+        await completeTask(id, completion_time);
+    } else {
+        await uncompleteTask(id, { date: completion_time });
+    }
 };
