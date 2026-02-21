@@ -89,7 +89,6 @@ export const queueCompleteTask = async (
 	taskId: string,
 	payload: { completion_time: string; date: string },
 ): Promise<number> => {
-	console.log(`[Sync] Queueing completion for task ${taskId} with payload:`, payload);
 	return addToSyncQueue({ type: 'complete', taskId, data: payload });
 };
 

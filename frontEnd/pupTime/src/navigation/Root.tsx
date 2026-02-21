@@ -10,21 +10,23 @@ import OfflineBar from '../components/OfflineBar/offlineBar';
 import useNetworkListener from '../Hooks/RootHooks/NetworkBootstrap';
 import useAuthBootstrap from '../Hooks/RootHooks/AuthBootstrap';
 import useSyncQueue from '../Hooks/RootHooks/SyncBootstrap';
+import useFetchTasks from '../Hooks/RootHooks/FetchTasks';
 import { useEffect } from 'react';
 
 export default function Root() {
   const { data, loading } = useSelector((s: RootState) => s.user);
   const { isConnected, loading: networkLoading } = useSelector((s: RootState) => s.network);
-  
+
   useNetworkListener();
   useAuthBootstrap();
   useSyncQueue();
+  useFetchTasks();
 
   useEffect(() => {
     const test = async () => {
-      
+
     };
-    test();
+    test()
   }, []);
 
   if (loading || networkLoading) return <LoadingScreen />;

@@ -84,27 +84,32 @@ const reconstructTaskDates = (data: any): Task => {
  * locally-created task get the correct backend ID.
  */
 
+export type SyncQueueResult = {
+  success: boolean;
+  message: 'OK' | 'OFFLINE' | 'NO_TOKEN' | 'ALREADY_APPLYING' | 'ALREADY_APPLTED';
+};
+
 let isApplyingQueue = false;
-const applyQueue = async (): Promise<void> => {
+const applyQueue = async (): Promise<SyncQueueResult> => {
   if (isApplyingQueue) {
       console.warn('[Sync] Already applying queue – skipping');
-      return;
+      return { success: false, message: 'ALREADY_APPLYING' };
   }
   if (!isOnline()) {
     console.warn('[Sync] Offline – skipping queue apply');
-    return;
+    return { success: false, message: 'OFFLINE' };
   }
   
   const token = (await getData())?.token;
   if (!token) {
       console.warn('[Sync] No token – skipping queue apply');
-      return;
+      return { success: false, message: 'NO_TOKEN' };
   }
   isApplyingQueue = true;
 
   try {
     const items = await getPendingSyncItems();
-    if (items.length === 0) return;
+    if (items.length === 0) return { success: true, message: 'ALREADY_APPLTED' };
 
     // Track local ID → backend ID re-mappings produced by "create" items
     const idMap = new Map<string, string>();
@@ -230,6 +235,7 @@ const applyQueue = async (): Promise<void> => {
   } finally {
     isApplyingQueue = false;
   }
+  return { success: true, message: 'OK' };
 };
 
 // ── 2. Sync Backend (refresh) ────────────────────────────

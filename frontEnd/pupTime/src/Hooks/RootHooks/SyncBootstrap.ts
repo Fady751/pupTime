@@ -4,9 +4,17 @@ import BackgroundService from 'react-native-background-actions';
 import { RootState } from "../../redux/store";
 import { applyQueue } from "../../services/TaskService/syncService";
 import { Platform } from "react-native";
+import { useTasks } from "../useTasks";
 
 const useSyncQueue = () => {
   const { isConnected, loading } = useSelector((s: RootState) => s.network);
+  const id = useSelector((s: RootState) => s.user.data?.id);
+  const { refresh } = useTasks(id || null);
+
+  const SyncQueue = async () => {
+    const res = await applyQueue();
+    if(res.message === 'OK') refresh();
+  };
 
   useEffect(() => {
     if(Platform.OS === 'android') {
@@ -22,15 +30,16 @@ const useSyncQueue = () => {
       };
 
       if (isConnected && !loading) {
-        BackgroundService.start(applyQueue, options).catch(console.error);
+        BackgroundService.start(SyncQueue, options).catch(console.error);
       }
     } else {
-      applyQueue();
+      SyncQueue();
     }
 
     return () => {
       BackgroundService.stop();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConnected, loading]);
 };
 

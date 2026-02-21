@@ -23,7 +23,6 @@ export const createTask = async (task: Omit<Task, 'id'>): Promise<number> => {
           task.emoji,
         ]
       );
-      console.log('[DB] Task created with ID:', result.insertId);
 
       const taskId = result.insertId!;
 
@@ -267,7 +266,6 @@ export const deleteTasksByUserId = async (userId: number): Promise<void> => {
     );
     await db.execute('DELETE FROM tasks WHERE user_id = ?;', [userId]);
 
-    console.log(`[DB] Deleted all tasks (and related data) for user ${userId}`);
   } catch (error) {
     console.error('[DB] Error deleting tasks by user ID:', error);
     throw error;
@@ -318,15 +316,12 @@ export const createTaskWithId = async (taskId: string, task: Omit<Task, 'id'>): 
       // Insert categories
       if (task.Categorys && task.Categorys.length > 0) {
         for (const category of task.Categorys) {
-          console.log(`[DB] Ensuring category exists for task ${taskId}: ${category.name}`);
           const categoryId = await ensureCategoryExists(category.name, category.id);
 
-          console.log(`[DB] Linking task ${taskId} to category ${category.name} (ID: ${categoryId})`);
           await db.execute(
             'INSERT INTO task_categories (task_id, category_id) VALUES (?, ?);',
             [taskId, categoryId]
           );
-          console.log(`[DB] Linked task ${taskId} to category ${category.name} (ID: ${categoryId})`);
         }
       }
 
