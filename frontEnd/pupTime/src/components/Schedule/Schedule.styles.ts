@@ -333,6 +333,39 @@ export const createScheduleStyles = (colors: AppColors) =>
     fontSize: 24,
     color: "#D1D5DB",
   },
+
+  /* ── Task row with complete toggle ── */
+  taskRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 2,
+  },
+  taskRowCard: {
+    flex: 1,
+  },
+  completeToggle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.background,
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 8,
+  },
+  completeToggleDone: {
+    backgroundColor: "#22C55E",
+    borderColor: "#22C55E",
+  },
+  completeToggleDisabled: {
+    opacity: 0.35,
+  },
+  completeToggleText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: colors.text,
+  },
 });
 
 export const PRIORITY_COLORS = {

@@ -1,10 +1,18 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { Task, TaskRepetition } from '../types/task';
 
-export type SerializedTask = Omit<Task, 'startTime' | 'endTime' | 'repetition'> & {
+export type SerializedTaskCompletion = {
+  id: string;
+  task_id: string;
+  completion_time: string;
+  date: string;
+};
+
+export type SerializedTask = Omit<Task, 'startTime' | 'endTime' | 'repetition' | 'completions'> & {
   startTime: string;
   endTime: string | null;
   repetition: Array<Omit<TaskRepetition, 'time'> & { time: string | null }>;
+  completions: SerializedTaskCompletion[];
 };
 
 export type TasksState = {

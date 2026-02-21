@@ -13,7 +13,57 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
     fontSize: 28,
     color: colors.text,
     fontWeight: "bold",
-    marginBottom: 20,
+    marginBottom: 12,
+  },
+
+  /* ── Date filter ── */
+  dateFilterBtn: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+    alignSelf: "flex-start",
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+
+  dateFilterText: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: "600",
+  },
+
+  /* ── Status filter tabs ── */
+  filterTabs: {
+    flexDirection: "row",
+    marginBottom: 14,
+    gap: 8,
+  },
+
+  filterTab: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: colors.surface,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+
+  filterTabActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+
+  filterTabText: {
+    color: colors.secondaryText,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+
+  filterTabTextActive: {
+    color: colors.primaryText,
   },
 
   cardWrapper: {
@@ -50,6 +100,11 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
 
   completedBtn: {
     backgroundColor: "#22C55E",
+  },
+
+  disabledBtn: {
+    backgroundColor: '#9ca3af',
+    opacity: 0.5,
   },
 
   completeText: {

@@ -10,7 +10,7 @@ import {
   Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Task } from "../../types/task";
+import { Task, isTaskOnDate, isTaskCompletedForDate } from "../../types/task";
 import TaskCard from "../Task/TaskCard";
 import createScheduleStyles, { PRIORITY_COLORS } from "./Schedule.styles";
 import useTheme from "../../Hooks/useTheme";
@@ -43,6 +43,10 @@ const getTodayStart = () => {
 type ScheduleProps = {
   tasks: Task[];
   onTaskPress?: (task: Task) => void;
+  /** Called when user toggles a task's completion for a specific date */
+  onCompleteToggle?: (taskId: string, date: Date) => void;
+  /** Optional helper from parent to indicate a toggle is in progress for this task+date */
+  isToggling?: (taskId: string, date: Date) => boolean;
 };
 
 type DayInfo = {
@@ -69,75 +73,7 @@ const isSameDay = (d1: Date, d2: Date): boolean => {
   );
 };
 
-const toDateOnly = (d: Date): Date => {
-  const result = new Date(d);
-  result.setHours(0, 0, 0, 0);
-  return result;
-};
-
-const isDateInRange = (date: Date, start: Date, end: Date | null): boolean => {
-  const dateOnly = toDateOnly(date);
-  const startOnly = toDateOnly(start);
-  if (dateOnly < startOnly) return false;
-  if (end) {
-    const endOnly = toDateOnly(end);
-    if (dateOnly > endOnly) return false;
-  }
-  return true;
-};
-
-const isTaskOnDate = (task: Task, date: Date): boolean => {
-  const startDate = new Date(task.startTime);
-  const endDate = task.endTime ? new Date(task.endTime) : null;
-
-  if (!isDateInRange(date, startDate, endDate)) {
-    return false;
-  }
-
-  const hasRepetition = task.repetition && task.repetition.length > 0;
-  const hasOnce =
-    hasRepetition && task.repetition.some((r) => r.frequency === "once");
-
-  if (!hasRepetition || hasOnce) {
-    return isSameDay(startDate, date);
-  }
-
-  const dayOfWeek = date.getDay();
-  const dayNames = [
-    "sunday",
-    "monday",
-    "tuesday",
-    "wednesday",
-    "thursday",
-    "friday",
-    "saturday",
-  ];
-
-  for (const rep of task.repetition) {
-    const freq = rep.frequency;
-
-    if (freq === "daily") {
-      return true;
-    } else if (freq === "weekly") {
-      if (startDate.getDay() === dayOfWeek) return true;
-    } else if (freq === "monthly") {
-      if (startDate.getDate() === date.getDate()) return true;
-    } else if (freq === "yearly") {
-      if (
-        startDate.getDate() === date.getDate() &&
-        startDate.getMonth() === date.getMonth()
-      ) {
-        return true;
-      }
-    } else if (dayNames.includes(freq)) {
-      if (dayNames[dayOfWeek] === freq) return true;
-    }
-  }
-
-  return false;
-};
-
-const Schedule: React.FC<ScheduleProps> = ({ tasks, onTaskPress }) => {
+const Schedule: React.FC<ScheduleProps> = ({ tasks, onTaskPress, onCompleteToggle, isToggling }) => {
   const { colors } = useTheme();
   const styles = useMemo(() => createScheduleStyles(colors), [colors]);
   const today = useMemo(() => getTodayStart(), []);
@@ -266,7 +202,12 @@ const Schedule: React.FC<ScheduleProps> = ({ tasks, onTaskPress }) => {
 
   const selectedDayTasks = useMemo(() => {
     if (!selectedDate) return [];
-    return tasks.filter((t) => isTaskOnDate(t, selectedDate));
+    return tasks.filter((t) => {
+      if(isTaskOnDate(t, selectedDate)) {
+        console.log(`Task "${t.title}" is on selected date ${selectedDate.toDateString()}`);
+      }
+      return isTaskOnDate(t, selectedDate);
+  });
   }, [selectedDate, tasks]);
 
   const handleDayPress = (dayInfo: DayInfo) => {
@@ -444,15 +385,41 @@ const Schedule: React.FC<ScheduleProps> = ({ tasks, onTaskPress }) => {
           showsVerticalScrollIndicator={false}
         >
           {selectedDayTasks.length > 0 ? (
-            selectedDayTasks.map((task) => (
-              <TaskCard
-                day={selectedDate ?? task.startTime}
-                key={task.id}
-                task={task}
-                compact
-                onPress={handleTaskPress}
-              />
-            ))
+            selectedDayTasks.map((task) => {
+              const taskDate = selectedDate ?? task.startTime;
+              const completed = isTaskCompletedForDate(task, taskDate);
+              return (
+                <View key={task.id} style={styles.taskRow}>
+                  <View style={styles.taskRowCard}>
+                    <TaskCard
+                      day={taskDate}
+                      task={task}
+                      compact
+                      onPress={handleTaskPress}
+                    />
+                  </View>
+                  {onCompleteToggle && (() => {
+                    const isFuture = taskDate > new Date(new Date().setHours(23, 59, 59, 999));
+                    const toggling = isToggling ? isToggling(task.id, taskDate) : false;
+                    return (
+                      <Pressable
+                        style={[
+                          styles.completeToggle,
+                          completed && styles.completeToggleDone,
+                          !completed && isFuture && styles.completeToggleDisabled,
+                        ]}
+                        onPress={() => onCompleteToggle(task.id, taskDate)}
+                        disabled={(!completed && isFuture) || toggling}
+                      >
+                        <Text style={styles.completeToggleText}>
+                          {toggling ? "..." : completed ? "✓" : isFuture ? "🔒" : "○"}
+                        </Text>
+                      </Pressable>
+                    );
+                  })()}
+                </View>
+              );
+            })
           ) : (
             <View style={styles.emptyState}>
               <Text style={styles.emptyEmoji}>🌤️</Text>

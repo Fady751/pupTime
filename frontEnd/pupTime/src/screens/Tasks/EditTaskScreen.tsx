@@ -108,6 +108,14 @@ const EditTaskScreen: React.FC<Props> = ({ route, navigation }) => {
     return times;
   });
   const [activeWeekdayTimePicker, setActiveWeekdayTimePicker] = useState<string | null>(null);
+  const [repetitionTime, setRepetitionTime] = useState<Date | null>(() => {
+    // Initialize from existing non-weekly repetition time
+    if (!taskToEdit?.repetition?.length) return null;
+    const first = taskToEdit.repetition[0];
+    if (WEEKDAY_OPTIONS.includes(first.frequency)) return null; // weekly uses weekdayTimes
+    return first.time ? (first.time instanceof Date ? first.time : new Date(first.time)) : null;
+  });
+  const [showRepetitionTimePicker, setShowRepetitionTimePicker] = useState(false);
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -172,6 +180,15 @@ const EditTaskScreen: React.FC<Props> = ({ route, navigation }) => {
     }));
   };
 
+  const handleRepetitionTimeChange = (
+    event: DateTimePickerEvent,
+    selectedTime?: Date
+  ) => {
+    setShowRepetitionTimePicker(false);
+    if (event.type === "dismissed") return;
+    if (selectedTime) setRepetitionTime(selectedTime);
+  };
+
   const handleReminderSelect = (value: number) => {
     setReminder(prev => (prev === value ? null : value));
   };
@@ -201,7 +218,7 @@ const EditTaskScreen: React.FC<Props> = ({ route, navigation }) => {
         : [
             {
               frequency: repetitionFrequency,
-              time: null,
+              time: repetitionTime,
             },
           ]
       : [];
@@ -222,13 +239,13 @@ const EditTaskScreen: React.FC<Props> = ({ route, navigation }) => {
       Categorys: selectedCategories.map(id => 
         categories.find(c => c.id === id)!
       ).filter(Boolean),
+      completions: taskToEdit?.completions || [],
       priority,
       startTime: startDateOnly,
       endTime: endDateOnly,
       repetition,
       reminderTime: reminder,
       emoji,
-      status: taskToEdit?.status || "pending",
     };
 
     if (onSave) onSave(task);
@@ -376,7 +393,11 @@ const EditTaskScreen: React.FC<Props> = ({ route, navigation }) => {
             ]}
             onPress={() => {
               setRepetitionFrequency(option);
-              if (option !== "weekly") setSelectedWeekdays([]);
+              if (option !== "weekly") {
+                setSelectedWeekdays([]);
+              } else {
+                setRepetitionTime(null);
+              }
             }}
           >
             <Text style={styles.reminderText}>{option}</Text>
@@ -459,6 +480,56 @@ const EditTaskScreen: React.FC<Props> = ({ route, navigation }) => {
           )}
         </>
       )}
+
+      {/* Time picker for non-weekly repetitions */}
+      {repetitionFrequency && repetitionFrequency !== "weekly" && (
+        <View style={styles.weekdayTimeRow}>
+          <Text style={styles.weekdayTimeLabel}>Time</Text>
+          <TouchableOpacity
+            style={[
+              styles.weekdayTimeToggle,
+              !repetitionTime && styles.weekdayTimeToggleActive,
+            ]}
+            onPress={() => setRepetitionTime(null)}
+          >
+            <Text
+              style={[
+                styles.weekdayTimeToggleText,
+                !repetitionTime && styles.weekdayTimeToggleTextActive,
+              ]}
+            >
+              All Day
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.weekdayTimeToggle,
+              !!repetitionTime && styles.weekdayTimeToggleActive,
+            ]}
+            onPress={() => setShowRepetitionTimePicker(true)}
+          >
+            <Text
+              style={[
+                styles.weekdayTimeToggleText,
+                !!repetitionTime && styles.weekdayTimeToggleTextActive,
+              ]}
+            >
+              {repetitionTime
+                ? repetitionTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                : "Set Time"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+      {showRepetitionTimePicker && (
+        <DateTimePicker
+          value={repetitionTime || new Date()}
+          mode="time"
+          display="default"
+          onChange={handleRepetitionTimeChange}
+        />
+      )}
+
       <View style={styles.priorityContainer}>
         <TouchableOpacity
           style={[styles.priorityBtn, !repetitionFrequency && styles.prioritySelected]}
@@ -466,6 +537,7 @@ const EditTaskScreen: React.FC<Props> = ({ route, navigation }) => {
             setRepetitionFrequency(null);
             setSelectedWeekdays([]);
             setWeekdayTimes({});
+            setRepetitionTime(null);
           }}
         >
           <Text style={styles.priorityText}>None</Text>

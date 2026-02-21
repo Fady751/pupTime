@@ -13,13 +13,28 @@ import { RootState } from "../../redux/store";
 // import { useLogout } from "../../Hooks/useLogout";
 import { BottomBar } from "../../components/BottomBar/BottomBar";
 import useTheme from "../../Hooks/useTheme";
+import { useTasksForSpecificDay } from "../../Hooks/useTasksForSpecificDay";
+import { isTaskCompletedForDate } from "../../types/task";
 
-const schedule = [
-  { time: "8 AM", title: "Lecture", color: "#6C8CFF" },
-  { time: "9 AM", title: "Focus", color: "#FF7A59" },
-  { time: "10 AM", title: "Workout", color: "#00B894" },
-  { time: "11 AM", title: "Study", color: "#FDCB6E" },
-];
+const PRIORITY_COLORS: Record<string, string> = {
+  high: "#EF4444",
+  medium: "#F59E0B",
+  low: "#22C55E",
+  none: "#6C8CFF",
+};
+
+const formatTaskTime = (task: any): string => {
+  if (task.repetition && task.repetition.length > 0) {
+    const rep = task.repetition[0];
+    if (rep.time) {
+      const t = new Date(rep.time);
+      const h = t.getHours() % 12 || 12;
+      const ampm = t.getHours() >= 12 ? "PM" : "AM";
+      return `${h} ${ampm}`;
+    }
+  }
+  return "All day";
+};
 
 const ProfileSettingsScreen = ( { navigation }: { navigation: any }) => {
   // const logout = useLogout();
@@ -27,6 +42,8 @@ const ProfileSettingsScreen = ( { navigation }: { navigation: any }) => {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { data } = useSelector((state: RootState) => state.user);
   const { isConnected } = useSelector((state: RootState) => state.network);
+  const today = useMemo(() => new Date(), []);
+  const { tasks: dayTasks, pendingTasks, completedTasks } = useTasksForSpecificDay(data?.id ?? null, today);
 
   console.log("user data: ", data);
   const photo = data?.gender === 'female'? require("../../assets/avatar_Female.png"): require("../../assets/avatar_Male.png");
@@ -68,14 +85,14 @@ const ProfileSettingsScreen = ( { navigation }: { navigation: any }) => {
             <Text style={styles.statLabel}>Friends</Text>
           </View>
 
-          {/* <View style={styles.statCard}>
-            <Text style={styles.statNum}>12</Text>
-            <Text style={styles.statLabel}>Sessions</Text>
-          </View> */}
-
           <View style={styles.statCard}>
             <Text style={styles.statNum}>{data?.streak_cnt}🔥</Text>
             <Text style={styles.statLabel}>Streak</Text>
+          </View>
+
+          <View style={styles.statCard}>
+            <Text style={styles.statNum}>{pendingTasks.length}</Text>
+            <Text style={styles.statLabel}>Pending</Text>
           </View>
         </View>
 
@@ -83,15 +100,32 @@ const ProfileSettingsScreen = ( { navigation }: { navigation: any }) => {
         <Text style={styles.sectionTitle}>Today's Schedule</Text>
 
         <View style={styles.scheduleCard}>
-          {schedule.map((item, i) => (
-            <View key={i} style={styles.sessionRow}>
-              <Text style={styles.time}>{item.time}</Text>
-
-              <View style={[styles.sessionBlock, { backgroundColor: item.color }]}>
-                <Text style={styles.sessionText}>{item.title}</Text>
-              </View>
-            </View>
-          ))}
+          {dayTasks.length > 0 ? (
+            dayTasks.map((task) => {
+              const color = PRIORITY_COLORS[task.priority] || PRIORITY_COLORS.none;
+              const completed = isTaskCompletedForDate(task, today);
+              return (
+                <View key={task.id} style={styles.sessionRow}>
+                  <Text style={styles.time}>{formatTaskTime(task)}</Text>
+                  <View
+                    style={[
+                      styles.sessionBlock,
+                      { backgroundColor: color, opacity: completed ? 0.5 : 1 },
+                    ]}
+                  >
+                    <Text style={styles.sessionText}>
+                      {task.emoji ? `${task.emoji} ` : ""}{task.title}
+                      {completed ? " ✓" : ""}
+                    </Text>
+                  </View>
+                </View>
+              );
+            })
+          ) : (
+            <Text style={{ color: colors.secondaryText, textAlign: "center", paddingVertical: 12 }}>
+              No tasks for today 🌤️
+            </Text>
+          )}
         </View>
 
         

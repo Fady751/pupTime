@@ -28,7 +28,7 @@ class Command(BaseCommand):
 
         for item in friendships_data:
             try:
-                sender = User.objects.get(id=item['sender'] relaed_name='sender')
+                sender = User.objects.get(id=item['sender'])
                 receiver = User.objects.get(id=item['receiver'])
                 blocked_by = User.objects.get(id=item['user_id']) if item.get('blocked_by') else None
             except User.DoesNotExist:

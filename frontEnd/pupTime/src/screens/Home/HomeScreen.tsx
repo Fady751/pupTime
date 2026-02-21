@@ -10,10 +10,10 @@ import { useSelector } from "react-redux";
 import { useNavigation } from "@react-navigation/native";
 import type { RootState } from "../../redux/store";
 import useTheme from "../../Hooks/useTheme";
-import { useTasks } from "../../Hooks/useTasks";
+import { useTasksForSpecificDay } from "../../Hooks/useTasksForSpecificDay";
 import createHomeStyles from "./HomeScreen.styles";
 import { BottomBar } from "../../components/BottomBar/BottomBar";
-import { Task } from "../../types/task";
+import { Task, isTaskCompletedForDate } from "../../types/task";
 
 // Priority colors for task cards
 const PRIORITY_COLORS = {
@@ -114,7 +114,13 @@ const HomeScreen: React.FC = () => {
 
   const user = useSelector((state: RootState) => state.user.data);
   const userId = user?.id ?? null;
-  const { tasks: todayTasks, updateTask } = useTasks(userId);
+  const today = useMemo(() => new Date(), []);
+  const {
+    tasks: todayTasks,
+    pendingTasks,
+    completedTasks,
+    updateTask,
+  } = useTasksForSpecificDay(userId, today);
 
   // Pick a random quote (stable for session)
   const quote = useMemo(() => QUOTES[Math.floor(Math.random() * QUOTES.length)], []);
@@ -129,9 +135,8 @@ const HomeScreen: React.FC = () => {
     return user.username.slice(0, 2).toUpperCase();
   }, [user?.username]);
 
-  // Pending tasks count
-  const pendingCount = todayTasks.filter((t) => t.status !== "completed").length;
-  const completedCount = todayTasks.filter((t) => t.status === "completed").length;
+  const pendingCount = pendingTasks.length;
+  const completedCount = completedTasks.length;
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -218,7 +223,7 @@ const HomeScreen: React.FC = () => {
               const priorityColor =
                 PRIORITY_COLORS[task.priority as keyof typeof PRIORITY_COLORS] ||
                 PRIORITY_COLORS.none;
-              const isCompleted = task.status === "completed";
+              const isCompleted = isTaskCompletedForDate(task, today);
 
               return (
                 <Pressable

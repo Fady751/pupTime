@@ -1,6 +1,6 @@
 import { getDatabase } from './database';
 
-export type SyncQueueType = 'create' | 'update' | 'delete';
+export type SyncQueueType = 'create' | 'update' | 'delete' | 'complete' | 'uncomplete';
 
 export type SyncQueueItem = {
 	id: number;
@@ -83,6 +83,21 @@ export const queueUpdateTask = async (
 
 export const queueDeleteTask = async (taskId: string): Promise<number> => {
 	return addToSyncQueue({ type: 'delete', taskId });
+};
+
+export const queueCompleteTask = async (
+	taskId: string,
+	payload: { completion_time: string; date: string },
+): Promise<number> => {
+	console.log(`[Sync] Queueing completion for task ${taskId} with payload:`, payload);
+	return addToSyncQueue({ type: 'complete', taskId, data: payload });
+};
+
+export const queueUncompleteTask = async (
+	taskId: string,
+	payload: { date: string },
+): Promise<number> => {
+	return addToSyncQueue({ type: 'uncomplete', taskId, data: payload });
 };
 
 export const getPendingSyncItems = async (

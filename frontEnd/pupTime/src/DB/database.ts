@@ -38,7 +38,6 @@ const initializeTables = async (db: DB): Promise<void> => {
         id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
         user_id INTEGER NOT NULL,
         title TEXT NOT NULL,
-        status TEXT CHECK(status IN ('pending', 'completed')) DEFAULT 'pending',
         reminderTime INTEGER,
         startTime TEXT NOT NULL,
         endTime TEXT,
@@ -75,13 +74,20 @@ const initializeTables = async (db: DB): Promise<void> => {
       );
     `);
 
+    // Create TaskCompletions table (sparse: only dates actually completed)
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS task_completions (
+        id TEXT PRIMARY KEY,
+        task_id TEXT NOT NULL,
+        completion_time TEXT NOT NULL,
+        date TEXT NOT NULL,
+        FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+      );
+    `);
+
     // Create indexes for better query performance
     await db.execute(`
       CREATE INDEX IF NOT EXISTS idx_tasks_user_id ON tasks(user_id);
-    `);
-
-    await db.execute(`
-      CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
     `);
 
     await db.execute(`
@@ -92,11 +98,19 @@ const initializeTables = async (db: DB): Promise<void> => {
       CREATE INDEX IF NOT EXISTS idx_task_repetitions_task_id ON task_repetitions(task_id);
     `);
 
+    await db.execute(`
+      CREATE INDEX IF NOT EXISTS idx_task_completions_task_id ON task_completions(task_id);
+    `);
+
+    await db.execute(`
+      CREATE INDEX IF NOT EXISTS idx_task_completions_date ON task_completions(date);
+    `);
+
     // Create Sync Queue table for offline operations
     await db.execute(`
       CREATE TABLE IF NOT EXISTS sync_queue (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        type TEXT NOT NULL CHECK(type IN ('create', 'update', 'delete')),
+        type TEXT NOT NULL CHECK(type IN ('create', 'update', 'delete', 'complete', 'uncomplete')),
         task_id TEXT,
         data TEXT,
         timestamp INTEGER NOT NULL,
@@ -130,6 +144,7 @@ export const dropAllTables = async (): Promise<void> => {
   try {
     const db = await getDatabase();
 
+    await db.execute('DROP TABLE IF EXISTS task_completions;');
     await db.execute('DROP TABLE IF EXISTS task_repetitions;');
     await db.execute('DROP TABLE IF EXISTS task_categories;');
     await db.execute('DROP TABLE IF EXISTS categories;');

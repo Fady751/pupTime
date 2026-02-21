@@ -1,5 +1,5 @@
 import { getDatabase } from './database';
-import { Task, TaskRepetition } from '../types/task';
+import { Task, TaskRepetition, TaskCompletion, toLocalDateString } from '../types/task';
 import { Category } from '../types/category';
 
 export const createTask = async (task: Omit<Task, 'id'>): Promise<number> => {
@@ -11,12 +11,11 @@ export const createTask = async (task: Omit<Task, 'id'>): Promise<number> => {
     try {
       const result = await db.execute(
         `INSERT INTO tasks 
-        (user_id, title, status, reminderTime, startTime, endTime, priority, emoji) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
+        (user_id, title, reminderTime, startTime, endTime, priority, emoji) 
+        VALUES (?, ?, ?, ?, ?, ?, ?);`,
         [
           task.user_id,
           task.title,
-          task.status,
           task.reminderTime,
           task.startTime.toString(),
           task.endTime ? task.endTime.toString() : null,
@@ -93,12 +92,25 @@ export const getTaskById = async (taskId: string): Promise<Task | null> => {
       time: rep.time ? new Date(rep.time) : null,
     }));
 
+    // Fetch completions for this task
+    const completionsResult = await db.execute(
+      'SELECT id, task_id, completion_time, date FROM task_completions WHERE task_id = ? ORDER BY date ASC;',
+      [taskId]
+    );
+
+    const completions: TaskCompletion[] = (completionsResult.rows || []).map((row: any) => ({
+      id: row.id as string,
+      task_id: row.task_id as string,
+      completion_time: new Date(row.completion_time as string),
+      date: new Date(row.date as string),
+    }));
+
     const task = {
       id: taskRow.id,
       user_id: taskRow.user_id,
       title: taskRow.title,
       Categorys: categories,
-      status: taskRow.status,
+      completions,
       reminderTime: taskRow.reminderTime,
       startTime: new Date(taskRow.startTime as string),
       endTime: taskRow.endTime? new Date(taskRow.endTime as string) : null,
@@ -140,34 +152,7 @@ export const getTasksByUserId = async (userId: number): Promise<Task[]> => {
   }
 };
 
-export const getTasksByStatus = async (
-  userId: number,
-  status: 'pending' | 'completed'
-): Promise<Task[]> => {
-  try {
-    const db = await getDatabase();
 
-    const tasksResult = await db.execute(
-      'SELECT id FROM tasks WHERE user_id = ? AND status = ? ORDER BY startTime DESC;',
-      [userId, status]
-    );
-
-    const tasks: Task[] = [];
-    const taskIds = tasksResult.rows || [];
-
-    for (const row of taskIds) {
-      const task = await getTaskById(row.id as string);
-      if (task) {
-        tasks.push(task);
-      }
-    }
-
-    return tasks;
-  } catch (error) {
-    console.error('[DB] Error getting tasks by status:', error);
-    throw error;
-  }
-};
 
 export const updateTask = async (taskId: string, updates: Partial<Task>): Promise<void> => {
   try {
@@ -178,7 +163,6 @@ export const updateTask = async (taskId: string, updates: Partial<Task>): Promis
     try {
       if (
         updates.title !== undefined ||
-        updates.status !== undefined ||
         updates.reminderTime !== undefined ||
         updates.startTime !== undefined ||
         updates.endTime !== undefined ||
@@ -191,10 +175,6 @@ export const updateTask = async (taskId: string, updates: Partial<Task>): Promis
         if (updates.title !== undefined) {
           setClause.push('title = ?');
           values.push(updates.title);
-        }
-        if (updates.status !== undefined) {
-          setClause.push('status = ?');
-          values.push(updates.status);
         }
         if (updates.reminderTime !== undefined) {
           setClause.push('reminderTime = ?');
@@ -274,6 +254,10 @@ export const deleteTasksByUserId = async (userId: number): Promise<void> => {
     const db = await getDatabase();
 
     await db.execute(
+      'DELETE FROM task_completions WHERE task_id IN (SELECT id FROM tasks WHERE user_id = ?);',
+      [userId]
+    );
+    await db.execute(
       'DELETE FROM task_categories WHERE task_id IN (SELECT id FROM tasks WHERE user_id = ?);',
       [userId]
     );
@@ -294,6 +278,7 @@ export const clearAllTaskData = async (): Promise<void> => {
   try {
     const db = await getDatabase();
 
+    await db.execute('DELETE FROM task_completions;');
     await db.execute('DELETE FROM task_repetitions;');
     await db.execute('DELETE FROM task_categories;');
     await db.execute('DELETE FROM tasks;');
@@ -316,13 +301,12 @@ export const createTaskWithId = async (taskId: string, task: Omit<Task, 'id'>): 
       // Insert task with specific ID
       await db.execute(
         `INSERT INTO tasks 
-        (id, user_id, title, status, reminderTime, startTime, endTime, priority, emoji) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+        (id, user_id, title, reminderTime, startTime, endTime, priority, emoji) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
         [
           taskId,
           task.user_id,
           task.title,
-          task.status,
           task.reminderTime,
           task.startTime.toString(),
           task.endTime ? task.endTime.toString() : null,
@@ -457,6 +441,101 @@ export const getTasksByDateRange = async (
     return tasks;
   } catch (error) {
     console.error('[DB] Error getting tasks by date range:', error);
+    throw error;
+  }
+};
+
+// ── Task Completion CRUD ──────────────────────────────────
+
+/**
+ * Add a completion record for a task on a specific date.
+ * Uses a local ID (string) so it can be created offline and later mapped to a backend ID.
+ */
+export const addTaskCompletion = async (
+  completion: TaskCompletion,
+): Promise<void> => {
+  try {
+    const db = await getDatabase();
+    await db.execute(
+      `INSERT OR REPLACE INTO task_completions (id, task_id, completion_time, date)
+       VALUES (?, ?, ?, ?);`,
+      [
+        completion.id,
+        completion.task_id,
+        completion.completion_time.toISOString(),
+        toLocalDateString(completion.date),
+      ],
+    );
+  } catch (error) {
+    console.error('[DB] Error adding task completion:', error);
+    throw error;
+  }
+};
+
+/**
+ * Remove a completion record by its ID.
+ */
+export const removeTaskCompletionById = async (completionId: string): Promise<void> => {
+  try {
+    const db = await getDatabase();
+    await db.execute('DELETE FROM task_completions WHERE id = ?;', [completionId]);
+  } catch (error) {
+    console.error('[DB] Error removing task completion by ID:', error);
+    throw error;
+  }
+};
+
+/**
+ * Remove a completion record for a task on a specific date.
+ */
+export const removeTaskCompletionByDate = async (
+  taskId: string,
+  date: Date,
+): Promise<void> => {
+  try {
+    const db = await getDatabase();
+    const dateStr = toLocalDateString(date);
+    await db.execute(
+      'DELETE FROM task_completions WHERE task_id = ? AND date = ?;',
+      [taskId, dateStr],
+    );
+  } catch (error) {
+    console.error('[DB] Error removing task completion by date:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get all completions for a task.
+ */
+export const getTaskCompletions = async (taskId: string): Promise<TaskCompletion[]> => {
+  try {
+    const db = await getDatabase();
+    const result = await db.execute(
+      'SELECT id, task_id, completion_time, date FROM task_completions WHERE task_id = ? ORDER BY date ASC;',
+      [taskId],
+    );
+    return (result.rows || []).map((row: any) => ({
+      id: row.id as string,
+      task_id: row.task_id as string,
+      completion_time: new Date(row.completion_time as string),
+      date: new Date(row.date as string),
+    }));
+  } catch (error) {
+    console.error('[DB] Error getting task completions:', error);
+    throw error;
+  }
+};
+
+/**
+ * Remove all completions for a given task.
+ */
+export const clearTaskCompletions = async (taskId: string): Promise<void> => {
+  try {
+    const db = await getDatabase();
+    await db.execute('DELETE FROM task_completions WHERE task_id = ?;', [taskId]);
+  } catch (error) {
+    console.error('[DB] Error clearing task completions:', error);
     throw error;
   }
 };
