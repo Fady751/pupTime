@@ -4,6 +4,8 @@ import { AppDispatch } from '../redux/store';
 import { fetchUser } from '../redux/userSlice';
 import { syncBackend } from '../services/TaskService/syncService';
 import { dropAllTables } from '../DB';
+import BackgroundService from 'react-native-background-actions';
+import { Platform } from 'react-native';
 
 export type LoginData = {
     token: string;
@@ -17,7 +19,21 @@ export function useLogin() {
         await saveData({ token: data.token, id: data.id });
 
         await dropAllTables();
-        await syncBackend();
+        if(Platform.OS === 'android') {
+            const options = {
+                taskName: 'Get Tasks',
+                taskTitle: 'Getting tasks',
+                taskDesc: 'Retrieving tasks from backend',
+                taskIcon: {
+                name: 'ic_stat_sync',
+                type: 'drawable',
+                },
+                color: '#ff00ff',
+            };
+            BackgroundService.start(syncBackend, options).catch(console.error);
+        } else {
+            await syncBackend();
+        }
 
         await dispatch(fetchUser());
     };

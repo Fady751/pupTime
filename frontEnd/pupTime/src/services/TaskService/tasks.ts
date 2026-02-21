@@ -34,7 +34,6 @@ export type getTasksRequest = {
   page?: number;
   page_size?: number;
   priority?: 'low' | 'medium' | 'high' | 'none';
-  category?: number;
   ordering?: 'start_time' | '-start_time' | 'priority' | '-priority' | 'end_time' | '-end_time';
 };
 
@@ -61,7 +60,11 @@ export const getTasks = async (request: getTasksRequest): Promise<getTasksRespon
             user_id: task.user,
             title: task.title,
             Categorys: taskCategories,
-            completions: [], // completions are fetched separately via historyTask
+            completions: task.history.map((comp: any) => ({
+              id: comp.id.toString(),
+              completion_time: new Date(comp.completion_time),
+              date: new Date(comp.date),
+            })),
             reminderTime: task.reminder_time,
             startTime: new Date(task.start_time),
             endTime: task.end_time ? new Date(task.end_time) : null,
@@ -73,8 +76,6 @@ export const getTasks = async (request: getTasksRequest): Promise<getTasksRespon
             emoji: task.emoji,
         };
       });
-
-      console.log('Fetched tasks:', results);
 
       return {
         count: response.data.count,

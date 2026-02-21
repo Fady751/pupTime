@@ -7,11 +7,15 @@ import { dropAllTables } from '../DB';
 
 export function useLogout() {
     const dispatch = useDispatch<AppDispatch>();
-    
-    return async () => {
+
+    const clearAppData = async () => {
         await clearData();
         dispatch(clearUser());
         dispatch(clearTasks());
         await dropAllTables();
+    }
+    
+    return async () => {
+        await clearAppData();
     };
 }

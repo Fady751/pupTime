@@ -7,6 +7,7 @@ import useTheme from "../../../Hooks/useTheme";
 import createStyles from "./styles";
 import StepIndicator from "../StepIndicator";
 import { requestNotifications, RESULTS } from "react-native-permissions";
+import BatteryPermissionModal from "../../../components/BatteryPermissionModal/BatteryPermissionModal";
 
 const STEP_LABELS = ["Mic", "Notifications", "Interests"];
 
@@ -87,6 +88,7 @@ const NotificationPermission: React.FC<Props> = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
+      <BatteryPermissionModal />
       <StatusBar barStyle={theme === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
 
       <StepIndicator

@@ -265,15 +265,14 @@ const syncBackend = async (): Promise<void> => {
   let hasMore = true;
 
   while (hasMore) {
-    const response = await TaskAPI.getTasks({ page, page_size: 100 });
+    const response = await TaskAPI.getTasks({ page, page_size: 100, ordering: '-start_time' });
 
     for (const task of response.results) {
       await createTaskWithId(task.id, task);
 
       // Fetch completions for this task from the backend
       try {
-        const completions = await TaskAPI.historyTask(task.id);
-        for (const c of completions) {
+        for (const c of task.completions) {
           await addLocalCompletion({
             id: c.id,
             task_id: task.id,
