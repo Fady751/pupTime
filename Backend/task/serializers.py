@@ -72,3 +72,22 @@ class TaskSerializer(serializers.ModelSerializer):
                 TaskRepetition.objects.create(task=instance, **rep_data)
 
         return instance
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+
+        data['categories'] = [
+            {'id': cat.id, 'name': cat.name}
+            for cat in instance.categories.all()
+        ]
+
+        data['history'] = [
+            {
+                'id': h.id,
+                'completion_time': h.completion_time.isoformat(),
+                'date': h.completion_time.date().isoformat(),
+            }
+            for h in instance.history.order_by('-completion_time')
+        ]
+
+        return data
