@@ -1,30 +1,30 @@
-name: Deploy Backend to AWS
+# name: Deploy Backend to AWS
 
-on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'Backend/**' # Only triggers when files in the backend folder change
+# on:
+#   push:
+#     branches:
+#       - main
+#     paths:
+#       - 'Backend/**' # Only triggers when files in the backend folder change
 
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+# jobs:
+#   deploy:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v4
 
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            cd ~/pupTime/Backend
-            git pull origin main
-            source venv/bin/activate
-            pip install -r requirements.txt
-            python manage.py migrate
-            python manage.py collectstatic --noinput
-            sudo systemctl restart gunicorn
+#       - name: Deploy via SSH
+#         uses: appleboy/ssh-action@master
+#         with:
+#           host: ${{ secrets.EC2_HOST }}
+#           username: ${{ secrets.EC2_USER }}
+#           key: ${{ secrets.EC2_SSH_KEY }}
+#           script: |
+#             cd ~/pupTime/Backend
+#             git pull origin main
+#             source venv/bin/activate
+#             pip install -r requirements.txt
+#             python manage.py migrate
+#             python manage.py collectstatic --noinput
+#             sudo systemctl restart gunicorn
