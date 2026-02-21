@@ -28,6 +28,9 @@ applyTo: "**"
 - Treat `/docs` folder as architectural source of truth
 - If modifying models, APIs, or business rules:
   → Update relevant docs file
+- If architectural changes are introduced (new slice, new service, change in data flow):
+  → Update `06_frontend_architecture.md` accordingly
+  → Keep updates concise and structural only
 - Do not change architecture unless explicitly requested
 
 ## When Unsure

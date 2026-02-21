@@ -1,133 +1,199 @@
 # Frontend Architecture
 
-> Concise architectural reference for the PupTime React Native client.  
-> For schema details, API mappings, hook contracts, and component inventory see [06a_frontend_implementation.md](06a_frontend_implementation.md).
+Concise architectural reference for the PupTime React Native client.
+
+This document describes:
+- Architectural boundaries
+- Data flow
+- Offline sync engine
+- State management strategy
+- Navigation structure
+
+Implementation details live in:
+→ 06a_frontend_implementation.md
 
 ---
 
-## 1. Core Decisions
+## 1. Core Principles
 
-| Decision | Rationale |
-|----------|-----------|
-| **Offline-first** | Writes go to SQLite immediately; backend is a sync target, not a gatekeeper |
-| **SQLite = local source of truth** | Persists across sessions; Redux is a view cache only |
-| **Single sync orchestrator** | All data access routes through `syncService`; screens never touch DB or API |
-| **Keychain for secrets** | Encrypted storage (not AsyncStorage) for tokens and user data |
+1. Offline-first architecture  
+2. SQLite = single local source of truth  
+3. Redux = view cache only  
+4. All writes go through syncService  
+5. UI layer contains no business logic  
+6. Backend is final authority for validation  
 
-**Stack:** React Native 0.83 · TypeScript · Redux Toolkit · op-sqlite · Axios · React Navigation
+Stack:
+React Native 0.83 · TypeScript · Redux Toolkit · op-sqlite · Axios · React Navigation · Keychain
 
 ---
 
 ## 2. Layered Architecture
 
-```
-┌────────────────────────────────────────────────┐
-│  UI Layer — Screens · Components · Navigation  │
-└─────────────────────┬──────────────────────────┘
-                      │ hooks
-┌─────────────────────▼──────────────────────────┐
-│  Hook Layer — useTasks · useLogin · useTheme   │
-└─────────────────────┬──────────────────────────┘
-                      │ syncService
-┌─────────────────────▼──────────────────────────┐
-│  Service Layer                                 │
-│  syncService ─┬─ taskRepository (SQLite CRUD)  │
-│               └─ REST API clients (Axios)      │
-└─────────────────────┬──────────────────────────┘
-                      │
-┌─────────────────────▼──────────────────────────┐
-│  Persistence — SQLite DB · sync_queue · Keychain│
-└────────────────────────────────────────────────┘
-```
+UI Layer  
+→ Screens · Components · Navigation  
 
-**Data flows down.** Screens call hooks. Hooks call `syncService`. `syncService` writes to SQLite first, then optionally to the backend. Nothing bypasses this chain.
+Hook Layer  
+→ useTasks · useAuth · useNetwork  
+
+Service Layer  
+→ syncService  
+   ├─ taskRepository (SQLite CRUD)  
+   └─ API clients (Axios)  
+
+Persistence Layer  
+→ SQLite DB  
+→ sync_queue table  
+→ Keychain (secure auth storage)
+
+Rule:
+Screens → Hooks → syncService → SQLite first → API second  
+Nothing bypasses this chain.
 
 ---
 
-## 3. Boot & Auth
+## 3. App Boot Flow
 
-```
-index.js → App.tsx → Root.tsx
-  1. NetInfo listener → networkSlice (real connectivity check via ping)
-  2. Online?  → fetchUser() from backend, cache to Keychain
-     Offline? → load User from Keychain into Redux
-  3. applyQueue() → flush pending sync items on reconnect
-  4. Render: loading → LoadingScreen | user → AppNavigator | else → AuthNavigator
-```
+index.js  
+→ App.tsx  
+→ Root.tsx  
 
-| Event | Flow |
-|-------|------|
-| **Login** | Keychain save → drop local DB → `fullSyncTasks()` → `fetchUser()` |
-| **Logout** | Keychain clear → Redux clear → drop local DB |
-| **Reconnect** | `applyQueue()` drains offline operations to backend |
+Startup sequence:
+
+1. Check real connectivity (NetInfo + ping)
+2. If online:
+   - fetchUser() from backend
+   - cache to Keychain
+3. If offline:
+   - load user from Keychain
+4. applyQueue() to flush pending operations
+5. Render navigator based on auth state
 
 ---
 
-## 4. Offline Sync Engine
+## 4. Authentication Lifecycle
 
-### Write Path
+Login:
+- Save token to Keychain
+- Drop local SQLite
+- fullSyncTasks()
+- fetchUser()
 
-```
-User mutation → SQLite (instant)
-                 ├─ Online → API call
-                 │            ├─ OK  → done
-                 │            └─ Fail → enqueue
-                 └─ Offline → enqueue in sync_queue
-```
+Logout:
+- Clear Keychain
+- Clear Redux
+- Drop SQLite
 
-### Sync Queue
+Reconnect:
+- applyQueue() drains sync_queue
 
-SQLite table (`sync_queue`) storing pending operations as FIFO entries:
-- Types: `create | update | delete | complete | uncomplete`
-- Each entry has `task_id`, JSON `data`, `timestamp`, `retries` (max 5)
-- Drained by `applyQueue()` on reconnect, ordered by timestamp
+---
+
+## 5. Offline Sync Engine
+
+### Write Flow
+
+User action
+→ Write to SQLite immediately
+→ If online → attempt API call
+→ If fail or offline → enqueue operation
+
+### sync_queue Table
+
+Fields:
+- id
+- type (create | update | delete | complete | uncomplete)
+- task_id
+- payload (JSON)
+- retries (max 5)
+- timestamp
+
+Processed FIFO on reconnect.
 
 ### Local ID Strategy
 
-Offline-created tasks get `local_<uuid>` IDs. On drain, `create` items return a backend ID. An in-memory `idMap` remaps all subsequent queue items for the same task. The local SQLite row is replaced with the backend ID.
+Offline-created tasks:
+- id = local_<uuid>
 
-### Full Sync
-
-`fullSyncTasks()` (on login): drain queue → wipe local data → re-fetch all tasks + completions from backend → rebuild SQLite.
-
----
-
-## 5. State Management
-
-```
-Redux Store
-├── user     { data: User | null, loading, error }
-├── network  { isConnected, loading, error }
-└── tasks    { items: SerializedTask[], loading, error }
-```
-
-- `userSlice`: async `fetchUser` thunk (Keychain → API → cache back)
-- `networkSlice`: async `checkInternetConnectivity` thunk (pings 8.8.8.8)
-- `tasksSlice`: synchronous reducers only; populated by `useTasks` hook from SQLite
-
-**Serialization boundary:** `Task` has `Date` objects → serialized to ISO strings for Redux → deserialized back in hooks.
+On successful backend create:
+- Receive backend id
+- Replace local row
+- Remap queued operations via in-memory idMap
 
 ---
 
-## 6. Navigation
+## 6. Full Sync Strategy
 
-| Stack | Routes |
-|-------|--------|
-| **Auth** | `SignUp`, `Login` |
-| **App** | `Home`, `Tasks`, `AddTask`, `EditTask`, `Schedule`, `Timer`, `Friends`, `AddFriend`, `BlockedFriends`, `Profile`, `EditProfile`, `Settings`, `Intro` |
+Triggered on login:
 
-Swapped in `Root.tsx` based on `user` state. Floating `AiButton` overlays all App screens.
+1. Drain queue
+2. Wipe local DB
+3. Fetch all tasks + completions
+4. Rebuild SQLite
+
+Guarantees consistency after re-authentication.
 
 ---
 
-## 7. Constraints
+## 7. State Management
 
-| Rule | Why |
-|------|-----|
-| No business logic in UI | Lives in `types/task.ts` and `syncService.ts` |
-| All validation also in backend | Frontend validation is UX-only |
-| SQLite is local source of truth | Redux is ephemeral; SQLite persists |
-| Screens never call API or DB | Always through `syncService` via hooks |
-| `local_` prefix for offline IDs | Distinguishes unsynced from backend tasks |
-| Keychain only, no AsyncStorage | Tokens must be encrypted at rest |
-| Dates as local `YYYY-MM-DD` | Avoids UTC timezone shift in completions |
+Redux Store:
+
+userSlice  
+networkSlice  
+tasksSlice  
+
+Rules:
+
+- Redux stores serialized data only
+- SQLite persists actual state
+- Tasks are loaded from SQLite via hooks
+- No async logic inside reducers
+
+Serialization boundary:
+Date objects → ISO strings → deserialized in hooks
+
+---
+
+## 8. Navigation
+
+AuthStack:
+- Login
+- SignUp
+
+AppStack:
+- Home
+- Tasks
+- AddTask
+- EditTask
+- Schedule
+- Timer
+- Friends
+- Profile
+- Settings
+
+Navigator is swapped in Root.tsx based on user state.
+
+---
+
+## 9. Architectural Constraints
+
+1. Screens never call API directly
+2. Screens never access SQLite directly
+3. All data mutations go through syncService
+4. SQLite is the local source of truth
+5. Backend validates everything
+6. Keychain only for secrets (no AsyncStorage)
+7. Dates stored as local YYYY-MM-DD (avoid UTC shift)
+
+---
+
+## 10. AI Layer (Future Scope)
+
+Frontend responsibility:
+User input → send to backend → render response
+
+Frontend does NOT:
+- Parse raw AI JSON
+- Make scheduling decisions
+- Modify tasks without backend confirmation
