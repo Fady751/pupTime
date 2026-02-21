@@ -2,7 +2,7 @@ import { saveData } from '../utils/storage/auth';
 import { useDispatch } from 'react-redux';
 import { AppDispatch } from '../redux/store';
 import { fetchUser } from '../redux/userSlice';
-import { fullSyncTasks } from '../services/TaskService/syncService';
+import { syncBackend } from '../services/TaskService/syncService';
 import { dropAllTables } from '../DB';
 
 export type LoginData = {
@@ -17,7 +17,7 @@ export function useLogin() {
         await saveData({ token: data.token, id: data.id });
 
         await dropAllTables();
-        await fullSyncTasks();
+        await syncBackend();
 
         await dispatch(fetchUser());
     };

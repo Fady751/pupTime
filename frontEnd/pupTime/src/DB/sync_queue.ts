@@ -162,3 +162,12 @@ export const deleteSyncItemsForTask = async (taskId: string): Promise<void> => {
 	}
 };
 
+export const updateIDInSyncQueue = async (taskId: string, newTaskId: string): Promise<void> => {
+	try {
+		const db = await getDatabase();
+		await db.execute('UPDATE sync_queue SET task_id = ? WHERE task_id = ?;', [newTaskId, taskId]);
+	} catch (error) {
+		console.error('[DB] Error updating ID in sync_queue:', error);
+		throw error;
+	}
+};

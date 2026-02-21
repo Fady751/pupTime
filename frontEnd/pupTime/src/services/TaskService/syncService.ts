@@ -4,7 +4,6 @@ import uuid from 'react-native-uuid';
 
 // Backend API services
 import * as TaskAPI from './tasks';
-import { getCategories as getCategoriesAPI } from '../interestService/getCategories';
 
 // Local DB operations
 import {
@@ -32,6 +31,7 @@ import {
   queueCompleteTask,
   queueUncompleteTask,
   deleteSyncItemsForTask,
+  updateIDInSyncQueue,
 } from '../../DB/sync_queue';
 import { getData } from '../../utils/storage/auth';
 import { ensureCategoryExists, getAllCategories } from '../../DB/taskRepository';
@@ -122,6 +122,12 @@ const applyQueue = async (): Promise<void> => {
           ? idMap.get(item.task_id) ?? item.task_id
           : null;
 
+        if(isLocalId(resolvedTaskId!) && item.type !== 'create') {
+          console.warn(`[Sync] Item ${item.id} references local-only task ${resolvedTaskId} – skipping`);
+          await removeSyncItem(item.id);
+          continue;
+        }
+
         switch (item.type) {
           // ─── CREATE ───────────────────────────────
           case 'create': {
@@ -138,6 +144,7 @@ const applyQueue = async (): Promise<void> => {
             // Replace local row with the real backend ID
             await deleteLocalTask(localId);
             await createTaskWithId(backendId, taskData);
+            await updateIDInSyncQueue(localId, backendId);
 
             await removeSyncItem(item.id);
             break;
@@ -354,16 +361,16 @@ const searchTasksByTitle = async (
 };
 
 const getCategories = async (): Promise<Category[]> => {
-    if(!isOnline()) {
-        return await getAllCategories();
-    }
-    try {
-        const categories = getCategoriesAPI();
-        return categories;
-    } catch (error) {
-        console.error('[Sync] Failed to fetch categories:', error);
-        throw error;
-    }
+    return await getAllCategories();
+    // if(!isOnline()) {
+    //     return await getAllCategories();
+    // }
+    // try {
+    //     return getCategoriesAPI();
+    // } catch (error) {
+    //     console.error('[Sync] Failed to fetch categories:', error);
+    //     throw error;
+    // }
 };
 
 

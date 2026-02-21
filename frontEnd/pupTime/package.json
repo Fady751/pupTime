@@ -23,6 +23,7 @@
     "patch-package": "^8.0.1",
     "react": "19.2.0",
     "react-native": "0.83.1",
+    "react-native-background-actions": "^4.0.1",
     "react-native-config": "^1.6.1",
     "react-native-dotenv": "^3.4.11",
     "react-native-fs": "^2.20.0",

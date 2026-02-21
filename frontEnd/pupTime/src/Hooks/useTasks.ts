@@ -11,7 +11,7 @@ import {
   setTasks,
   upsertTask,
 } from '../redux/tasksSlice';
-import type { SerializedTask, SerializedTaskCompletion } from '../redux/tasksSlice';
+import type { SerializedTask } from '../redux/tasksSlice';
 
 export const useTasks = (userId: number | null) => {
   const dispatch = useDispatch<AppDispatch>();
