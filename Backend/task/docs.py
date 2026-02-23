@@ -30,12 +30,62 @@ TASK_FILTER_PARAMS = [
                     'Allowed: start_datetime, -start_datetime, priority, -priority',
         type=openapi.TYPE_STRING,
     ),
+    openapi.Parameter(
+        'updated_after', openapi.IN_QUERY,
+        description=(
+            'Delta-sync filter (ISO format, e.g. 2026-02-23T13:36:15.637244Z). '
+            'Returns task templates whose own updated_at OR any of their overrides\' '
+            'updated_at is >= this value. '
+            'The overrides array inside each template is also filtered to only '
+            'include overrides updated_at >= this value.'
+        ),
+        type=openapi.TYPE_STRING, format='date-time',
+    ),
 ]
+
+# Response schema for a RESCHEDULED override action
+_RESCHEDULED_RESPONSE = openapi.Schema(
+    type=openapi.TYPE_OBJECT,
+    properties={
+        'rescheduled': openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            description='The original override, now marked as RESCHEDULED',
+            properties={
+                'id': openapi.Schema(type=openapi.TYPE_STRING, format='uuid'),
+                'instance_datetime': openapi.Schema(type=openapi.TYPE_STRING, format='date-time'),
+                'status': openapi.Schema(type=openapi.TYPE_STRING, example='RESCHEDULED'),
+                'new_datetime': openapi.Schema(type=openapi.TYPE_STRING, format='date-time'),
+                'created_at': openapi.Schema(type=openapi.TYPE_STRING, format='date-time'),
+                'updated_at': openapi.Schema(type=openapi.TYPE_STRING, format='date-time'),
+            },
+        ),
+        'new_instance': openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            description='The newly created PENDING override at new_datetime',
+            properties={
+                'id': openapi.Schema(type=openapi.TYPE_STRING, format='uuid'),
+                'instance_datetime': openapi.Schema(type=openapi.TYPE_STRING, format='date-time'),
+                'status': openapi.Schema(type=openapi.TYPE_STRING, example='PENDING'),
+                'new_datetime': openapi.Schema(type=openapi.TYPE_STRING, format='date-time', x_nullable=True),
+                'created_at': openapi.Schema(type=openapi.TYPE_STRING, format='date-time'),
+                'updated_at': openapi.Schema(type=openapi.TYPE_STRING, format='date-time'),
+            },
+        ),
+    },
+)
 
 override_schema = swagger_auto_schema(
     operation_summary='Update an override status',
+    operation_description=(
+        'Update the status of a single TaskOverride.\n\n'
+        '- **COMPLETED / SKIPPED / FAILED / PENDING**: returns the updated override object.\n'
+        '- **RESCHEDULED**: requires `new_datetime`. Marks the original override as RESCHEDULED '
+        'and creates a new PENDING override at `new_datetime`. '
+        'Returns `{ rescheduled: <original>, new_instance: <new> }`.'
+    ),
     request_body=openapi.Schema(
         type=openapi.TYPE_OBJECT,
+        required=['status'],
         properties={
             'status': openapi.Schema(
                 type=openapi.TYPE_STRING,
@@ -47,7 +97,12 @@ override_schema = swagger_auto_schema(
             ),
         },
     ),
-    responses={200: TaskOverrideSerializer},
+    responses={
+        200: openapi.Response(
+            description='Override updated. Shape differs when status=RESCHEDULED (see description).',
+            schema=TaskOverrideSerializer,
+        ),
+    },
 )
 
 list_schema = swagger_auto_schema(
@@ -75,7 +130,7 @@ update_schema = swagger_auto_schema(
 
 partial_update_schema = swagger_auto_schema(
     operation_summary='Partial update a task',
-    request_body=TaskSerializer,
+    request_body=TaskSerializer(partial=True),
     responses={200: TaskSerializer},
 )
 

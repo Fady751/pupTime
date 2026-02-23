@@ -73,6 +73,9 @@ class TaskViewSet(ModelViewSet):
         ctx['end_date'] = _parse_iso(
             self.request.query_params.get('end_date')
         )
+        ctx['updated_after'] = _parse_iso(
+            self.request.query_params.get('updated_after')
+        )
         return ctx
 
     def get_queryset(self):
@@ -97,6 +100,16 @@ class TaskViewSet(ModelViewSet):
                 | Q(
                     overrides__instance_datetime__gte=start_dt,
                     overrides__instance_datetime__lte=end_dt,
+                    overrides__is_deleted=False,
+                )
+            ).distinct()
+
+        updated_after = _parse_iso(self.request.query_params.get('updated_after'))
+        if updated_after:
+            qs = qs.filter(
+                Q(updated_at__gte=updated_after)
+                | Q(
+                    overrides__updated_at__gte=updated_after,
                     overrides__is_deleted=False,
                 )
             ).distinct()
@@ -171,6 +184,20 @@ class TaskViewSet(ModelViewSet):
 
         task_override.status = new_status
         task_override.save()
+
+        if new_status == TaskOverride.STATUS_RESCHEDULED:
+            new_override, _ = TaskOverride.objects.get_or_create(
+                task=task,
+                instance_datetime=parsed,
+                defaults={'status': TaskOverride.STATUS_PENDING},
+            )
+            return Response(
+                {
+                    'rescheduled': TaskOverrideSerializer(task_override).data,
+                    'new_instance': TaskOverrideSerializer(new_override).data,
+                },
+                status=status.HTTP_200_OK,
+            )
 
         return Response(
             TaskOverrideSerializer(task_override).data,

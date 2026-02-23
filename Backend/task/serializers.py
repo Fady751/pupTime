@@ -67,6 +67,10 @@ class TaskSerializer(serializers.ModelSerializer):
                 instance_datetime__lte=end_date,
             )
 
+        updated_after = self.context.get('updated_after')
+        if updated_after:
+            qs = qs.filter(updated_at__gte=updated_after)
+
         return TaskOverrideSerializer(
             qs.order_by('instance_datetime'), many=True,
         ).data
