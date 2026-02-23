@@ -3,7 +3,8 @@ import json
 from datetime import datetime, timezone
 
 from django.core.management.base import BaseCommand
-from task.models import Task, TaskRepetition, TaskHistory
+from task.models import TaskTemplate, TaskOverride
+from task.utils import generate_overrides_for_task
 from user.models import User, InterestCategory
 
 
@@ -23,11 +24,10 @@ class Command(BaseCommand):
 
         tasks_created = 0
         tasks_skipped = 0
-        repetitions_created = 0
-        history_created = 0
+        overrides_created = 0
+        completions_marked = 0
 
         for item in data:
-            # Find the user
             try:
                 user = User.objects.get(username=item['username'])
             except User.DoesNotExist:
@@ -36,23 +36,25 @@ class Command(BaseCommand):
                 continue
 
             # Skip if task already exists for this user
-            if Task.objects.filter(user=user, title=item['title']).exists():
+            if TaskTemplate.objects.filter(user=user, title=item['title']).exists():
                 self.stdout.write(self.style.WARNING(f"Task '{item['title']}' already exists for user '{user.username}', skipping"))
                 tasks_skipped += 1
                 continue
 
             # Create the task
-            task = Task.objects.create(
+            task = TaskTemplate.objects.create(
                 user=user,
                 title=item['title'],
-                start_time=datetime.fromisoformat(item['start_time']),
-                end_time=datetime.fromisoformat(item['end_time']) if item.get('end_time') else None,
-                reminder_time=item.get('reminder_time'),
-                priority=item.get('priority', Task.PRIORITY_NONE),
+                start_datetime=datetime.fromisoformat(item['start_datetime'].replace('Z', '+00:00')),
+                reminder_time=datetime.fromisoformat(item['reminder_time'].replace('Z', '+00:00')) if item.get('reminder_time') else None,
+                duration_minutes=item.get('duration_minutes'),
+                is_recurring=item.get('is_recurring', False),
+                rrule=item.get('rrule'),
+                timezone=item.get('timezone', 'UTC'),
+                priority=item.get('priority', TaskTemplate.PRIORITY_NONE),
                 emoji=item.get('emoji', ''),
             )
 
-            # Add categories
             for cat_name in item.get('categories', []):
                 try:
                     category = InterestCategory.objects.get(name=cat_name)
@@ -62,26 +64,28 @@ class Command(BaseCommand):
 
             tasks_created += 1
 
-            # Create repetitions
-            for rep in item.get('repetitions', []):
-                TaskRepetition.objects.create(
-                    task=task,
-                    frequency=rep['frequency'],
-                    time=rep.get('time'),
-                )
-                repetitions_created += 1
+            created = generate_overrides_for_task(task)
+            overrides_created += len(created)
 
-            # Create history entries (completion records)
-            for completion in item.get('history', []):
-                TaskHistory.objects.create(
+            for instance_str in item.get('completed_instances', []):
+                instance_dt = datetime.fromisoformat(instance_str.replace('Z', '+00:00'))
+                updated = TaskOverride.objects.filter(
                     task=task,
-                    completion_time=datetime.fromisoformat(completion['completion_time']),
-                )
-                history_created += 1
+                    instance_datetime=instance_dt,
+                ).update(status=TaskOverride.STATUS_COMPLETED)
+                if updated:
+                    completions_marked += updated
+                else:
+                    TaskOverride.objects.get_or_create(
+                        task=task,
+                        instance_datetime=instance_dt,
+                        defaults={'status': TaskOverride.STATUS_COMPLETED},
+                    )
+                    completions_marked += 1
 
         self.stdout.write(self.style.SUCCESS(
             f'Done! Tasks created: {tasks_created}, '
             f'Tasks skipped: {tasks_skipped}, '
-            f'Repetitions created: {repetitions_created}, '
-            f'History entries created: {history_created}'
+            f'Overrides generated: {overrides_created}, '
+            f'Completions marked: {completions_marked}'
         ))

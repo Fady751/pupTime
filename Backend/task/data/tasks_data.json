@@ -2,524 +2,968 @@
   {
     "username": "ahmed_ali",
     "title": "Morning Run",
-    "categories": ["Sports & Fitness"],
+    "categories": [
+      "Sports & Fitness"
+    ],
     "priority": "high",
-    "emoji": "🏃",
-    "start_time": "2026-02-20T06:00:00Z",
-    "end_time": "2026-02-20T07:00:00Z",
-    "reminder_time": 15,
-    "repetitions": [{"frequency": "daily", "time": "06:00:00"}],
-    "history": []
+    "emoji": "\ud83c\udfc3",
+    "start_datetime": "2026-02-20T06:00:00Z",
+    "duration_minutes": 60,
+    "is_recurring": true,
+    "rrule": "FREQ=DAILY",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [],
+    "reminder_time": "2026-02-20T05:45:00Z"
   },
   {
     "username": "ahmed_ali",
     "title": "Bake Banana Bread",
-    "categories": ["Food & Drink"],
+    "categories": [
+      "Food & Drink"
+    ],
     "priority": "low",
-    "emoji": "🍞",
-    "start_time": "2026-02-21T14:00:00Z",
-    "end_time": "2026-02-21T16:00:00Z",
-    "reminder_time": 30,
-    "repetitions": [{"frequency": "once"}],
-    "history": []
+    "emoji": "\ud83c\udf5e",
+    "start_datetime": "2026-02-21T14:00:00Z",
+    "duration_minutes": 120,
+    "is_recurring": false,
+    "rrule": null,
+    "timezone": "Africa/Cairo",
+    "completed_instances": [],
+    "reminder_time": "2026-02-21T13:45:00Z"
   },
   {
     "username": "sara_hassan",
     "title": "Yoga Session",
-    "categories": ["Health & Wellness"],
+    "categories": [
+      "Health & Wellness"
+    ],
     "priority": "high",
-    "emoji": "🧘",
-    "start_time": "2026-02-20T07:00:00Z",
-    "end_time": "2026-02-20T08:00:00Z",
-    "reminder_time": 10,
-    "repetitions": [{"frequency": "daily", "time": "07:00:00"}],
-    "history": []
+    "emoji": "\ud83e\uddd8",
+    "start_datetime": "2026-02-20T07:00:00Z",
+    "duration_minutes": 60,
+    "is_recurring": true,
+    "rrule": "FREQ=DAILY",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [],
+    "reminder_time": "2026-02-20T06:45:00Z"
   },
   {
     "username": "sara_hassan",
     "title": "Read Philosophy Book",
-    "categories": ["Education"],
+    "categories": [
+      "Education"
+    ],
     "priority": "medium",
-    "emoji": "📚",
-    "start_time": "2026-02-20T20:00:00Z",
-    "end_time": "2026-02-20T21:30:00Z",
-    "reminder_time": null,
-    "repetitions": [{"frequency": "weekly", "time": "20:00:00"}],
-    "history": []
+    "emoji": "\ud83d\udcda",
+    "start_datetime": "2026-02-20T20:00:00Z",
+    "duration_minutes": 90,
+    "is_recurring": true,
+    "rrule": "FREQ=WEEKLY",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [],
+    "reminder_time": "2026-02-20T19:45:00Z"
   },
   {
     "username": "mohamed_khaled",
     "title": "Swimming Practice",
-    "categories": ["Sports & Fitness"],
+    "categories": [
+      "Sports & Fitness"
+    ],
     "priority": "high",
-    "emoji": "🏊",
-    "start_time": "2026-02-20T17:00:00Z",
-    "end_time": "2026-02-20T18:30:00Z",
-    "reminder_time": 15,
-    "repetitions": [{"frequency": "monday"}],
-    "history": []
+    "emoji": "\ud83c\udfca",
+    "start_datetime": "2026-02-20T17:00:00Z",
+    "duration_minutes": 90,
+    "is_recurring": true,
+    "rrule": "FREQ=WEEKLY;BYDAY=MO",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [],
+    "reminder_time": "2026-02-20T16:45:00Z"
   },
   {
     "username": "mohamed_khaled",
     "title": "Chess Tournament Prep",
-    "categories": ["Gaming"],
+    "categories": [
+      "Gaming"
+    ],
     "priority": "medium",
-    "emoji": "♟️",
-    "start_time": "2026-02-22T19:00:00Z",
-    "end_time": "2026-02-22T20:00:00Z",
-    "reminder_time": null,
-    "repetitions": [{"frequency": "wednesday"}],
-    "history": []
+    "emoji": "\u265f\ufe0f",
+    "start_datetime": "2026-02-22T19:00:00Z",
+    "duration_minutes": 60,
+    "is_recurring": true,
+    "rrule": "FREQ=WEEKLY;BYDAY=WE",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [],
+    "reminder_time": "2026-02-22T18:45:00Z"
   },
   {
     "username": "nour_ibrahim",
     "title": "Digital Art Practice",
-    "categories": ["Creativity"],
+    "categories": [
+      "Creativity"
+    ],
     "priority": "medium",
-    "emoji": "🎨",
-    "start_time": "2026-02-18T10:00:00Z",
-    "end_time": "2026-02-18T12:00:00Z",
-    "reminder_time": 10,
-    "repetitions": [{"frequency": "daily", "time": "10:00:00"}],
-    "history": [
-      {"completion_time": "2026-02-18T11:45:00Z"},
-      {"completion_time": "2026-02-19T11:30:00Z"}
-    ]
+    "emoji": "\ud83c\udfa8",
+    "start_datetime": "2026-02-18T10:00:00Z",
+    "duration_minutes": 120,
+    "is_recurring": true,
+    "rrule": "FREQ=DAILY",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [
+      "2026-02-18T10:00:00Z",
+      "2026-02-19T10:00:00Z"
+    ],
+    "reminder_time": "2026-02-18T09:45:00Z"
   },
   {
     "username": "nour_ibrahim",
     "title": "Weekend Hike",
-    "categories": ["Outdoors"],
+    "categories": [
+      "Outdoors"
+    ],
     "priority": "low",
-    "emoji": "🥾",
-    "start_time": "2026-02-22T08:00:00Z",
-    "end_time": "2026-02-22T13:00:00Z",
-    "reminder_time": 60,
-    "repetitions": [{"frequency": "saturday", "time": "08:00:00"}],
-    "history": []
+    "emoji": "\ud83e\udd7e",
+    "start_datetime": "2026-02-22T08:00:00Z",
+    "duration_minutes": 300,
+    "is_recurring": true,
+    "rrule": "FREQ=WEEKLY;BYDAY=SA",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [],
+    "reminder_time": "2026-02-22T07:45:00Z"
   },
   {
     "username": "omar_youssef",
     "title": "E-sports Practice",
-    "categories": ["Gaming"],
+    "categories": [
+      "Gaming"
+    ],
     "priority": "high",
-    "emoji": "🎮",
-    "start_time": "2026-02-20T21:00:00Z",
-    "end_time": "2026-02-20T23:00:00Z",
-    "reminder_time": 15,
-    "repetitions": [{"frequency": "daily", "time": "21:00:00"}],
-    "history": []
+    "emoji": "\ud83c\udfae",
+    "start_datetime": "2026-02-20T21:00:00Z",
+    "duration_minutes": 120,
+    "is_recurring": true,
+    "rrule": "FREQ=DAILY",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [],
+    "reminder_time": "2026-02-20T20:45:00Z"
   },
   {
     "username": "omar_youssef",
     "title": "Record Podcast Episode",
-    "categories": ["Entertainment"],
+    "categories": [
+      "Entertainment"
+    ],
     "priority": "high",
-    "emoji": "🎙️",
-    "start_time": "2026-02-23T15:00:00Z",
-    "end_time": "2026-02-23T17:00:00Z",
-    "reminder_time": 30,
-    "repetitions": [{"frequency": "weekly", "time": "15:00:00"}],
-    "history": []
+    "emoji": "\ud83c\udf99\ufe0f",
+    "start_datetime": "2026-02-23T15:00:00Z",
+    "duration_minutes": 120,
+    "is_recurring": true,
+    "rrule": "FREQ=WEEKLY",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [],
+    "reminder_time": "2026-02-23T14:45:00Z"
   },
   {
     "username": "fatma_ahmed",
     "title": "Tennis Lesson",
-    "categories": ["Sports & Fitness"],
+    "categories": [
+      "Sports & Fitness"
+    ],
     "priority": "medium",
-    "emoji": "🎾",
-    "start_time": "2026-02-20T16:00:00Z",
-    "end_time": "2026-02-20T17:30:00Z",
-    "reminder_time": 15,
-    "repetitions": [{"frequency": "tuesday"}],
-    "history": []
+    "emoji": "\ud83c\udfbe",
+    "start_datetime": "2026-02-20T16:00:00Z",
+    "duration_minutes": 90,
+    "is_recurring": true,
+    "rrule": "FREQ=WEEKLY;BYDAY=TU",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [],
+    "reminder_time": "2026-02-20T15:45:00Z"
   },
   {
     "username": "fatma_ahmed",
     "title": "Write Short Story",
-    "categories": ["Creativity"],
+    "categories": [
+      "Creativity"
+    ],
     "priority": "low",
-    "emoji": "✍️",
-    "start_time": "2026-02-21T19:00:00Z",
-    "end_time": null,
-    "reminder_time": null,
-    "repetitions": [{"frequency": "once"}],
-    "history": []
+    "emoji": "\u270d\ufe0f",
+    "start_datetime": "2026-02-21T19:00:00Z",
+    "duration_minutes": null,
+    "is_recurring": false,
+    "rrule": null,
+    "timezone": "Africa/Cairo",
+    "completed_instances": [],
+    "reminder_time": "2026-02-21T18:45:00Z"
   },
   {
     "username": "youssef_magdy",
     "title": "Martial Arts Training",
-    "categories": ["Sports & Fitness"],
+    "categories": [
+      "Sports & Fitness"
+    ],
     "priority": "high",
-    "emoji": "🥋",
-    "start_time": "2026-02-19T18:00:00Z",
-    "end_time": "2026-02-19T19:30:00Z",
-    "reminder_time": 10,
-    "repetitions": [{"frequency": "monday"}],
-    "history": [
-      {"completion_time": "2026-02-19T19:20:00Z"}
-    ]
+    "emoji": "\ud83e\udd4b",
+    "start_datetime": "2026-02-19T18:00:00Z",
+    "duration_minutes": 90,
+    "is_recurring": true,
+    "rrule": "FREQ=WEEKLY;BYDAY=MO",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [
+      "2026-02-19T18:00:00Z"
+    ],
+    "reminder_time": "2026-02-19T17:45:00Z"
   },
   {
     "username": "youssef_magdy",
     "title": "Photo Walk",
-    "categories": ["Hobbies"],
+    "categories": [
+      "Hobbies"
+    ],
     "priority": "low",
-    "emoji": "📸",
-    "start_time": "2026-02-22T09:00:00Z",
-    "end_time": "2026-02-22T11:00:00Z",
-    "reminder_time": null,
-    "repetitions": [{"frequency": "saturday", "time": "09:00:00"}],
-    "history": []
+    "emoji": "\ud83d\udcf8",
+    "start_datetime": "2026-02-22T09:00:00Z",
+    "duration_minutes": 120,
+    "is_recurring": true,
+    "rrule": "FREQ=WEEKLY;BYDAY=SA",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [],
+    "reminder_time": "2026-02-22T08:45:00Z"
   },
   {
     "username": "mona_tarek",
     "title": "Morning Meditation",
-    "categories": ["Health & Wellness"],
+    "categories": [
+      "Health & Wellness"
+    ],
     "priority": "high",
-    "emoji": "🧠",
-    "start_time": "2026-02-20T06:30:00Z",
-    "end_time": "2026-02-20T07:00:00Z",
-    "reminder_time": 5,
-    "repetitions": [{"frequency": "daily", "time": "06:30:00"}],
-    "history": []
+    "emoji": "\ud83e\udde0",
+    "start_datetime": "2026-02-20T06:30:00Z",
+    "duration_minutes": 30,
+    "is_recurring": true,
+    "rrule": "FREQ=DAILY",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [],
+    "reminder_time": "2026-02-20T06:15:00Z"
   },
   {
     "username": "ali_samir",
     "title": "Cycling Session",
-    "categories": ["Sports & Fitness"],
+    "categories": [
+      "Sports & Fitness"
+    ],
     "priority": "medium",
-    "emoji": "🚴",
-    "start_time": "2026-02-20T07:00:00Z",
-    "end_time": "2026-02-20T08:30:00Z",
-    "reminder_time": 15,
-    "repetitions": [{"frequency": "wednesday"}],
-    "history": []
+    "emoji": "\ud83d\udeb4",
+    "start_datetime": "2026-02-20T07:00:00Z",
+    "duration_minutes": 90,
+    "is_recurring": true,
+    "rrule": "FREQ=WEEKLY;BYDAY=WE",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [],
+    "reminder_time": "2026-02-20T06:45:00Z"
   },
   {
     "username": "ali_samir",
     "title": "Plan Camping Trip",
-    "categories": ["Outdoors"],
+    "categories": [
+      "Outdoors"
+    ],
     "priority": "low",
-    "emoji": "⛺",
-    "start_time": "2026-02-25T19:00:00Z",
-    "end_time": "2026-02-25T20:00:00Z",
-    "reminder_time": null,
-    "repetitions": [{"frequency": "once"}],
-    "history": []
+    "emoji": "\u26fa",
+    "start_datetime": "2026-02-25T19:00:00Z",
+    "duration_minutes": 60,
+    "is_recurring": false,
+    "rrule": null,
+    "timezone": "Africa/Cairo",
+    "completed_instances": [],
+    "reminder_time": "2026-02-25T18:45:00Z"
   },
   {
     "username": "hana_mostafa",
     "title": "Sketch Session",
-    "categories": ["Creativity"],
+    "categories": [
+      "Creativity"
+    ],
     "priority": "medium",
-    "emoji": "✏️",
-    "start_time": "2026-02-18T11:00:00Z",
-    "end_time": "2026-02-18T13:00:00Z",
-    "reminder_time": 10,
-    "repetitions": [{"frequency": "daily", "time": "11:00:00"}],
-    "history": [
-      {"completion_time": "2026-02-18T12:50:00Z"},
-      {"completion_time": "2026-02-19T12:30:00Z"}
-    ]
+    "emoji": "\u270f\ufe0f",
+    "start_datetime": "2026-02-18T11:00:00Z",
+    "duration_minutes": 120,
+    "is_recurring": true,
+    "rrule": "FREQ=DAILY",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [
+      "2026-02-18T11:00:00Z",
+      "2026-02-19T11:00:00Z"
+    ],
+    "reminder_time": "2026-02-18T10:45:00Z"
   },
   {
     "username": "hana_mostafa",
     "title": "Singing Practice",
-    "categories": ["Music"],
+    "categories": [
+      "Music"
+    ],
     "priority": "medium",
-    "emoji": "🎤",
-    "start_time": "2026-02-20T18:00:00Z",
-    "end_time": "2026-02-20T19:00:00Z",
-    "reminder_time": 10,
-    "repetitions": [{"frequency": "friday", "time": "18:00:00"}],
-    "history": []
+    "emoji": "\ud83c\udfa4",
+    "start_datetime": "2026-02-20T18:00:00Z",
+    "duration_minutes": 60,
+    "is_recurring": true,
+    "rrule": "FREQ=WEEKLY;BYDAY=FR",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [],
+    "reminder_time": "2026-02-20T17:45:00Z"
   },
   {
     "username": "hany_maged04",
     "title": "Movie Night",
-    "categories": ["Entertainment"],
+    "categories": [
+      "Entertainment"
+    ],
     "priority": "medium",
-    "emoji": "🎬",
-    "start_time": "2026-02-20T20:00:00Z",
-    "end_time": "2026-02-20T22:30:00Z",
-    "reminder_time": 15,
-    "repetitions": [{"frequency": "friday", "time": "20:00:00"}],
-    "history": []
+    "emoji": "\ud83c\udfac",
+    "start_datetime": "2026-02-20T20:00:00Z",
+    "duration_minutes": 150,
+    "is_recurring": true,
+    "rrule": "FREQ=WEEKLY;BYDAY=FR",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [],
+    "reminder_time": "2026-02-20T19:45:00Z"
   },
   {
     "username": "hany_maged04",
     "title": "Evening Walk",
-    "categories": ["Sports & Fitness"],
+    "categories": [
+      "Sports & Fitness"
+    ],
     "priority": "low",
-    "emoji": "🚶",
-    "start_time": "2026-02-20T17:00:00Z",
-    "end_time": "2026-02-20T18:00:00Z",
-    "reminder_time": 10,
-    "repetitions": [{"frequency": "daily", "time": "17:00:00"}],
-    "history": []
+    "emoji": "\ud83d\udeb6",
+    "start_datetime": "2026-02-20T17:00:00Z",
+    "duration_minutes": 60,
+    "is_recurring": true,
+    "rrule": "FREQ=DAILY",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [],
+    "reminder_time": "2026-02-20T16:45:00Z"
   },
   {
     "username": "hany_maged04",
     "title": "Listen to Podcast",
-    "categories": ["Entertainment"],
+    "categories": [
+      "Entertainment"
+    ],
     "priority": "low",
-    "emoji": "🎧",
-    "start_time": "2026-02-20T22:00:00Z",
-    "end_time": "2026-02-20T23:00:00Z",
-    "reminder_time": null,
-    "repetitions": [{"frequency": "daily", "time": "22:00:00"}],
-    "history": [
-      {"completion_time": "2026-02-16T22:40:00Z"},
-      {"completion_time": "2026-02-17T22:55:00Z"},
-      {"completion_time": "2026-02-18T22:30:00Z"}
-    ]
+    "emoji": "\ud83c\udfa7",
+    "start_datetime": "2026-02-16T22:00:00Z",
+    "duration_minutes": 60,
+    "is_recurring": true,
+    "rrule": "FREQ=DAILY",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [
+      "2026-02-16T22:00:00Z",
+      "2026-02-17T22:00:00Z",
+      "2026-02-18T22:00:00Z"
+    ],
+    "reminder_time": "2026-02-16T21:45:00Z"
   },
   {
     "username": "hany_maged04",
     "title": "Chess Practice",
-    "categories": ["Gaming"],
+    "categories": [
+      "Gaming"
+    ],
     "priority": "medium",
-    "emoji": "♟️",
-    "start_time": "2026-02-21T19:00:00Z",
-    "end_time": "2026-02-21T20:00:00Z",
-    "reminder_time": 10,
-    "repetitions": [{"frequency": "wednesday"}],
-    "history": [
-      {"completion_time": "2026-02-12T19:45:00Z"}
-    ]
+    "emoji": "\u265f\ufe0f",
+    "start_datetime": "2026-02-11T19:00:00Z",
+    "duration_minutes": 60,
+    "is_recurring": true,
+    "rrule": "FREQ=WEEKLY;BYDAY=WE",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [
+      "2026-02-11T19:00:00Z"
+    ],
+    "reminder_time": "2026-02-11T18:45:00Z"
   },
   {
     "username": "hany_maged04",
     "title": "Wine Tasting Session",
-    "categories": ["Food & Drink"],
+    "categories": [
+      "Food & Drink"
+    ],
     "priority": "low",
-    "emoji": "🍷",
-    "start_time": "2026-02-22T18:00:00Z",
-    "end_time": "2026-02-22T20:00:00Z",
-    "reminder_time": 30,
-    "repetitions": [{"frequency": "saturday", "time": "18:00:00"}],
-    "history": [
-      {"completion_time": "2026-02-15T19:10:00Z"}
-    ]
+    "emoji": "\ud83c\udf77",
+    "start_datetime": "2026-02-15T18:00:00Z",
+    "duration_minutes": 120,
+    "is_recurring": true,
+    "rrule": "FREQ=WEEKLY;BYDAY=SA",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [
+      "2026-02-15T18:00:00Z"
+    ],
+    "reminder_time": "2026-02-15T17:45:00Z"
   },
   {
     "username": "fadylord55",
     "title": "Codeforces Contest",
-    "categories": ["Technology"],
+    "categories": [
+      "Technology"
+    ],
     "priority": "high",
-    "emoji": "💻",
-    "start_time": "2026-02-21T18:00:00Z",
-    "end_time": "2026-02-21T20:30:00Z",
-    "reminder_time": 30,
-    "repetitions": [{"frequency": "saturday", "time": "18:00:00"}],
-    "history": [
-      {"completion_time": "2026-02-15T20:15:00Z"}
-    ]
+    "emoji": "\ud83d\udcbb",
+    "start_datetime": "2026-02-14T18:00:00Z",
+    "duration_minutes": 150,
+    "is_recurring": true,
+    "rrule": "FREQ=WEEKLY;BYDAY=SA",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [
+      "2026-02-14T18:00:00Z"
+    ],
+    "reminder_time": "2026-02-14T17:45:00Z"
   },
   {
     "username": "fadylord55",
     "title": "LeetCode Daily Problem",
-    "categories": ["Technology"],
+    "categories": [
+      "Technology"
+    ],
     "priority": "high",
-    "emoji": "🧠",
-    "start_time": "2026-02-20T10:00:00Z",
-    "end_time": "2026-02-20T11:00:00Z",
-    "reminder_time": 10,
-    "repetitions": [{"frequency": "daily", "time": "10:00:00"}],
-    "history": [
-      {"completion_time": "2026-02-16T10:35:00Z"},
-      {"completion_time": "2026-02-17T10:50:00Z"},
-      {"completion_time": "2026-02-18T10:20:00Z"},
-      {"completion_time": "2026-02-19T10:45:00Z"}
-    ]
+    "emoji": "\ud83e\udde0",
+    "start_datetime": "2026-02-16T10:00:00Z",
+    "duration_minutes": 60,
+    "is_recurring": true,
+    "rrule": "FREQ=DAILY",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [
+      "2026-02-16T10:00:00Z",
+      "2026-02-17T10:00:00Z",
+      "2026-02-18T10:00:00Z",
+      "2026-02-19T10:00:00Z"
+    ],
+    "reminder_time": "2026-02-16T09:45:00Z"
   },
   {
     "username": "fadylord55",
     "title": "LoL Ranked Session",
-    "categories": ["Gaming"],
+    "categories": [
+      "Gaming"
+    ],
     "priority": "medium",
-    "emoji": "🎮",
-    "start_time": "2026-02-20T21:00:00Z",
-    "end_time": "2026-02-20T23:30:00Z",
-    "reminder_time": 15,
-    "repetitions": [{"frequency": "daily", "time": "21:00:00"}],
-    "history": [
-      {"completion_time": "2026-02-17T23:10:00Z"},
-      {"completion_time": "2026-02-18T23:25:00Z"}
-    ]
+    "emoji": "\ud83c\udfae",
+    "start_datetime": "2026-02-17T21:00:00Z",
+    "duration_minutes": 150,
+    "is_recurring": true,
+    "rrule": "FREQ=DAILY",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [
+      "2026-02-17T21:00:00Z",
+      "2026-02-18T21:00:00Z"
+    ],
+    "reminder_time": "2026-02-17T20:45:00Z"
   },
   {
     "username": "fadylord55",
     "title": "Read Quantum Physics Article",
-    "categories": ["Science"],
+    "categories": [
+      "Science"
+    ],
     "priority": "low",
-    "emoji": "⚛️",
-    "start_time": "2026-02-22T14:00:00Z",
-    "end_time": "2026-02-22T15:00:00Z",
-    "reminder_time": null,
-    "repetitions": [{"frequency": "sunday", "time": "14:00:00"}],
-    "history": [
-      {"completion_time": "2026-02-16T14:50:00Z"}
-    ]
+    "emoji": "\u269b\ufe0f",
+    "start_datetime": "2026-02-15T14:00:00Z",
+    "duration_minutes": 60,
+    "is_recurring": true,
+    "rrule": "FREQ=WEEKLY;BYDAY=SU",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [
+      "2026-02-15T14:00:00Z"
+    ],
+    "reminder_time": "2026-02-15T13:45:00Z"
   },
   {
     "username": "omarhussien",
     "title": "Gym Workout",
-    "categories": ["Sports & Fitness"],
+    "categories": [
+      "Sports & Fitness"
+    ],
     "priority": "high",
-    "emoji": "💪",
-    "start_time": "2026-02-20T06:00:00Z",
-    "end_time": "2026-02-20T07:30:00Z",
-    "reminder_time": 15,
-    "repetitions": [{"frequency": "daily", "time": "06:00:00"}],
-    "history": [
-      {"completion_time": "2026-02-16T07:20:00Z"},
-      {"completion_time": "2026-02-17T07:15:00Z"},
-      {"completion_time": "2026-02-19T07:25:00Z"}
-    ]
+    "emoji": "\ud83d\udcaa",
+    "start_datetime": "2026-02-16T06:00:00Z",
+    "duration_minutes": 90,
+    "is_recurring": true,
+    "rrule": "FREQ=DAILY",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [
+      "2026-02-16T06:00:00Z",
+      "2026-02-17T06:00:00Z",
+      "2026-02-19T06:00:00Z"
+    ],
+    "reminder_time": "2026-02-16T05:45:00Z"
   },
   {
     "username": "omarhussien",
     "title": "Binge Watch Series",
-    "categories": ["Entertainment"],
+    "categories": [
+      "Entertainment"
+    ],
     "priority": "low",
-    "emoji": "📺",
-    "start_time": "2026-02-20T21:00:00Z",
-    "end_time": "2026-02-20T23:00:00Z",
-    "reminder_time": null,
-    "repetitions": [{"frequency": "friday", "time": "21:00:00"}],
-    "history": [
-      {"completion_time": "2026-02-14T22:30:00Z"}
-    ]
+    "emoji": "\ud83d\udcfa",
+    "start_datetime": "2026-02-14T21:00:00Z",
+    "duration_minutes": 120,
+    "is_recurring": true,
+    "rrule": "FREQ=WEEKLY;BYDAY=FR",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [
+      "2026-02-14T21:00:00Z"
+    ],
+    "reminder_time": "2026-02-14T20:45:00Z"
   },
   {
     "username": "omarhussien",
     "title": "Surfing Session",
-    "categories": ["Sports & Fitness"],
+    "categories": [
+      "Sports & Fitness"
+    ],
     "priority": "medium",
-    "emoji": "🏄",
-    "start_time": "2026-02-22T08:00:00Z",
-    "end_time": "2026-02-22T10:00:00Z",
-    "reminder_time": 30,
-    "repetitions": [{"frequency": "saturday", "time": "08:00:00"}],
-    "history": [
-      {"completion_time": "2026-02-15T09:45:00Z"}
-    ]
+    "emoji": "\ud83c\udfc4",
+    "start_datetime": "2026-02-15T08:00:00Z",
+    "duration_minutes": 120,
+    "is_recurring": true,
+    "rrule": "FREQ=WEEKLY;BYDAY=SA",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [
+      "2026-02-15T08:00:00Z"
+    ],
+    "reminder_time": "2026-02-15T07:45:00Z"
   },
   {
     "username": "mechan",
     "title": "Creative Writing Hour",
-    "categories": ["Creativity"],
+    "categories": [
+      "Creativity"
+    ],
     "priority": "high",
-    "emoji": "✍️",
-    "start_time": "2026-02-20T10:00:00Z",
-    "end_time": "2026-02-20T11:00:00Z",
-    "reminder_time": 10,
-    "repetitions": [{"frequency": "daily", "time": "10:00:00"}],
-    "history": [
-      {"completion_time": "2026-02-16T10:55:00Z"},
-      {"completion_time": "2026-02-18T10:40:00Z"},
-      {"completion_time": "2026-02-19T10:50:00Z"}
-    ]
+    "emoji": "\u270d\ufe0f",
+    "start_datetime": "2026-02-16T10:00:00Z",
+    "duration_minutes": 60,
+    "is_recurring": true,
+    "rrule": "FREQ=DAILY",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [
+      "2026-02-16T10:00:00Z",
+      "2026-02-18T10:00:00Z",
+      "2026-02-19T10:00:00Z"
+    ],
+    "reminder_time": "2026-02-16T09:45:00Z"
   },
   {
     "username": "mechan",
     "title": "Self-Improvement Reading",
-    "categories": ["Education"],
+    "categories": [
+      "Education"
+    ],
     "priority": "medium",
-    "emoji": "📖",
-    "start_time": "2026-02-20T20:00:00Z",
-    "end_time": "2026-02-20T21:00:00Z",
-    "reminder_time": null,
-    "repetitions": [{"frequency": "daily", "time": "20:00:00"}],
-    "history": [
-      {"completion_time": "2026-02-17T20:50:00Z"},
-      {"completion_time": "2026-02-19T20:35:00Z"}
-    ]
+    "emoji": "\ud83d\udcd6",
+    "start_datetime": "2026-02-17T20:00:00Z",
+    "duration_minutes": 60,
+    "is_recurring": true,
+    "rrule": "FREQ=DAILY",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [
+      "2026-02-17T20:00:00Z",
+      "2026-02-19T20:00:00Z"
+    ],
+    "reminder_time": "2026-02-17T19:45:00Z"
   },
   {
     "username": "mechan",
     "title": "LoL with Friends",
-    "categories": ["Gaming"],
+    "categories": [
+      "Gaming"
+    ],
     "priority": "medium",
-    "emoji": "🎮",
-    "start_time": "2026-02-20T22:00:00Z",
-    "end_time": "2026-02-21T00:00:00Z",
-    "reminder_time": 15,
-    "repetitions": [{"frequency": "friday", "time": "22:00:00"}],
-    "history": []
+    "emoji": "\ud83c\udfae",
+    "start_datetime": "2026-02-20T22:00:00Z",
+    "duration_minutes": 120,
+    "is_recurring": true,
+    "rrule": "FREQ=WEEKLY;BYDAY=FR",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [],
+    "reminder_time": "2026-02-20T21:45:00Z"
   },
   {
     "username": "mechan",
     "title": "Surf Practice",
-    "categories": ["Sports & Fitness"],
+    "categories": [
+      "Sports & Fitness"
+    ],
     "priority": "low",
-    "emoji": "🏄",
-    "start_time": "2026-02-22T09:00:00Z",
-    "end_time": "2026-02-22T11:00:00Z",
-    "reminder_time": 30,
-    "repetitions": [{"frequency": "saturday", "time": "09:00:00"}],
-    "history": []
+    "emoji": "\ud83c\udfc4",
+    "start_datetime": "2026-02-22T09:00:00Z",
+    "duration_minutes": 120,
+    "is_recurring": true,
+    "rrule": "FREQ=WEEKLY;BYDAY=SA",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [],
+    "reminder_time": "2026-02-22T08:45:00Z"
   },
   {
     "username": "mechan",
     "title": "Watch Documentary",
-    "categories": ["Entertainment"],
+    "categories": [
+      "Entertainment"
+    ],
     "priority": "low",
-    "emoji": "🎬",
-    "start_time": "2026-02-18T19:00:00Z",
-    "end_time": "2026-02-18T21:00:00Z",
-    "reminder_time": null,
-    "repetitions": [{"frequency": "sunday", "time": "19:00:00"}],
-    "history": [
-      {"completion_time": "2026-02-18T20:45:00Z"}
-    ]
+    "emoji": "\ud83c\udfac",
+    "start_datetime": "2026-02-15T19:00:00Z",
+    "duration_minutes": 120,
+    "is_recurring": true,
+    "rrule": "FREQ=WEEKLY;BYDAY=SU",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [
+      "2026-02-15T19:00:00Z"
+    ],
+    "reminder_time": "2026-02-15T18:45:00Z"
   },
   {
     "username": "febyashraf",
     "title": "Volunteer at Shelter",
-    "categories": ["Social Cause"],
+    "categories": [
+      "Social Cause"
+    ],
     "priority": "high",
-    "emoji": "🤝",
-    "start_time": "2026-02-22T09:00:00Z",
-    "end_time": "2026-02-22T13:00:00Z",
-    "reminder_time": 60,
-    "repetitions": [{"frequency": "saturday", "time": "09:00:00"}],
-    "history": [
-      {"completion_time": "2026-02-15T12:30:00Z"}
-    ]
+    "emoji": "\ud83e\udd1d",
+    "start_datetime": "2026-02-15T09:00:00Z",
+    "duration_minutes": 240,
+    "is_recurring": true,
+    "rrule": "FREQ=WEEKLY;BYDAY=SA",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [
+      "2026-02-15T09:00:00Z"
+    ],
+    "reminder_time": "2026-02-15T08:45:00Z"
   },
   {
     "username": "febyashraf",
     "title": "Community Service Meeting",
-    "categories": ["Social Cause"],
+    "categories": [
+      "Social Cause"
+    ],
     "priority": "medium",
-    "emoji": "🏘️",
-    "start_time": "2026-02-20T17:00:00Z",
-    "end_time": "2026-02-20T18:30:00Z",
-    "reminder_time": 15,
-    "repetitions": [{"frequency": "wednesday"}],
-    "history": [
-      {"completion_time": "2026-02-12T18:15:00Z"},
-      {"completion_time": "2026-02-19T18:20:00Z"}
-    ]
+    "emoji": "\ud83c\udfd8\ufe0f",
+    "start_datetime": "2026-02-12T17:00:00Z",
+    "duration_minutes": 90,
+    "is_recurring": true,
+    "rrule": "FREQ=WEEKLY;BYDAY=WE",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [
+      "2026-02-12T17:00:00Z",
+      "2026-02-19T17:00:00Z"
+    ],
+    "reminder_time": "2026-02-12T16:45:00Z"
   },
   {
     "username": "febyashraf",
     "title": "Web Dev Project",
-    "categories": ["Technology"],
+    "categories": [
+      "Technology"
+    ],
     "priority": "high",
-    "emoji": "🌐",
-    "start_time": "2026-02-20T19:00:00Z",
-    "end_time": "2026-02-20T21:00:00Z",
-    "reminder_time": 10,
-    "repetitions": [{"frequency": "daily", "time": "19:00:00"}],
-    "history": [
-      {"completion_time": "2026-02-16T20:45:00Z"},
-      {"completion_time": "2026-02-17T20:55:00Z"},
-      {"completion_time": "2026-02-18T20:30:00Z"},
-      {"completion_time": "2026-02-19T20:40:00Z"}
-    ]
+    "emoji": "\ud83c\udf10",
+    "start_datetime": "2026-02-16T19:00:00Z",
+    "duration_minutes": 120,
+    "is_recurring": true,
+    "rrule": "FREQ=DAILY",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [
+      "2026-02-16T19:00:00Z",
+      "2026-02-17T19:00:00Z",
+      "2026-02-18T19:00:00Z",
+      "2026-02-19T19:00:00Z"
+    ],
+    "reminder_time": "2026-02-16T18:45:00Z"
+  },
+  {
+    "username": "ahmed_ali",
+    "title": "Learn Guitar",
+    "categories": [
+      "Music"
+    ],
+    "priority": "medium",
+    "emoji": "\ud83c\udfb8",
+    "start_datetime": "2026-02-23T19:00:00Z",
+    "duration_minutes": 45,
+    "is_recurring": true,
+    "rrule": "FREQ=DAILY",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [],
+    "reminder_time": "2026-02-23T18:45:00Z"
+  },
+  {
+    "username": "sara_hassan",
+    "title": "Visit Art Gallery",
+    "categories": [
+      "Creativity"
+    ],
+    "priority": "low",
+    "emoji": "\ud83d\uddbc\ufe0f",
+    "start_datetime": "2026-02-23T14:00:00Z",
+    "duration_minutes": 180,
+    "is_recurring": false,
+    "rrule": null,
+    "timezone": "Africa/Cairo",
+    "completed_instances": [],
+    "reminder_time": "2026-02-23T13:45:00Z"
+  },
+  {
+    "username": "mohamed_khaled",
+    "title": "Python Tutorial",
+    "categories": [
+      "Technology"
+    ],
+    "priority": "high",
+    "emoji": "\ud83d\udc0d",
+    "start_datetime": "2026-02-23T09:00:00Z",
+    "duration_minutes": 90,
+    "is_recurring": true,
+    "rrule": "FREQ=WEEKLY;BYDAY=MO,TH",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [],
+    "reminder_time": "2026-02-23T08:45:00Z"
+  },
+  {
+    "username": "nour_ibrahim",
+    "title": "Meal Prep Sunday",
+    "categories": [
+      "Food & Drink"
+    ],
+    "priority": "medium",
+    "emoji": "\ud83e\udd57",
+    "start_datetime": "2026-02-23T11:00:00Z",
+    "duration_minutes": 150,
+    "is_recurring": true,
+    "rrule": "FREQ=WEEKLY;BYDAY=SU",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [],
+    "reminder_time": "2026-02-23T10:45:00Z"
+  },
+  {
+    "username": "omar_youssef",
+    "title": "Book Club Meeting",
+    "categories": [
+      "Education"
+    ],
+    "priority": "medium",
+    "emoji": "\ud83d\udcda",
+    "start_datetime": "2026-02-24T18:30:00Z",
+    "duration_minutes": 120,
+    "is_recurring": true,
+    "rrule": "FREQ=WEEKLY;BYDAY=MO",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [],
+    "reminder_time": "2026-02-24T18:15:00Z"
+  },
+  {
+    "username": "fatma_ahmed",
+    "title": "Morning Coffee Walk",
+    "categories": [
+      "Health & Wellness"
+    ],
+    "priority": "low",
+    "emoji": "\u2615",
+    "start_datetime": "2026-02-23T08:00:00Z",
+    "duration_minutes": 30,
+    "is_recurring": true,
+    "rrule": "FREQ=DAILY",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [],
+    "reminder_time": "2026-02-23T07:45:00Z"
+  },
+  {
+    "username": "youssef_magdy",
+    "title": "Guitar Practice",
+    "categories": [
+      "Music"
+    ],
+    "priority": "medium",
+    "emoji": "\ud83c\udfb5",
+    "start_datetime": "2026-02-23T20:00:00Z",
+    "duration_minutes": 60,
+    "is_recurring": true,
+    "rrule": "FREQ=WEEKLY;BYDAY=TU,TH,SA",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [],
+    "reminder_time": "2026-02-23T19:45:00Z"
+  },
+  {
+    "username": "mona_tarek",
+    "title": "Pottery Class",
+    "categories": [
+      "Creativity"
+    ],
+    "priority": "medium",
+    "emoji": "\ud83c\udffa",
+    "start_datetime": "2026-02-25T15:00:00Z",
+    "duration_minutes": 120,
+    "is_recurring": true,
+    "rrule": "FREQ=WEEKLY;BYDAY=TU",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [],
+    "reminder_time": "2026-02-25T14:45:00Z"
+  },
+  {
+    "username": "ali_samir",
+    "title": "Budget Review",
+    "categories": [
+      "Hobbies"
+    ],
+    "priority": "high",
+    "emoji": "\ud83d\udcb0",
+    "start_datetime": "2026-02-28T19:00:00Z",
+    "duration_minutes": 45,
+    "is_recurring": true,
+    "rrule": "FREQ=MONTHLY",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [],
+    "reminder_time": "2026-02-28T18:45:00Z"
+  },
+  {
+    "username": "hana_mostafa",
+    "title": "Dance Class",
+    "categories": [
+      "Sports & Fitness"
+    ],
+    "priority": "high",
+    "emoji": "\ud83d\udc83",
+    "start_datetime": "2026-02-23T17:00:00Z",
+    "duration_minutes": 60,
+    "is_recurring": true,
+    "rrule": "FREQ=WEEKLY;BYDAY=SU,WE",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [],
+    "reminder_time": "2026-02-23T16:45:00Z"
+  },
+  {
+    "username": "hany_maged04",
+    "title": "Team Meeting",
+    "categories": [
+      "Technology"
+    ],
+    "priority": "high",
+    "emoji": "\ud83d\udc65",
+    "start_datetime": "2026-02-24T10:00:00Z",
+    "duration_minutes": 60,
+    "is_recurring": true,
+    "rrule": "FREQ=WEEKLY;BYDAY=MO",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [],
+    "reminder_time": "2026-02-24T09:45:00Z"
+  },
+  {
+    "username": "fadylord55",
+    "title": "Machine Learning Course",
+    "categories": [
+      "Technology"
+    ],
+    "priority": "high",
+    "emoji": "\ud83e\udd16",
+    "start_datetime": "2026-02-23T14:00:00Z",
+    "duration_minutes": 90,
+    "is_recurring": true,
+    "rrule": "FREQ=WEEKLY;BYDAY=SU,TU,TH",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [],
+    "reminder_time": "2026-02-23T13:45:00Z"
+  },
+  {
+    "username": "omarhussien",
+    "title": "Family Dinner",
+    "categories": [
+      "Food & Drink"
+    ],
+    "priority": "medium",
+    "emoji": "\ud83c\udf7d\ufe0f",
+    "start_datetime": "2026-02-28T19:00:00Z",
+    "duration_minutes": 120,
+    "is_recurring": true,
+    "rrule": "FREQ=WEEKLY;BYDAY=FR",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [],
+    "reminder_time": "2026-02-28T18:45:00Z"
+  },
+  {
+    "username": "mechan",
+    "title": "Language Exchange",
+    "categories": [
+      "Education"
+    ],
+    "priority": "medium",
+    "emoji": "\ud83d\udde3\ufe0f",
+    "start_datetime": "2026-02-24T18:00:00Z",
+    "duration_minutes": 60,
+    "is_recurring": true,
+    "rrule": "FREQ=WEEKLY;BYDAY=MO,WE",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [],
+    "reminder_time": "2026-02-24T17:45:00Z"
+  },
+  {
+    "username": "febyashraf",
+    "title": "Car Maintenance",
+    "categories": [
+      "Hobbies"
+    ],
+    "priority": "high",
+    "emoji": "\ud83d\ude97",
+    "start_datetime": "2026-02-27T10:00:00Z",
+    "duration_minutes": 180,
+    "is_recurring": false,
+    "rrule": null,
+    "timezone": "Africa/Cairo",
+    "completed_instances": [],
+    "reminder_time": "2026-02-27T09:45:00Z"
+  },
+  {
+    "username": "ahmed_ali",
+    "title": "Dentist Appointment",
+    "categories": [
+      "Health & Wellness"
+    ],
+    "priority": "high",
+    "emoji": "\ud83e\uddb7",
+    "start_datetime": "2026-02-26T15:00:00Z",
+    "duration_minutes": 60,
+    "is_recurring": false,
+    "rrule": null,
+    "timezone": "Africa/Cairo",
+    "completed_instances": [],
+    "reminder_time": "2026-02-26T14:45:00Z"
+  },
+  {
+    "username": "sara_hassan",
+    "title": "Garden Work",
+    "categories": [
+      "Outdoors"
+    ],
+    "priority": "low",
+    "emoji": "\ud83c\udf31",
+    "start_datetime": "2026-02-23T09:00:00Z",
+    "duration_minutes": 90,
+    "is_recurring": true,
+    "rrule": "FREQ=WEEKLY;BYDAY=SU,WE",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [],
+    "reminder_time": "2026-02-23T08:45:00Z"
+  },
+  {
+    "username": "mohamed_khaled",
+    "title": "Board Game Night",
+    "categories": [
+      "Entertainment"
+    ],
+    "priority": "low",
+    "emoji": "\ud83c\udfb2",
+    "start_datetime": "2026-02-28T20:00:00Z",
+    "duration_minutes": 180,
+    "is_recurring": true,
+    "rrule": "FREQ=WEEKLY;BYDAY=FR",
+    "timezone": "Africa/Cairo",
+    "completed_instances": [],
+    "reminder_time": "2026-02-28T19:45:00Z"
   }
 ]

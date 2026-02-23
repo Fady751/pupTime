@@ -81,61 +81,56 @@ The task app models user tasks, recurrence, and completion history.
 **Table:** `task_task`
 
 **Fields:**
-- `id` (PK, AutoField)
+- `id` (PK, UUIDField, default uuid4)
 - `user` (FK → `user.User`, CASCADE, related_name=`tasks`)
 - `title` (CharField, max_length=255)
-- `reminder_time` (IntegerField, null, blank) — minutes before `start_time`
-- `start_time` (DateTimeField)
-- `end_time` (DateTimeField, null, blank)
 - `priority` (CharField, max_length=10, choices: `none`, `low`, `medium`, `high`, default `none`)
 - `emoji` (CharField, max_length=8, blank, default="")
+- `start_datetime` (DateTimeField) — when the task starts, or the first instance of a series
+- `duration_minutes` (IntegerField, null, blank) — duration of the task in minutes
+- `is_recurring` (BooleanField, default=False)
+- `rrule` (CharField, max_length=255, null, blank) — RFC 5545 recurrence rule, e.g. `FREQ=DAILY;BYDAY=MO,WE,FR`
+- `timezone` (CharField, max_length=64, default='UTC') — e.g. `Africa/Cairo`
+- `created_at` (DateTimeField, auto_now_add)
+- `updated_at` (DateTimeField, auto_now)
+- `is_deleted` (BooleanField, default=False) — soft delete flag
 
 **Many-to-many:**
 - `categories` (M2M → `user.InterestCategory`, blank, related_name=`tasks`)
 
 **Constraints / Business Rules (enforced in serializer):**
-- `end_time` must be strictly after `start_time` when both are provided
-- `reminder_time` must be a non‑negative integer if provided
+- `rrule` is required when `is_recurring` is True
+- `duration_minutes` must be non-negative if provided
 
 ---
 
-### TaskRepetition
+### TaskOverride
 
-Represents recurrence patterns for a task.
+Per-instance status tracker for recurring tasks. Each row represents one scheduled occurrence.
 
-**Table:** `task_taskrepetition`
-
-**Fields:**
-- `id` (PK, AutoField)
-- `task` (FK → `Task`, CASCADE, related_name=`repetitions`)
-- `frequency` (CharField, max_length=16, choices:
-	- `once`, `daily`, `weekly`, `monthly`, `yearly`
-	- `sunday`, `monday`, `tuesday`, `wednesday`, `thursday`, `friday`, `saturday`)
-- `time` (TimeField, null, blank)
-
-**Notes:**
-- Update strategy is *replace-all*: on task update, existing repetitions are deleted and re-created from payload.
-
----
-
-### TaskHistory
-
-Event-based completion log for tasks.
-
-**Table:** `task_taskhistory`
+**Table:** `task_taskoverride`
 
 **Fields:**
-- `id` (PK, AutoField)
-- `task` (FK → `Task`, CASCADE, related_name=`history`)
-- `completion_time` (DateTimeField)
+- `id` (PK, UUIDField, default uuid4)
+- `task` (FK → `Task`, CASCADE, related_name=`overrides`)
+- `instance_datetime` (DateTimeField) — the exact timestamp this instance was originally scheduled for
+- `status` (CharField, max_length=15, choices: `PENDING`, `COMPLETED`, `SKIPPED`, `RESCHEDULED`, `FAILED`, default `PENDING`)
+- `new_datetime` (DateTimeField, null, blank) — used only when status is `RESCHEDULED`
+- `created_at` (DateTimeField, auto_now_add)
+- `updated_at` (DateTimeField, auto_now)
+- `is_deleted` (BooleanField, default=False) — soft delete flag
 
 **Indexes:**
-- `Index(fields=['task', 'completion_time'])` — optimized queries per-task, ordered by time
+- `Index(fields=['task', 'instance_datetime'])`
+
+**Constraints:**
+- `unique_together = ('task', 'instance_datetime')`
 
 **Semantics:**
-- Each row represents a single completion event for a task.
-- A task can have multiple completions (useful for habits).
-- There is **no** `status` field on `Task`; "done" is derived from history.
+- Overrides are auto-generated for 1 month ahead when a recurring task is created.
+- Completion is tracked by setting `status` to `COMPLETED`.
+- There is **no** `status` field on `Task`; status is per-instance via overrides.
+- Non-recurring tasks have no overrides.
 
 ---
 
@@ -175,8 +170,7 @@ Models social relationships between users. Currently, only the data model exists
 - `User` 1─* `Task`
 - `User` *─* `Interest` (via `UserInterest`)
 - `Task` *─* `InterestCategory` (M2M via `Task.categories`)
-- `Task` 1─* `TaskRepetition`
-- `Task` 1─* `TaskHistory`
+- `Task` 1─* `TaskOverride`
 - `User` *─* `User` (via `Friendship` with `sender` / `receiver` roles)
 
 These tables and relations fully reflect the current Django models and migrations in the backend.

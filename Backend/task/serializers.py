@@ -1,62 +1,93 @@
 from rest_framework import serializers
 
-from .models import Task, TaskRepetition
+from .models import TaskTemplate, TaskOverride
+from .utils import generate_overrides_for_task
 
 
-class TaskRepetitionSerializer(serializers.ModelSerializer):
+class TaskOverrideSerializer(serializers.ModelSerializer):
     class Meta:
-        model = TaskRepetition
-        fields = ['id', 'frequency', 'time']
-        read_only_fields = ['id']
+        model = TaskOverride
+        fields = [
+            'id', 'instance_datetime', 'status',
+            'new_datetime', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
 
 class TaskSerializer(serializers.ModelSerializer):
-    repetitions = TaskRepetitionSerializer(many=True, required=False)
+    overrides = serializers.SerializerMethodField()
     user = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
-        model = Task
+        model = TaskTemplate
         fields = [
             'id', 'user', 'title', 'categories',
-            'reminder_time', 'start_time', 'end_time',
-            'priority', 'emoji', 'repetitions',
+            'priority', 'emoji',
+            'start_datetime', 'reminder_time', 'duration_minutes',
+            'is_recurring', 'rrule', 'timezone',
+            'overrides',
+            'created_at', 'updated_at',
         ]
-        read_only_fields = ['id', 'user']
+        read_only_fields = ['id', 'user', 'created_at', 'updated_at']
 
     def validate(self, attrs):
-        start_time = attrs.get('start_time', getattr(self.instance, 'start_time', None))
-        end_time = attrs.get('end_time', getattr(self.instance, 'end_time', None))
+        is_recurring = attrs.get(
+            'is_recurring',
+            getattr(self.instance, 'is_recurring', False),
+        )
+        rrule_val = attrs.get(
+            'rrule',
+            getattr(self.instance, 'rrule', None),
+        )
 
-        if start_time and end_time and end_time <= start_time:
+        if is_recurring and not rrule_val:
             raise serializers.ValidationError(
-                {'end_time': 'end_time must be after start_time.'}
+                {'rrule': 'rrule is required for recurring tasks.'}
             )
 
-        reminder_time = attrs.get('reminder_time')
-        if reminder_time is not None and reminder_time < 0:
+        if not is_recurring:
+            attrs['rrule'] = None
+
+        duration = attrs.get('duration_minutes')
+        if duration is not None and duration < 0:
             raise serializers.ValidationError(
-                {'reminder_time': 'reminder_time must be a non-negative integer.'}
+                {'duration_minutes': 'duration_minutes must be non-negative.'}
             )
 
         return attrs
 
-    def create(self, validated_data):
-        repetitions_data = validated_data.pop('repetitions', [])
-        categories = validated_data.pop('categories', [])
+    def get_overrides(self, obj):
+        qs = obj.overrides.filter(is_deleted=False)
 
-        task = Task.objects.create(**validated_data)
+        start_date = self.context.get('start_date')
+        end_date = self.context.get('end_date')
+        if start_date and end_date:
+            qs = qs.filter(
+                instance_datetime__gte=start_date,
+                instance_datetime__lte=end_date,
+            )
+
+        return TaskOverrideSerializer(
+            qs.order_by('instance_datetime'), many=True,
+        ).data
+
+    def create(self, validated_data):
+        categories = validated_data.pop('categories', [])
+        task = TaskTemplate.objects.create(**validated_data)
 
         if categories:
             task.categories.set(categories)
 
-        for rep_data in repetitions_data:
-            TaskRepetition.objects.create(task=task, **rep_data)
+        generate_overrides_for_task(task)
 
         return task
 
     def update(self, instance, validated_data):
-        repetitions_data = validated_data.pop('repetitions', None)
         categories = validated_data.pop('categories', None)
+        recurrence_changed = (
+            'is_recurring' in validated_data or 'rrule' in validated_data
+            or 'start_datetime' in validated_data
+        )
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
@@ -65,29 +96,15 @@ class TaskSerializer(serializers.ModelSerializer):
         if categories is not None:
             instance.categories.set(categories)
 
-        # Replace strategy: delete old repetitions and create new ones
-        if repetitions_data is not None:
-            instance.repetitions.all().delete()
-            for rep_data in repetitions_data:
-                TaskRepetition.objects.create(task=instance, **rep_data)
+        if recurrence_changed:
+            generate_overrides_for_task(instance)
 
         return instance
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-
         data['categories'] = [
             {'id': cat.id, 'name': cat.name}
             for cat in instance.categories.all()
         ]
-
-        data['history'] = [
-            {
-                'id': h.id,
-                'completion_time': h.completion_time.isoformat(),
-                'date': h.completion_time.date().isoformat(),
-            }
-            for h in instance.history.order_by('-completion_time')
-        ]
-
         return data

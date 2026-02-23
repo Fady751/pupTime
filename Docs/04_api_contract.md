@@ -254,13 +254,20 @@ All prefixed with `/task/`. All require authentication.
 GET /task/
 
 Query params:
+- `start_date` (optional): ISO-datetime start of date range
+- `end_date` (optional): ISO-datetime end of date range
 - `priority` (optional): "none" | "low" | "medium" | "high"
 - `category` (optional): InterestCategory id (integer)
-- `ordering` (optional): "start_time" | "-start_time" | "end_time" | "-end_time" | "priority" | "-priority"
+- `ordering` (optional): "start_datetime" | "-start_datetime" | "priority" | "-priority"
 - `page` (optional): page number
 - `page_size` (optional): items per page (max 100, default 20)
 
-Default ordering: `-start_time`
+Date range behaviour:
+- Non-recurring tasks: included if `start_datetime` falls within range
+- Recurring tasks: included if any override `instance_datetime` falls within range
+- Overrides in the response are filtered to the requested range
+
+Default ordering: `-start_datetime`
 
 Response 200:
 {
@@ -269,22 +276,29 @@ Response 200:
   "previous": string | null,
   "results": [
     {
-      "id": integer,
+      "id": uuid,
       "user": integer,
       "title": string,
-      "categories": [integer],
-      "reminder_time": integer | null,
-      "start_time": "ISO-datetime",
-      "end_time": "ISO-datetime" | null,
+      "categories": [{"id": integer, "name": string}],
       "priority": "none|low|medium|high",
       "emoji": string,
-      "repetitions": [
+      "start_datetime": "ISO-datetime",
+      "duration_minutes": integer | null,
+      "is_recurring": boolean,
+      "rrule": string | null,
+      "timezone": string,
+      "overrides": [
         {
-          "id": integer,
-          "frequency": "once|daily|weekly|monthly|yearly|sunday|monday|tuesday|wednesday|thursday|friday|saturday",
-          "time": "HH:MM:SS" | null
+          "id": uuid,
+          "instance_datetime": "ISO-datetime",
+          "status": "PENDING|COMPLETED|SKIPPED|RESCHEDULED|FAILED",
+          "new_datetime": "ISO-datetime" | null,
+          "created_at": "ISO-datetime",
+          "updated_at": "ISO-datetime"
         }
-      ]
+      ],
+      "created_at": "ISO-datetime",
+      "updated_at": "ISO-datetime"
     }
   ]
 }
@@ -299,18 +313,17 @@ Request:
 {
   "title": string,
   "categories": [integer] (optional, InterestCategory ids),
-  "reminder_time": integer | null (optional, minutes),
-  "start_time": "ISO-datetime",
-  "end_time": "ISO-datetime" | null (optional, must be after start_time),
+  "start_datetime": "ISO-datetime",
+  "duration_minutes": integer | null (optional),
+  "is_recurring": boolean (default false),
+  "rrule": string | null (required if is_recurring is true, e.g. "FREQ=DAILY"),
+  "timezone": string (default "UTC"),
   "priority": "none|low|medium|high" (default "none"),
-  "emoji": string (optional),
-  "repetitions": [
-    {
-      "frequency": "once|daily|weekly|monthly|yearly|sunday|monday|tuesday|wednesday|thursday|friday|saturday",
-      "time": "HH:MM:SS" | null
-    }
-  ] (optional)
+  "emoji": string (optional)
 }
+
+When `is_recurring` is true, the backend auto-generates TaskOverride instances
+for one month from today.
 
 Response 201: single task object (same shape as list item)
 
@@ -328,7 +341,7 @@ Response 200: single task object
 
 PUT /task/{id}/
 
-Request: same shape as Create Task
+Request: same shape as Create Task (all fields required)
 
 Response 200: single task object
 
@@ -344,69 +357,37 @@ Response 200: single task object
 
 ---
 
-## Delete Task
+## Delete Task (Soft Delete)
 
 DELETE /task/{id}/
+
+Soft-deletes the task (sets `is_deleted=True`).
 
 Response 204: No content
 
 ---
 
-## Mark Task Complete
+## Update Override Status
 
-POST /task/{id}/complete/
+PATCH /task/{id}/override/{override_id}/
 
-Request:
-{
-  "completion_time": "ISO-datetime" (optional, defaults to now)
-}
-
-Response 201:
-{
-  "id": integer,
-  "task": integer,
-  "completion_time": "ISO-datetime"
-}
-
----
-
-## Remove Task Completion
-
-POST /task/{id}/uncomplete/
-
-Target a specific completion by one of these (if none given, removes the latest):
+Update the status of a single TaskOverride instance (complete, skip, reschedule).
 
 Request:
 {
-  "completion_id": integer (optional),
-  "date": "YYYY-MM-DD" (optional, removes latest completion from that date)
+  "status": "PENDING" | "COMPLETED" | "SKIPPED" | "RESCHEDULED" | "FAILED",
+  "new_datetime": "ISO-datetime" (required when status is "RESCHEDULED")
 }
 
 Response 200:
 {
-  "message": "Completion removed",
-  "deleted_completion_time": "ISO-datetime"
+  "id": uuid,
+  "instance_datetime": "ISO-datetime",
+  "status": string,
+  "new_datetime": "ISO-datetime" | null,
+  "created_at": "ISO-datetime",
+  "updated_at": "ISO-datetime"
 }
-
-Response 404:
-{
-  "error": "No completions found for this task"
-}
-
----
-
-## Get Task Completion History
-
-GET /task/{id}/history/
-
-Response 200:
-[
-  {
-    "id": integer,
-    "completion_time": "ISO-datetime",
-    "date": "YYYY-MM-DD"
-  }
-]
 
 ---
 

@@ -6,7 +6,7 @@ from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
 
-from task.models import Task, TaskRepetition
+from task.models import TaskTemplate, TaskOverride
 from user.models import User, InterestCategory
 
 
@@ -45,15 +45,13 @@ class TaskAPITestCase(TestCase):
     def task_payload(self, **overrides):
         payload = {
             'title': 'Morning run',
-            'start_time': (self.now + timedelta(hours=1)).isoformat(),
-            'end_time': (self.now + timedelta(hours=2)).isoformat(),
-            'status': 'pending',
+            'start_datetime': (self.now + timedelta(hours=1)).isoformat(),
+            'duration_minutes': 60,
             'priority': 'medium',
             'emoji': '\U0001f3c3',
             'categories': [self.category.pk],
-            'repetitions': [
-                {'frequency': 'daily', 'time': '06:00:00'},
-            ],
+            'is_recurring': True,
+            'rrule': 'FREQ=DAILY',
         }
         payload.update(overrides)
         return payload
@@ -101,22 +99,22 @@ class TaskCRUDTests(TaskAPITestCase):
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
         self.assertEqual(resp.data['title'], 'Morning run')
         self.assertEqual(resp.data['user'], self.user_a.pk)
-        self.assertEqual(len(resp.data['repetitions']), 1)
-        self.assertEqual(resp.data['repetitions'][0]['frequency'], 'daily')
+        self.assertTrue(resp.data['is_recurring'])
+        self.assertEqual(resp.data['rrule'], 'FREQ=DAILY')
 
-    def test_create_task_without_repetitions(self):
+    def test_create_task_without_rrule(self):
         self.auth_a()
-        payload = self.task_payload(repetitions=[])
+        payload = self.task_payload(is_recurring=False, rrule=None)
         resp = self.client.post('/task/', payload, format='json')
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(len(resp.data['repetitions']), 0)
+        self.assertFalse(resp.data['is_recurring'])
 
     def test_create_task_without_optional_fields(self):
-        """end_time, reminder_time, emoji, categories, repetitions are optional."""
+        """duration_minutes, reminder_time, emoji, categories, rrule are optional."""
         self.auth_a()
         payload = {
             'title': 'Quick task',
-            'start_time': self.now.isoformat(),
+            'start_datetime': self.now.isoformat(),
         }
         resp = self.client.post('/task/', payload, format='json')
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
@@ -140,19 +138,19 @@ class TaskCRUDTests(TaskAPITestCase):
     def test_full_update_task(self):
         self.auth_a()
         task = self.client.post('/task/', self.task_payload(), format='json').data
-        updated = self.task_payload(title='Updated run', priority='high', repetitions=[])
+        updated = self.task_payload(title='Updated run', priority='high', is_recurring=False, rrule=None)
         resp = self.client.put(f'/task/{task["id"]}/', updated, format='json')
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(resp.data['title'], 'Updated run')
         self.assertEqual(resp.data['priority'], 'high')
-        self.assertEqual(len(resp.data['repetitions']), 0)
+        self.assertFalse(resp.data['is_recurring'])
 
     def test_partial_update_task(self):
         self.auth_a()
         task = self.client.post('/task/', self.task_payload(), format='json').data
-        resp = self.client.patch(f'/task/{task["id"]}/', {'status': 'completed'}, format='json')
+        resp = self.client.patch(f'/task/{task["id"]}/', {'title': 'xyz'}, format='json')
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertEqual(resp.data['status'], 'completed')
+        self.assertEqual(resp.data['title'], 'xyz')
 
     def test_delete_task(self):
         self.auth_a()
@@ -162,22 +160,18 @@ class TaskCRUDTests(TaskAPITestCase):
         resp = self.client.get(f'/task/{task["id"]}/')
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
 
-    def test_update_replaces_repetitions(self):
-        """PUT with new repetitions should replace the old ones."""
+    def test_update_replaces_rrule(self):
+        """PUT with new rrule should replace the old one and regenerate overrides."""
         self.auth_a()
         task = self.client.post('/task/', self.task_payload(), format='json').data
-        self.assertEqual(len(task['repetitions']), 1)
+        self.assertTrue(task['is_recurring'])
 
-        new_reps = [
-            {'frequency': 'monday', 'time': '08:00:00'},
-            {'frequency': 'wednesday', 'time': '08:00:00'},
-        ]
-        updated = self.task_payload(repetitions=new_reps)
+        updated = self.task_payload(rrule='FREQ=WEEKLY')
         resp = self.client.put(f'/task/{task["id"]}/', updated, format='json')
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(resp.data['repetitions']), 2)
-        # old repetition should be gone
-        self.assertEqual(TaskRepetition.objects.filter(task_id=task['id']).count(), 2)
+        self.assertEqual(resp.data['rrule'], 'FREQ=WEEKLY')
+        # overrides will be checked when fetching
+        self.assertGreater(TaskOverride.objects.filter(task_id=task['id']).count(), 0)
 
 
 # ==========================================================================
@@ -229,22 +223,12 @@ class TaskOwnershipTests(TaskAPITestCase):
 
 class TaskValidationTests(TaskAPITestCase):
 
-    def test_end_time_before_start_time(self):
+    def test_duration_negative(self):
         self.auth_a()
-        payload = self.task_payload(
-            start_time=(self.now + timedelta(hours=2)).isoformat(),
-            end_time=(self.now + timedelta(hours=1)).isoformat(),
-        )
+        payload = self.task_payload(duration_minutes=-5)
         resp = self.client.post('/task/', payload, format='json')
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('end_time', resp.data)
-
-    def test_negative_reminder_time(self):
-        self.auth_a()
-        payload = self.task_payload(reminder_time=-5)
-        resp = self.client.post('/task/', payload, format='json')
-        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('reminder_time', resp.data)
+        self.assertIn('duration_minutes', resp.data)
 
     def test_missing_title(self):
         self.auth_a()
@@ -253,9 +237,9 @@ class TaskValidationTests(TaskAPITestCase):
         resp = self.client.post('/task/', payload, format='json')
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
 
-    def test_invalid_status_choice(self):
+    def test_invalid_rrule_for_recurring(self):
         self.auth_a()
-        payload = self.task_payload(status='invalid')
+        payload = self.task_payload(is_recurring=True, rrule=None)
         resp = self.client.post('/task/', payload, format='json')
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
 
@@ -278,18 +262,14 @@ class TaskFilterTests(TaskAPITestCase):
 
         # Create 3 tasks with varying properties
         self.client.post('/task/', self.task_payload(
-            title='Task A', status='pending', priority='high',
+            title='Task A', priority='high',
         ), format='json')
         self.client.post('/task/', self.task_payload(
-            title='Task B', status='completed', priority='low',
+            title='Task B', priority='low',
         ), format='json')
         self.client.post('/task/', self.task_payload(
-            title='Task C', status='pending', priority='medium',
+            title='Task C', priority='medium',
         ), format='json')
-
-    def test_filter_by_status(self):
-        resp = self.client.get('/task/', {'status': 'pending'})
-        self.assertEqual(resp.data['count'], 2)
 
     def test_filter_by_priority(self):
         resp = self.client.get('/task/', {'priority': 'high'})
@@ -338,3 +318,38 @@ class TaskPaginationTests(TaskAPITestCase):
         resp = self.client.get('/task/', {'page': 2})
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(len(resp.data['results']), 5)
+
+# ==========================================================================
+# History Endpoint Tests
+# ==========================================================================
+
+class TaskHistoryTests(TaskAPITestCase):
+
+    def setUp(self):
+        super().setUp()
+        self.auth_a()
+
+    def test_history_endpoint(self):
+        # Create a recurring task (auto-generates 1 month of overrides)
+        task = self.client.post('/task/', self.task_payload(), format='json').data
+        
+        # Call history endpoint
+        resp = self.client.get(f'/task/{task["id"]}/history/')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertIn('count', resp.data)
+        self.assertGreater(resp.data['count'], 0)
+        self.assertEqual(resp.data['results'][0]['task_id'], task['id']) if 'task_id' in resp.data['results'][0] else None
+
+    def test_history_endpoint_filtered(self):
+        task = self.client.post('/task/', self.task_payload(), format='json').data
+        
+        start_date = self.now.isoformat()
+        end_date = (self.now + timedelta(days=2)).isoformat()
+        
+        resp = self.client.get(f'/task/{task["id"]}/history/', {
+            'start_date': start_date,
+            'end_date': end_date
+        })
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        # Should be restricted to only 2-3 instances from our DAILY recurrence
+        self.assertLessEqual(resp.data['count'], 3)

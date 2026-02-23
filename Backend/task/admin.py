@@ -1,40 +1,25 @@
 from django.contrib import admin
 
-from .models import Task, TaskRepetition, TaskHistory
+from .models import TaskTemplate, TaskOverride
 
 
-class TaskRepetitionInline(admin.TabularInline):
-    model = TaskRepetition
+class TaskOverrideInline(admin.TabularInline):
+    model = TaskOverride
     extra = 0
+    readonly_fields = ('created_at', 'updated_at')
 
 
-class TaskHistoryInline(admin.TabularInline):
-    model = TaskHistory
-    extra = 0
-    readonly_fields = ('completion_time',)
-
-
-@admin.register(Task)
+@admin.register(TaskTemplate)
 class TaskAdmin(admin.ModelAdmin):
-    list_display = ('title', 'user', 'priority', 'start_time', 'get_completion_count')
-    list_filter = ('priority', 'user')
+    list_display = ('title', 'user', 'priority', 'start_datetime', 'is_recurring', 'is_deleted')
+    list_filter = ('priority', 'is_recurring', 'is_deleted', 'user')
     search_fields = ('title', 'user__username')
-    inlines = [TaskRepetitionInline, TaskHistoryInline]
-
-    def get_completion_count(self, obj):
-        return obj.history.count()
-    get_completion_count.short_description = 'Completions'
+    inlines = [TaskOverrideInline]
 
 
-@admin.register(TaskRepetition)
-class TaskRepetitionAdmin(admin.ModelAdmin):
-    list_display = ('task', 'frequency', 'time')
-    list_filter = ('frequency',)
-
-
-@admin.register(TaskHistory)
-class TaskHistoryAdmin(admin.ModelAdmin):
-    list_display = ('task', 'completion_time')
-    list_filter = ('completion_time', 'task__user')
+@admin.register(TaskOverride)
+class TaskOverrideAdmin(admin.ModelAdmin):
+    list_display = ('task', 'instance_datetime', 'status', 'is_deleted')
+    list_filter = ('status', 'is_deleted', 'task__user')
     search_fields = ('task__title', 'task__user__username')
-    readonly_fields = ('completion_time',)
+    readonly_fields = ('created_at', 'updated_at')

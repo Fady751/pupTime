@@ -1,15 +1,18 @@
+from datetime import datetime
+
+from django.db.models import Q
+from django.utils.decorators import method_decorator
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated, BasePermission
-from rest_framework.response import Response
-from rest_framework.viewsets import ModelViewSet
 from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
-from drf_yasg.utils import swagger_auto_schema
-from drf_yasg import openapi
-from django.utils import timezone
+from rest_framework.permissions import BasePermission, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.viewsets import ModelViewSet
 
-from .models import Task, TaskHistory
-from .serializers import TaskSerializer
+from . import docs
+from .models import TaskTemplate, TaskOverride
+from .serializers import TaskOverrideSerializer, TaskSerializer
+
 
 class IsTaskOwner(BasePermission):
     def has_object_permission(self, request, view, obj):
@@ -21,66 +24,86 @@ class TaskPagination(PageNumberPagination):
     page_size_query_param = 'page_size'
     max_page_size = 100
 
-TASK_FILTER_PARAMS = [
-    openapi.Parameter(
-        'priority', openapi.IN_QUERY,
-        description='Filter by priority (none / low / medium / high)',
-        type=openapi.TYPE_STRING,
-        enum=['none', 'low', 'medium', 'high'],
-    ),
-    openapi.Parameter(
-        'category', openapi.IN_QUERY,
-        description='Filter by InterestCategory id',
-        type=openapi.TYPE_INTEGER,
-    ),
-    openapi.Parameter(
-        'ordering', openapi.IN_QUERY,
-        description='Sort field. Prefix with - for descending. '
-                    'Allowed: start_time, -start_time, priority, -priority, '
-                    'end_time, -end_time',
-        type=openapi.TYPE_STRING,
-    ),
-]
 
 ORDERING_WHITELIST = {
-    'start_time', '-start_time',
-    'end_time', '-end_time',
+    'start_datetime', '-start_datetime',
     'priority', '-priority',
 }
 
 
+def _parse_iso(value):
+    """Parse an ISO-8601 string, tolerating a trailing Z."""
+    if not value:
+        return None
+    value = value.strip(" '\"")
+    try:
+        return datetime.fromisoformat(value.replace('Z', '+00:00'))
+    except (ValueError, AttributeError):
+        return None
+
+
+@method_decorator(name='list', decorator=docs.list_schema)
+@method_decorator(name='create', decorator=docs.create_schema)
+@method_decorator(name='retrieve', decorator=docs.retrieve_schema)
+@method_decorator(name='update', decorator=docs.update_schema)
+@method_decorator(name='partial_update', decorator=docs.partial_update_schema)
+@method_decorator(name='destroy', decorator=docs.destroy_schema)
 class TaskViewSet(ModelViewSet):
     """
     CRUD for the authenticated user's tasks.
 
-    - **GET    /task/**           – list own tasks (filterable, paginated)
-    - **POST   /task/**           – create a task (with optional nested repetitions)
-    - **GET    /task/{id}/**      – retrieve a single task
-    - **PUT    /task/{id}/**      – full update
-    - **PATCH  /task/{id}/**      – partial update
-    - **DELETE /task/{id}/**      – delete
+    - **GET    /task/**                – list own tasks (filterable by date range, paginated)
+    - **POST   /task/**                – create a task (auto-generates overrides for recurring)
+    - **GET    /task/{id}/**           – retrieve a single task
+    - **PUT    /task/{id}/**           – full update
+    - **PATCH  /task/{id}/**           – partial update
+    - **DELETE /task/{id}/**           – soft delete
+    - **PATCH  /task/{id}/override/{override_id}/** – update an override status
     """
 
     serializer_class = TaskSerializer
     permission_classes = [IsAuthenticated, IsTaskOwner]
     pagination_class = TaskPagination
 
-    def get_queryset(self):
-        # Handle swagger schema generation (no real user)
-        if getattr(self, 'swagger_fake_view', False):
-            return Task.objects.none()
-            
-        qs = (
-            Task.objects
-            .filter(user=self.request.user)
-            .select_related('user')
-            .prefetch_related('repetitions', 'categories', 'history')
+    def get_serializer_context(self):
+        ctx = super().get_serializer_context()
+        ctx['start_date'] = _parse_iso(
+            self.request.query_params.get('start_date')
         )
+        ctx['end_date'] = _parse_iso(
+            self.request.query_params.get('end_date')
+        )
+        return ctx
+
+    def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return TaskTemplate.objects.none()
+
+        qs = (
+            TaskTemplate.objects
+            .filter(user=self.request.user, is_deleted=False)
+            .select_related('user')
+            .prefetch_related('overrides', 'categories')
+        )
+        start_dt = _parse_iso(self.request.query_params.get('start_date'))
+        end_dt = _parse_iso(self.request.query_params.get('end_date'))
+
+        if start_dt and end_dt:
+            qs = qs.filter(
+                Q(
+                    start_datetime__gte=start_dt,
+                    start_datetime__lte=end_dt,
+                )
+                | Q(
+                    overrides__instance_datetime__gte=start_dt,
+                    overrides__instance_datetime__lte=end_dt,
+                    overrides__is_deleted=False,
+                )
+            ).distinct()
 
         priority = self.request.query_params.get('priority')
         if priority in ('none', 'low', 'medium', 'high'):
             qs = qs.filter(priority=priority)
-
         category = self.request.query_params.get('category')
         if category:
             try:
@@ -92,227 +115,88 @@ class TaskViewSet(ModelViewSet):
         if ordering in ORDERING_WHITELIST:
             qs = qs.order_by(ordering)
         else:
-            qs = qs.order_by('-start_time') 
+            qs = qs.order_by('-start_datetime')
+
         return qs
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
+    def perform_destroy(self, instance):
+        """Soft delete instead of hard delete."""
+        instance.is_deleted = True
+        instance.save(update_fields=['is_deleted'])
 
-    @swagger_auto_schema(
-        operation_summary='List own tasks',
-        manual_parameters=TASK_FILTER_PARAMS,
-        responses={200: TaskSerializer(many=True)},
+    @action(
+        detail=True,
+        methods=['patch'],
+        url_path=r'override/(?P<override_id>[0-9a-f-]+)',
+        url_name='update-override',
     )
-    def list(self, request, *args, **kwargs):
-        return super().list(request, *args, **kwargs)
-
-    @swagger_auto_schema(
-        operation_summary='Create a task',
-        request_body=TaskSerializer,
-        responses={201: TaskSerializer},
-    )
-    def create(self, request, *args, **kwargs):
-        return super().create(request, *args, **kwargs)
-
-    @swagger_auto_schema(
-        operation_summary='Retrieve a task',
-        responses={200: TaskSerializer},
-    )
-    def retrieve(self, request, *args, **kwargs):
-        return super().retrieve(request, *args, **kwargs)
-
-    @swagger_auto_schema(
-        operation_summary='Full update a task',
-        request_body=TaskSerializer,
-        responses={200: TaskSerializer},
-    )
-    def update(self, request, *args, **kwargs):
-        return super().update(request, *args, **kwargs)
-
-    @swagger_auto_schema(
-        operation_summary='Partial update a task',
-        request_body=TaskSerializer,
-        responses={200: TaskSerializer},
-    )
-    def partial_update(self, request, *args, **kwargs):
-        return super().partial_update(request, *args, **kwargs)
-
-    @swagger_auto_schema(
-        operation_summary='Delete a task',
-        responses={204: 'Task deleted'},
-    )
-    def destroy(self, request, *args, **kwargs):
-        return super().destroy(request, *args, **kwargs)
-
-    @action(detail=True, methods=['post'])
-    @swagger_auto_schema(
-        operation_summary='Mark task as completed',
-        request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                'completion_time': openapi.Schema(
-                    type=openapi.TYPE_STRING,
-                    format='date-time',
-                    description='Optional completion time (defaults to now)'
-                )
-            }
-        ),
-        responses={
-            201: openapi.Schema(
-                type=openapi.TYPE_OBJECT,
-                properties={
-                    'id': openapi.Schema(type=openapi.TYPE_INTEGER),
-                    'task': openapi.Schema(type=openapi.TYPE_INTEGER),
-                    'completion_time': openapi.Schema(type=openapi.TYPE_STRING, format='date-time'),
-                }
-            ),
-            404: 'Task not found'
-        }
-    )
-    def complete(self, request, pk=None):
-        """Mark a task as completed by creating a TaskHistory record."""
+    @docs.override_schema
+    def override(self, request, pk=None, override_id=None):
+        """Update the status of a single TaskOverride (complete, skip, reschedule …)."""
         task = self.get_object()
-        
-        completion_time = request.data.get('completion_time')
-        if completion_time:
-            try:
-                completion_time = timezone.datetime.fromisoformat(completion_time.replace('Z', '+00:00'))
-            except ValueError:
-                return Response(
-                    {'error': 'Invalid completion_time format. Use ISO format.'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-        else:
-            completion_time = timezone.now()
-        
-        task_history = TaskHistory.objects.create(
-            task=task,
-            completion_time=completion_time
-        )
-        
-        return Response({
-            'id': task_history.id,
-            'task': task.id,
-            'completion_time': task_history.completion_time.isoformat(),
-        }, status=status.HTTP_201_CREATED)
 
-    @action(detail=True, methods=['post'])
-    @swagger_auto_schema(
-        operation_summary='Remove completion for task',
-        request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                'completion_id': openapi.Schema(
-                    type=openapi.TYPE_INTEGER,
-                    description='ID of specific completion to remove'
-                ),
-                'date': openapi.Schema(
-                    type=openapi.TYPE_STRING,
-                    format='date',
-                    description='Remove latest completion from this date (YYYY-MM-DD)'
-                )
-            }
-        ),
-        responses={
-            200: openapi.Schema(
-                type=openapi.TYPE_OBJECT,
-                properties={
-                    'message': openapi.Schema(type=openapi.TYPE_STRING),
-                    'deleted_completion_time': openapi.Schema(type=openapi.TYPE_STRING, format='date-time'),
-                }
-            ),
-            404: 'Task not found or no completions exist'
-        }
-    )
-    def uncomplete(self, request, pk=None):
-        """Remove a completion for this task. Supports multiple targeting methods."""
-        task = self.get_object()
-        
-        completion_id = request.data.get('completion_id')
-        target_date = request.data.get('date')
-        
-        if completion_id:
-            try:
-                completion = TaskHistory.objects.get(id=completion_id, task=task)
-            except TaskHistory.DoesNotExist:
-                return Response(
-                    {'error': 'Completion not found for this task'},
-                    status=status.HTTP_404_NOT_FOUND
-                )
-        elif target_date:
-            try:
-                from datetime import datetime
-                date_obj = datetime.strptime(target_date, '%Y-%m-%d').date()
-                completion = (
-                    TaskHistory.objects
-                    .filter(task=task, completion_time__date=date_obj)
-                    .order_by('-completion_time')
-                    .first()
-                )
-                if not completion:
-                    return Response(
-                        {'error': f'No completions found for {target_date}'},
-                        status=status.HTTP_404_NOT_FOUND
-                    )
-            except ValueError:
-                return Response(
-                    {'error': 'Invalid date format. Use YYYY-MM-DD'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-        else:
-            completion = (
-                TaskHistory.objects
-                .filter(task=task)
-                .order_by('-completion_time')
-                .first()
+        try:
+            task_override = task.overrides.get(id=override_id, is_deleted=False)
+        except TaskOverride.DoesNotExist:
+            return Response(
+                {'error': 'Override not found.'},
+                status=status.HTTP_404_NOT_FOUND,
             )
-            if not completion:
+
+        new_status = request.data.get('status')
+        valid_statuses = dict(TaskOverride.STATUS_CHOICES)
+        if new_status not in valid_statuses:
+            return Response(
+                {'error': f'Invalid status. Choose from: {list(valid_statuses.keys())}'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if new_status == TaskOverride.STATUS_RESCHEDULED:
+            new_dt = request.data.get('new_datetime')
+            if not new_dt:
                 return Response(
-                    {'error': 'No completions found for this task'},
-                    status=status.HTTP_404_NOT_FOUND
+                    {'error': 'new_datetime is required when status is RESCHEDULED.'},
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
-        
-        deleted_time = completion.completion_time
-        completion.delete()
-        
-        return Response({
-            'message': 'Completion removed',
-            'deleted_completion_time': deleted_time.isoformat(),
-        }, status=status.HTTP_200_OK)
+            parsed = _parse_iso(new_dt)
+            if not parsed:
+                return Response(
+                    {'error': 'Invalid new_datetime format. Use ISO format.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            task_override.new_datetime = parsed
+
+        task_override.status = new_status
+        task_override.save()
+
+        return Response(
+            TaskOverrideSerializer(task_override).data,
+            status=status.HTTP_200_OK,
+        )
 
     @action(detail=True, methods=['get'])
-    @swagger_auto_schema(
-        operation_summary='List completion history for task',
-        responses={
-            200: openapi.Schema(
-                type=openapi.TYPE_ARRAY,
-                items=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'id': openapi.Schema(type=openapi.TYPE_INTEGER),
-                        'completion_time': openapi.Schema(type=openapi.TYPE_STRING, format='date-time'),
-                        'date': openapi.Schema(type=openapi.TYPE_STRING, format='date'),
-                    }
-                )
-            ),
-            404: 'Task not found'
-        }
-    )
+    @docs.history_schema
     def history(self, request, pk=None):
-        """List all completion history for this task, ordered by most recent first."""
+        """List all past overrides for a specific task template."""
         task = self.get_object()
-        
-        completions = (
-            TaskHistory.objects
-            .filter(task=task)
-            .order_by('-completion_time')
-        )
-        
-        history_data = [{
-            'id': completion.id,
-            'completion_time': completion.completion_time.isoformat(),
-            'date': completion.completion_time.date().isoformat(),
-        } for completion in completions]
-        
-        return Response(history_data, status=status.HTTP_200_OK)
+        qs = task.overrides.filter(is_deleted=False).order_by('-instance_datetime')
+
+        start_dt = _parse_iso(request.query_params.get('start_date'))
+        end_dt = _parse_iso(request.query_params.get('end_date'))
+
+        if start_dt and end_dt:
+            qs = qs.filter(
+                instance_datetime__gte=start_dt,
+                instance_datetime__lte=end_dt,
+            )
+
+        page = self.paginate_queryset(qs)
+        if page is not None:
+            serializer = TaskOverrideSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = TaskOverrideSerializer(qs, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
