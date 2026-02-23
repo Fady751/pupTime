@@ -4,7 +4,6 @@ import uuid from 'react-native-uuid';
 
 // Backend API services
 import * as TaskAPI from './tasks';
-import { getCategories as getCategoriesAPI } from '../interestService/getCategories';
 
 // Local DB operations
 import {
@@ -32,6 +31,7 @@ import {
   queueCompleteTask,
   queueUncompleteTask,
   deleteSyncItemsForTask,
+  updateIDInSyncQueue,
 } from '../../DB/sync_queue';
 import { getData } from '../../utils/storage/auth';
 import { ensureCategoryExists, getAllCategories } from '../../DB/taskRepository';
@@ -84,27 +84,32 @@ const reconstructTaskDates = (data: any): Task => {
  * locally-created task get the correct backend ID.
  */
 
+export type SyncQueueResult = {
+  success: boolean;
+  message: 'OK' | 'OFFLINE' | 'NO_TOKEN' | 'ALREADY_APPLYING' | 'ALREADY_APPLTED';
+};
+
 let isApplyingQueue = false;
-const applyQueue = async (): Promise<void> => {
+const applyQueue = async (): Promise<SyncQueueResult> => {
   if (isApplyingQueue) {
       console.warn('[Sync] Already applying queue – skipping');
-      return;
+      return { success: false, message: 'ALREADY_APPLYING' };
   }
   if (!isOnline()) {
     console.warn('[Sync] Offline – skipping queue apply');
-    return;
+    return { success: false, message: 'OFFLINE' };
   }
   
   const token = (await getData())?.token;
   if (!token) {
       console.warn('[Sync] No token – skipping queue apply');
-      return;
+      return { success: false, message: 'NO_TOKEN' };
   }
   isApplyingQueue = true;
 
   try {
     const items = await getPendingSyncItems();
-    if (items.length === 0) return;
+    if (items.length === 0) return { success: true, message: 'ALREADY_APPLTED' };
 
     // Track local ID → backend ID re-mappings produced by "create" items
     const idMap = new Map<string, string>();
@@ -122,6 +127,12 @@ const applyQueue = async (): Promise<void> => {
           ? idMap.get(item.task_id) ?? item.task_id
           : null;
 
+        if(isLocalId(resolvedTaskId!) && item.type !== 'create') {
+          console.warn(`[Sync] Item ${item.id} references local-only task ${resolvedTaskId} – skipping`);
+          await removeSyncItem(item.id);
+          continue;
+        }
+
         switch (item.type) {
           // ─── CREATE ───────────────────────────────
           case 'create': {
@@ -138,6 +149,7 @@ const applyQueue = async (): Promise<void> => {
             // Replace local row with the real backend ID
             await deleteLocalTask(localId);
             await createTaskWithId(backendId, taskData);
+            await updateIDInSyncQueue(localId, backendId);
 
             await removeSyncItem(item.id);
             break;
@@ -223,6 +235,7 @@ const applyQueue = async (): Promise<void> => {
   } finally {
     isApplyingQueue = false;
   }
+  return { success: true, message: 'OK' };
 };
 
 // ── 2. Sync Backend (refresh) ────────────────────────────
@@ -258,15 +271,14 @@ const syncBackend = async (): Promise<void> => {
   let hasMore = true;
 
   while (hasMore) {
-    const response = await TaskAPI.getTasks({ page, page_size: 100 });
+    const response = await TaskAPI.getTasks({ page, page_size: 100, ordering: '-start_time' });
 
     for (const task of response.results) {
       await createTaskWithId(task.id, task);
 
       // Fetch completions for this task from the backend
       try {
-        const completions = await TaskAPI.historyTask(task.id);
-        for (const c of completions) {
+        for (const c of task.completions) {
           await addLocalCompletion({
             id: c.id,
             task_id: task.id,
@@ -354,16 +366,16 @@ const searchTasksByTitle = async (
 };
 
 const getCategories = async (): Promise<Category[]> => {
-    if(!isOnline()) {
-        return await getAllCategories();
-    }
-    try {
-        const categories = getCategoriesAPI();
-        return categories;
-    } catch (error) {
-        console.error('[Sync] Failed to fetch categories:', error);
-        throw error;
-    }
+    return await getAllCategories();
+    // if(!isOnline()) {
+    //     return await getAllCategories();
+    // }
+    // try {
+    //     return getCategoriesAPI();
+    // } catch (error) {
+    //     console.error('[Sync] Failed to fetch categories:', error);
+    //     throw error;
+    // }
 };
 
 

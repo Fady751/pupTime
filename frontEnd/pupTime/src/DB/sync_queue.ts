@@ -89,7 +89,6 @@ export const queueCompleteTask = async (
 	taskId: string,
 	payload: { completion_time: string; date: string },
 ): Promise<number> => {
-	console.log(`[Sync] Queueing completion for task ${taskId} with payload:`, payload);
 	return addToSyncQueue({ type: 'complete', taskId, data: payload });
 };
 
@@ -162,3 +161,12 @@ export const deleteSyncItemsForTask = async (taskId: string): Promise<void> => {
 	}
 };
 
+export const updateIDInSyncQueue = async (taskId: string, newTaskId: string): Promise<void> => {
+	try {
+		const db = await getDatabase();
+		await db.execute('UPDATE sync_queue SET task_id = ? WHERE task_id = ?;', [newTaskId, taskId]);
+	} catch (error) {
+		console.error('[DB] Error updating ID in sync_queue:', error);
+		throw error;
+	}
+};

@@ -12,11 +12,11 @@ import TaskSelector from "../../components/Timer/TaskSelector";
 import StartButton from "../../components/Timer/StartButton";
 import GiveUpButton from "../../components/Timer/GiveUpButton";
 import GiveUpDialog from "../../components/Timer/GiveUpDialog";
-import { useTodayTasks } from "../../Hooks/useTasks";
+import { useTasksForSpecificDay } from "../../Hooks/useTasksForSpecificDay";
 import type { Task } from "../../types/task";
 
 export type FocusSession = {
-  taskId: number | null;
+  taskId: string | null;
   duration: number;
   completed: boolean;
   abandoned: boolean;
@@ -28,6 +28,7 @@ export type FocusSession = {
 type SessionState = "IDLE" | "TASK_SELECTED" | "RUNNING" | "COMPLETED" | "ABANDONED";
 
 const DURATIONS = [
+  { label: "5 min", seconds: 5 * 60 },
   { label: "10 min", seconds: 10 * 60 },
   { label: "25 min", seconds: 25 * 60 },
   { label: "45 min", seconds: 45 * 60 },
@@ -40,13 +41,13 @@ const TimerScreen: React.FC = () => {
 
   const user = useSelector((state: RootState) => state.user.data);
   const userId = user?.id ?? null;
-  const { tasks: todayTasks } = useTodayTasks(userId);
+  const { tasks: todayTasks } = useTasksForSpecificDay(userId, new Date(Date.now()));
 
   const [sessionState, setSessionState] = useState<SessionState>("IDLE");
   const [selectedDuration, setSelectedDuration] = useState<number>(DURATIONS[0].seconds);
   const [remainingSeconds, setRemainingSeconds] = useState<number>(DURATIONS[0].seconds);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [streak, setStreak] = useState<number>(0);
+  const [streak, setStreak] = useState<number>(user?.streak_cnt || 0);
   const [currentSession, setCurrentSession] = useState<FocusSession | null>(null);
   const [showGiveUpDialog, setShowGiveUpDialog] = useState(false);
   const [showTaskPicker, setShowTaskPicker] = useState(false);
@@ -89,7 +90,7 @@ const TimerScreen: React.FC = () => {
 
     const startTime = new Date();
     setCurrentSession({
-      taskId: selectedTask ? selectedTask.id : null,
+      taskId: selectedTask ? selectedTask?.id : null,
       duration: selectedDuration,
       completed: false,
       abandoned: false,
@@ -180,8 +181,6 @@ const TimerScreen: React.FC = () => {
     }
   })();
 
-  const currentDurationLabel = DURATIONS.find((d) => d.seconds === selectedDuration)?.label;
-
   const hasCompleted = sessionState === "COMPLETED";
 
   return (
@@ -217,44 +216,53 @@ const TimerScreen: React.FC = () => {
           </View>
         </View>
 
+        <View style={styles.headerSection}>
+          <Text style={styles.headerTitle}>Focus Timer</Text>
+          <Text style={styles.headerSubtitle}>
+            Pick a task, choose a duration, and stay on track.
+          </Text>
+        </View>
+
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          <View style={styles.center}>
-            <TimerDial
-              duration={selectedDuration}
-              remainingTime={remainingSeconds}
-              progress={progress}
-              streak={streak}
-            />
+          <View style={styles.timerCard}>
+            <View style={styles.center}>
+              <TimerDial
+                duration={selectedDuration}
+                remainingTime={remainingSeconds}
+                progress={progress}
+                streak={streak}
+              />
 
-            <View style={styles.countdownWrapper}>
-              <CountdownText remainingTime={remainingSeconds} />
-            </View>
+              <View style={styles.countdownWrapper}>
+                <CountdownText remainingTime={remainingSeconds} />
+              </View>
 
-            {/* Duration chips */}
-            <View style={styles.durationsRow}>
-              {DURATIONS.map((d) => {
-                const isActive = d.seconds === selectedDuration;
-                return (
-                  <Pressable
-                    key={d.seconds}
-                    onPress={() => handleSelectDuration(d.seconds)}
-                    style={({ pressed }) => [
-                      styles.durationChip,
-                      isActive && styles.durationChipActive,
-                      { opacity: pressed && !isActive ? 0.8 : 1 },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.durationChipText,
-                        isActive && styles.durationChipTextActive,
+              {/* Duration chips */}
+              <View style={styles.durationsRow}>
+                {DURATIONS.map((d) => {
+                  const isActive = d.seconds === selectedDuration;
+                  return (
+                    <Pressable
+                      key={d.seconds}
+                      onPress={() => handleSelectDuration(d.seconds)}
+                      style={({ pressed }) => [
+                        styles.durationChip,
+                        isActive && styles.durationChipActive,
+                        { opacity: pressed && !isActive ? 0.8 : 1 },
                       ]}
                     >
-                      {d.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+                      <Text
+                        style={[
+                          styles.durationChipText,
+                          isActive && styles.durationChipTextActive,
+                        ]}
+                      >
+                        {d.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
             </View>
           </View>
 
@@ -291,16 +299,6 @@ const TimerScreen: React.FC = () => {
           </View>
         </ScrollView>
 
-        {/* Task picker simple modal */}
-        {showTaskPicker && (
-          <GiveUpDialog
-            // Reuse dialog styles for a quick task picker background, but build custom content below if needed
-            visible={false}
-            onCancel={() => setShowTaskPicker(false)}
-            onConfirm={() => setShowTaskPicker(false)}
-          />
-        )}
-
         {showTaskPicker && (
           <View
             style={{
@@ -331,7 +329,7 @@ const TimerScreen: React.FC = () => {
                   color: colors.text,
                 }}
               >
-                Select Task
+                Select a task to focus on
               </Text>
               <ScrollView>
                 {todayTasks && todayTasks.length > 0 ? (

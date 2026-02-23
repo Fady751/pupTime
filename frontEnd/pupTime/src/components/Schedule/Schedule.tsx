@@ -203,9 +203,6 @@ const Schedule: React.FC<ScheduleProps> = ({ tasks, onTaskPress, onCompleteToggl
   const selectedDayTasks = useMemo(() => {
     if (!selectedDate) return [];
     return tasks.filter((t) => {
-      if(isTaskOnDate(t, selectedDate)) {
-        console.log(`Task "${t.title}" is on selected date ${selectedDate.toDateString()}`);
-      }
       return isTaskOnDate(t, selectedDate);
   });
   }, [selectedDate, tasks]);

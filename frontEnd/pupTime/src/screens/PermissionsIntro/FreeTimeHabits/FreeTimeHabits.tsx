@@ -101,11 +101,10 @@ const FreeTimeHabits: React.FC<Props> = ({ navigation }) => {
   const handleNext = async () => {
     if (selected.length > 0 && userInfo?.id) {
       try {
-        const response = await changeUserInterest({
+        await changeUserInterest({
           user_id: userInfo.id,
           selected,
         });
-        console.log("Change user interest response:", response);
         navigation.getParent()?.navigate('Home');
       } catch (error) {
         console.error("Error changing user interests:", error);

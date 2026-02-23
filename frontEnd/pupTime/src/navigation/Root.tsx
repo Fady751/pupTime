@@ -1,8 +1,5 @@
-import React, { useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { AppDispatch, RootState } from '../redux/store';
-import { fetchUser, setUser } from '../redux/userSlice';
-import { checkInternetConnectivity } from '../redux/networkSlice';
+import { useSelector } from 'react-redux';
+import { RootState } from '../redux/store';
 import { StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
@@ -10,76 +7,38 @@ import AuthNavigator from '../navigation/AuthNavigator';
 import AppNavigator from '../navigation/AppNavigator';
 import LoadingScreen from '../screens/Loading/loading';
 import OfflineBar from '../components/OfflineBar/offlineBar';
-import NetInfo from '@react-native-community/netinfo';
-import { getData } from '../utils/storage/auth';
-import { applyQueue } from '../services/TaskService/syncService';
+import useNetworkListener from '../Hooks/RootHooks/NetworkBootstrap';
+import useAuthBootstrap from '../Hooks/RootHooks/AuthBootstrap';
+import useSyncQueue from '../Hooks/RootHooks/SyncBootstrap';
+import useFetchTasks from '../Hooks/RootHooks/FetchTasks';
+import { useEffect } from 'react';
 
 export default function Root() {
-  const dispatch = useDispatch<AppDispatch>();
-  const { data, loading } = useSelector((state: RootState) => state.user);
-  const { isConnected, loading: networkLoading} = useSelector((state: RootState) => state.network);
+  const { data, loading } = useSelector((s: RootState) => s.user);
+  const { isConnected, loading: networkLoading } = useSelector((s: RootState) => s.network);
 
-  // Set up network listener
+  useNetworkListener();
+  useAuthBootstrap();
+  useSyncQueue();
+  useFetchTasks();
+
   useEffect(() => {
-    const unsubscribe = NetInfo.addEventListener(state => {
-      dispatch(checkInternetConnectivity(state.isConnected ?? false));
-    });
+    const test = async () => {
 
-    NetInfo.fetch().then(state => {
-      dispatch(checkInternetConnectivity(state.isConnected ?? false));
-    });
-
-    return () => {
-      unsubscribe();
     };
-  }, [dispatch]);
+    test()
+  }, []);
 
-  // Fetch user data on app start
-  useEffect(() => {
-    if(!networkLoading && isConnected) {
-      dispatch(fetchUser());
-    }
-  }, [dispatch, networkLoading, isConnected]);
-
-  // Check for offline data if user is not authenticated and we're offline
-  useEffect(() => {
-    const checkOfflineData = async () => {
-    // console.log('token = ', (await getData())?.token);
-      if(!data && (!loading || !networkLoading) && !isConnected) {
-        const offlineData = await getData();
-        if(offlineData?.user) {
-          dispatch(setUser(offlineData.user));
-        }
-      }
-    };
-    checkOfflineData();
-  }, [data, loading, isConnected, dispatch, networkLoading]);
-
-  // sync queue when regaining connectivity
-  useEffect(() => {
-    const syncTasks = async () => {
-      if(isConnected && !networkLoading) {
-        await applyQueue();
-      }
-    };
-    syncTasks();
-  }, [isConnected, networkLoading]);
-
-  // useEffect(() => {
-  //   const test = async () => {
-      
-  //   };
-  //   test();
-  // }, []);
+  if (loading || networkLoading) return <LoadingScreen />;
 
   return (
     <>
       <NavigationContainer>
         <SafeAreaView style={styles.safeArea}>
-          {loading || networkLoading ? <LoadingScreen /> : data ? <AppNavigator /> : <AuthNavigator />}
+          {data ? <AppNavigator /> : <AuthNavigator />}
         </SafeAreaView>
       </NavigationContainer>
-      {!isConnected && !networkLoading && <OfflineBar />}
+      {!isConnected && <OfflineBar />}
     </>
   );
 };

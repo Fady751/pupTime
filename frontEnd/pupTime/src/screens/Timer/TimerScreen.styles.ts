@@ -10,6 +10,21 @@ export const createTimerScreenStyles = (colors: AppColors) =>
     container: {
       flex: 1,
     },
+    headerSection: {
+      paddingHorizontal: 20,
+      paddingTop: 4,
+      paddingBottom: 12,
+    },
+    headerTitle: {
+      fontSize: 24,
+      fontWeight: "700",
+      color: colors.text,
+    },
+    headerSubtitle: {
+      marginTop: 4,
+      fontSize: 13,
+      color: colors.secondaryText,
+    },
     topBar: {
       flexDirection: "row",
       alignItems: "center",
@@ -55,11 +70,25 @@ export const createTimerScreenStyles = (colors: AppColors) =>
     content: {
       flex: 1,
       paddingBottom: 24,
+      paddingHorizontal: 20,
     },
     center: {
       alignItems: "center",
       justifyContent: "flex-start",
+    },
+    timerCard: {
       marginTop: 8,
+      borderRadius: 24,
+      paddingVertical: 20,
+      paddingHorizontal: 16,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      shadowColor: "#000",
+      shadowOpacity: 0.06,
+      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 2,
     },
     countdownWrapper: {
       marginTop: 8,
@@ -94,8 +123,8 @@ export const createTimerScreenStyles = (colors: AppColors) =>
       color: colors.primaryText,
     },
     bottomSection: {
-      marginTop: 16,
-      paddingHorizontal: 20,
+      marginTop: 20,
+      paddingHorizontal: 4,
       alignItems: "center",
     },
     statusText: {

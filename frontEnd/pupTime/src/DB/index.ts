@@ -34,4 +34,5 @@ export {
   clearSyncQueue,
   incrementSyncItemRetries,
   deleteSyncItemsForTask,
+  updateIDInSyncQueue,
 } from './sync_queue';
