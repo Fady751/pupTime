@@ -21,6 +21,14 @@ const toServerTaskData = (task: TaskTemplate) => {
     timezone: task?.timezone ?? getCurrentTimezone(),
     created_at: task?.createdAt,
     updated_at: task?.updatedAt,
+    overrides: task?.overrides?.map(override => ({
+      id: override.id,
+      instance_datetime: override.instanceDatetime,
+      status: override.status,
+      new_datetime: override.newDatetime,
+      created_at: override.createdAt,
+      updated_at: override.updatedAt,
+    })),
   }
 };
 const toClientTaskOverride = (data: any): TaskOverride => {
