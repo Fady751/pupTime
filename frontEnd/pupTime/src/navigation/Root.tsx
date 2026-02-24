@@ -1,16 +1,16 @@
 import { useSelector } from 'react-redux';
 import { RootState } from '../redux/store';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import AuthNavigator from '../navigation/AuthNavigator';
-import AppNavigator from '../navigation/AppNavigator';
+// import AppNavigator from '../navigation/AppNavigator';
 import LoadingScreen from '../screens/Loading/loading';
 import OfflineBar from '../components/OfflineBar/offlineBar';
 import useNetworkListener from '../Hooks/RootHooks/NetworkBootstrap';
 import useAuthBootstrap from '../Hooks/RootHooks/AuthBootstrap';
-import useSyncQueue from '../Hooks/RootHooks/SyncBootstrap';
-import useFetchTasks from '../Hooks/RootHooks/FetchTasks';
+// import useSyncQueue from '../Hooks/RootHooks/SyncBootstrap';
+// import useFetchTasks from '../Hooks/RootHooks/FetchTasks';
 import { useEffect } from 'react';
 
 export default function Root() {
@@ -19,14 +19,11 @@ export default function Root() {
 
   useNetworkListener();
   useAuthBootstrap();
-  useSyncQueue();
-  useFetchTasks();
+  // useSyncQueue();
+  // useFetchTasks();
 
   useEffect(() => {
-    const test = async () => {
 
-    };
-    test()
   }, []);
 
   if (loading || networkLoading) return <LoadingScreen />;
@@ -35,7 +32,7 @@ export default function Root() {
     <>
       <NavigationContainer>
         <SafeAreaView style={styles.safeArea}>
-          {data ? <AppNavigator /> : <AuthNavigator />}
+          {data ?<Text>User is authenticated</Text> : <AuthNavigator />}
         </SafeAreaView>
       </NavigationContainer>
       {!isConnected && <OfflineBar />}

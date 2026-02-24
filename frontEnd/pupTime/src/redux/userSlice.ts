@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { getData, saveData } from '../utils/storage/auth';
 import { User } from '../types/user';
 import { getUser, GetUserResponse } from '../services/userAuthServices/getuser';
+import { AppMetaRepository } from '../DB';
 
 type UserState = {
   data: User | null;
@@ -18,16 +18,16 @@ const initialState: UserState = {
 export const fetchUser = createAsyncThunk<User | null>(
   'user/fetchUser',
   async (_, { rejectWithValue }) => {
-    const authData = await getData();
-    if (!authData?.id) return null;
+    const id = await AppMetaRepository.get('id');
+    if (!id?.value) return null;
 
-    const response: GetUserResponse = await getUser({ id: authData.id });
+    const response: GetUserResponse = await getUser({ id: +id.value });
 
     if (!response.success || !response.user) {
       return rejectWithValue('Failed to fetch user');
     }
 
-    await saveData({ token: authData.token, id: authData.id, user: response.user });
+    await AppMetaRepository.set('user', JSON.stringify(response.user));
 
     return response.user;
   }

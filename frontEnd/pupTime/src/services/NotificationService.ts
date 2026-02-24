@@ -51,7 +51,7 @@ class NotificationService {
 
     await notifee.createTriggerNotification(
       {
-        id: notificationId, // Crucial for cancelling later!
+        id: notificationId,
         title,
         body,
         android: {

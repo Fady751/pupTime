@@ -1,87 +1,95 @@
 import api from '../api';
-import { Task, TaskRepetition, TaskCompletion, toLocalDateString } from '../../types/task';
-import { getCategories } from '../interestService/getCategories';
+import { TaskTemplate, TaskOverride, getCurrentTimezone } from '../../types/task';
 
 export const formatTime = (date: Date) => {
   return date.toISOString().substring(11, 19);
 };
 
-export const createTask = async (taskData: Task): Promise<Task> => {
-  const formattedTaskData = {
-    title: taskData.title,
-    categories: taskData.Categorys.map(category => category.id),
-    reminder_time: taskData.reminderTime,
-    start_time: taskData.startTime.toISOString(),
-    end_time: taskData.endTime ? taskData.endTime.toISOString() : null,
-    priority: taskData.priority,
-    emoji: taskData.emoji,
-    repetitions: taskData.repetition.map(rep => ({
-      frequency: rep.frequency,
-      time: rep.time ? formatTime(rep.time) : null,
-    })),
-  };
-  try {
-    const response = await api.post('/task/', formattedTaskData);
-    response.data.id = response.data.id.toString();
-    return response.data;
-    } catch (error: any) {
-        console.error(error);
-    throw error;
+// Helper function to convert TaskTemplate to server format
+const toServerTaskData = (task: TaskTemplate) => {
+  return {
+    id: task?.id,
+    title: task.title,
+    categories: task?.categories?.map(category => category.id),
+    priority: task?.priority,
+    emoji: task?.emoji,
+    start_datetime: task.startDatetime,
+    reminder_time: task?.reminderTime,
+    duration_minutes: task?.durationMinutes,
+    is_recurring: task?.isRecurring,
+    rrule: task?.rrule,
+    timezone: task?.timezone ?? getCurrentTimezone(),
+    created_at: task?.createdAt,
+    updated_at: task?.updatedAt,
   }
+};
+const toClientTaskOverride = (data: any): TaskOverride => {
+  return {
+    id: data?.id,
+    instanceDatetime: data?.instance_datetime,
+    status: data?.status,
+    newDatetime: data?.new_datetime,
+    createdAt: data?.created_at,
+    updatedAt: data?.updated_at,
+  } as TaskOverride;
+}
+const toClientTaskTemplate = (data: any): TaskTemplate => {
+  return {
+    id: data.id,
+    userId: data.user,
+    title: data.title,
+    priority: data.priority,
+    categories: data.categories,
+    emoji: data.emoji,
+    startDatetime: data.start_datetime,
+    reminderTime: data.reminder_time,
+    durationMinutes: data.duration_minutes,
+    isRecurring: data.is_recurring,
+    rrule: data.rrule,
+    timezone: data.timezone,
+    overrides: data.overrides?.map((override: any) => toClientTaskOverride(override)),
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+  } as TaskTemplate;
+};
+
+export const createTaskTemplate = async (taskData: TaskTemplate): Promise<TaskTemplate> => {
+  try {
+    const response = await api.post('/task/', toServerTaskData(taskData));
+    response.data.id = response.data.id.toString();
+    return toClientTaskTemplate(response.data);
+    } catch (error: any) {
+      console.error(error);
+      throw error;
+    }
 };
 
 export type getTasksRequest = {
   page?: number;
   page_size?: number;
   priority?: 'low' | 'medium' | 'high' | 'none';
+  start_date?: string;
+  end_date?: string;
+  category_ids?: number[];
+  updated_after?: string;
   ordering?: 'start_time' | '-start_time' | 'priority' | '-priority' | 'end_time' | '-end_time';
 };
 
-export type getTasksResponse = {
+export type getTasksResponse<T> = {
   count: number;
   next: string | null;
   previous: string | null;
-  results: Task[];
+  results: T[];
 };
 
-export const getTasks = async (request: getTasksRequest): Promise<getTasksResponse> => {
+export const getTasks = async (request: getTasksRequest): Promise<getTasksResponse<TaskTemplate>> => {
     try {
       const response = await api.get('/task/', { params: request });
-
-      const categories = await getCategories();
-
-      const results: Task[] = response.data.results.map((task: any) => {
-        const taskCategories = task.categories.map((catId: number) => {
-          const category = categories.find(c => c.id === catId);
-          return category ? { id: category.id, name: category.name } : null;
-        }).filter((cat: any) => cat !== null);
-        return {
-            id: task.id.toString(),
-            user_id: task.user,
-            title: task.title,
-            Categorys: taskCategories,
-            completions: task.history.map((comp: any) => ({
-              id: comp.id.toString(),
-              completion_time: new Date(comp.completion_time),
-              date: new Date(comp.date),
-            })),
-            reminderTime: task.reminder_time,
-            startTime: new Date(task.start_time),
-            endTime: task.end_time ? new Date(task.end_time) : null,
-            priority: task.priority,
-            repetition: task.repetitions.map((rep: any) => {
-              const repTime = rep.time ? new Date(`1970-01-01T${rep.time}Z`) : null;
-              return { ...rep, time: repTime };
-            }) as TaskRepetition[],
-            emoji: task.emoji,
-        };
-      });
-
       return {
         count: response.data.count,
         next: response.data.next,
         previous: response.data.previous,
-        results,
+        results: response.data.results.map((task: any) => toClientTaskTemplate(task)),
       };
     } catch (error: any) {
         console.error(error);
@@ -89,35 +97,33 @@ export const getTasks = async (request: getTasksRequest): Promise<getTasksRespon
   }
 };
 
-export const getTaskById = async (id: string): Promise<Task> => {
+export const getTaskById = async (id: string): Promise<TaskTemplate> => {
     try {
     const response = await api.get(`/task/${id}`);
     response.data.id = response.data.id.toString();
-    return response.data;
+    return toClientTaskTemplate(response.data);
     } catch (error: any) {
         console.error(error);
     throw error;
   }
 };
 
-export const updateTask = async (id: string, taskData: Task): Promise<Task> => {
-  const formattedTaskData = {
-    title: taskData.title,
-    categories: taskData.Categorys.map(category => category.id),
-    reminder_time: taskData.reminderTime,
-    start_time: taskData.startTime.toISOString(),
-    end_time: taskData.endTime ? taskData.endTime.toISOString() : null,
-    priority: taskData.priority,
-    emoji: taskData.emoji,
-    repetitions: taskData.repetition.map(rep => ({
-      frequency: rep.frequency,
-      time: rep.time ? formatTime(rep.time) : null,
-    })),
-  };
+export const patchTask = async (id: string, task: Partial<TaskTemplate>): Promise<TaskTemplate> => {
+    const formattedTaskData: any = {};
+    if(task.title) formattedTaskData.title = task.title;
+    if(task.categories) formattedTaskData.categories = task.categories.map(category => category.id);
+    if(task.priority) formattedTaskData.priority = task.priority;
+    if(task.emoji) formattedTaskData.emoji = task.emoji;
+    if(task.startDatetime) formattedTaskData.start_datetime = task.startDatetime;
+    if(task.reminderTime) formattedTaskData.reminder_time = task.reminderTime;
+    if(task.durationMinutes) formattedTaskData.duration_minutes = task.durationMinutes;
+    if(task.isRecurring) formattedTaskData.is_recurring = task.isRecurring;
+    if(task.rrule) formattedTaskData.rrule = task.rrule;
+    if(task.timezone) formattedTaskData.timezone = task.timezone;
+
     try {
-        const response = await api.put(`/task/${id}`, formattedTaskData);
-        response.data.id = response.data.id.toString();
-        return response.data;
+        const response = await api.patch(`/task/${id}`, formattedTaskData);
+        return toClientTaskTemplate(response.data);
     } catch (error: any) {
         console.error(error);
     throw error;
@@ -133,40 +139,15 @@ export const deleteTask = async (id: string): Promise<void> => {
     };
 };
 
-export const patchTask = async (id: string, taskData: Partial<Task>): Promise<Task> => {
-    const formattedTaskData: any = {};
-    if (taskData.title) formattedTaskData.title = taskData.title;
-    if (taskData.Categorys) formattedTaskData.categories = taskData.Categorys.map(category => category.id);
-    if (taskData.reminderTime !== undefined) formattedTaskData.reminder_time = taskData.reminderTime;
-    if (taskData.startTime) formattedTaskData.start_time = taskData.startTime.toISOString();
-    if (taskData.endTime !== undefined) formattedTaskData.end_time = taskData.endTime ? taskData.endTime.toISOString() : null;
-    if (taskData.priority) formattedTaskData.priority = taskData.priority;
-    if (taskData.emoji) formattedTaskData.emoji = taskData.emoji;
-    if (taskData.repetition) {
-        formattedTaskData.repetitions = taskData.repetition.map(rep => ({
-            frequency: rep.frequency,
-            time: rep.time ? formatTime(rep.time) : null,
-        }));
-    }
-
+export const historyTask = async (id: string, filter?: {start_date?: string, end_date?: string}): Promise<getTasksResponse<TaskOverride>> => {
     try {
-        const response = await api.patch(`/task/${id}`, formattedTaskData);
-        response.data.id = response.data.id.toString();
-        return response.data;
-    } catch (error: any) {
-        console.error(error);
-    throw error;
-  }
-};
-
-export const completeTask = async (id: string, completion_time: Date): Promise<TaskCompletion> => {
-    try {
-        const response = await api.post(`/task/${id}/complete`, { completion_time: toLocalDateString(completion_time) });
+        const response = await api.get(`/task/${id}/history`, { params: filter });
+        console.log(response.data);
         return {
-          id: response.data.id.toString(),
-          completion_time: new Date(response.data.completion_time),
-          task_id: response.data.task.toString(),
-          date: new Date(response.data.date || toLocalDateString(completion_time)),
+          count: response.data.count,
+          next: response.data.next,
+          previous: response.data.previous,
+          results: response.data.results.map((override: any) => toClientTaskOverride(override)),
         };
     } catch (error: any) {
         console.error(error);
@@ -174,40 +155,12 @@ export const completeTask = async (id: string, completion_time: Date): Promise<T
   };
 };
 
-export const historyTask = async (id: string): Promise<TaskCompletion[]> => {
+export const patchTaskOverride = async (id: string, id_override: string, data?: {status: string, new_datetime?: string}): Promise<TaskOverride> => {
     try {
-        const response = await api.get(`/task/${id}/history`);
-        return response.data.map((item: any) => ({
-          id: item.id.toString(),
-          completion_time: new Date(item.completion_time),
-          date: new Date(item.date),
-        }));
+        const response = await api.patch(`/task/${id}/override/${id_override}`, data);
+        return toClientTaskOverride(response.data);
     } catch (error: any) {
         console.error(error);
     throw error;
   };
-};
-
-export const uncompleteTask = async (id: string, data: {id?: string, date?: Date}): Promise<{ message: string, deleted_completion_time: Date }> => {
-    try {
-        const requestData: any = {};
-        if (data.id) requestData.completion_id = data.id;
-        if (data.date) requestData.date = toLocalDateString(data.date);
-        const response = await api.post(`/task/${id}/uncomplete`, requestData);
-        return {
-          message: response.data.message,
-          deleted_completion_time: new Date(response.data.deleted_completion_time),
-        };
-    } catch (error: any) {
-        console.error(error);
-    throw error;
-  };
-};
-
-export const toggleTaskCompletion = async (id: string, completion_time: Date, completed: boolean): Promise<void> => {
-    if (completed) {
-        await completeTask(id, completion_time);
-    } else {
-        await uncompleteTask(id, { date: completion_time });
-    }
 };

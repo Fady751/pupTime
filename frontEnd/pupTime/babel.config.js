@@ -8,5 +8,6 @@ module.exports = {
         path: '.env',
       },
     ],
+    ['inline-import', { extensions: ['.sql'] }],
   ],
 };

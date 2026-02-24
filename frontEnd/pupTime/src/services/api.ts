@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { getData } from '../utils/storage/auth';
+import { AppMetaRepository } from '../DB/Repositories/AppMetaRepository';
 import { API_URL } from '@env';
 
 const api = axios.create({
@@ -7,9 +7,9 @@ const api = axios.create({
 });
 
 api.interceptors.request.use(async config => {
-  const data = await getData();
-  if (data?.token) {
-    config.headers.Authorization = `token ${data.token}`;
+  const tokenMeta = await AppMetaRepository.get('authToken');
+  if (tokenMeta?.value) {
+    config.headers.Authorization = `token ${tokenMeta.value}`;
   }
   return config;
 });

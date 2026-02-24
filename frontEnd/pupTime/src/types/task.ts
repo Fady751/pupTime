@@ -1,72 +1,67 @@
 import { Category } from "./category";
+import { RRule } from 'rrule';
 
-export type RepetitionFrequency =  
-  | 'once' 
-  | 'daily' 
-  | 'weekly' 
-  | 'monthly' 
-  | 'yearly' 
+import { TaskTemplate as _TaskTemplate, TaskOverride as _TaskOverride } from '../DB/schema'
 
-  | 'sunday' 
-  | 'monday' 
-  | 'tuesday' 
-  | 'wednesday' 
-  | 'thursday' 
-  | 'friday' 
-  | 'saturday';
+export type TaskTemplate = _TaskTemplate & { categories?: Category[], overrides: TaskOverride[] };
 
-export type TaskRepetition = {
-  frequency: RepetitionFrequency;
-  time: Date | null; // time can be null if the repetition for all day
-};
+export type TaskOverride = _TaskOverride & { template?: TaskTemplate };
 
-export type TaskCompletion = {
-    id: string;
-    task_id: string;
-    completion_time: Date;
-    date: Date; // the specific occurrence date this completion is for (e.g., 2026-02-20)
-};
-
-export type Task = {
-    id: string;
-    user_id: number;
-    title: string;
-    Categorys: Category[];
-    completions: TaskCompletion[]; // sparse: only dates the user has actually completed
-    reminderTime: number | null; // number of minutes before the task is due to send a reminder, null if no reminder is set
-    startTime: Date;
-    endTime: Date | null; // endTime can be null if the task forever
-    priority: 'low' | 'medium' | 'high' | 'none';
-    repetition: TaskRepetition[];
-    emoji: string;
-};
+export type status = 'PENDING' | 'COMPLETED' | 'SKIPPED' | 'RESCHEDULED' | 'FAILED';
 
 /* ── Date helpers ─────────────────────────────────────── */
 
 /**
- * Return "YYYY-MM-DD" in LOCAL time (not UTC).
- * Using toISOString().substring(0,10) is wrong because ISO
- * converts to UTC first, which can shift the date by ±1 day.
- */
-export const toLocalDateString = (d: Date): string => {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
+* 1. Use Intl.DateTimeFormat to format the date in the specific timezone
+* We request the parts (year, month, day) separately to build "YYYY-MM-DD" manually
+* This avoids locale issues (e.g. US is MM/DD/YYYY, UK is DD/MM/YYYY)
+*/
+export const toLocalDateString = (s: string | Date, timeZone?: string): string => {
+  const date = new Date(s);
+  
+  const options: Intl.DateTimeFormatOptions = {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    timeZone: timeZone || getCurrentTimezone(),
+  };
+  return new Intl.DateTimeFormat('en-CA', options).format(date);
 };
 
-const toDateOnly = (d: Date): Date => {
+// Returns IANA string like "Africa/Cairo", "America/New_York"
+export const getCurrentTimezone = (): string => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  } catch (e) {
+    console.warn('Could not determine timezone, defaulting to UTC', e);
+    return 'UTC'; // Fallback just in case
+  }
+};
+
+/** 
+ * Convert a datetime string to a Date object, but set the time to 00:00:00 local time.
+ * Useful for comparing just the date portion without time.
+ */
+export const toDateOnly = (d: string): Date => {
     const result = new Date(d);
     result.setHours(0, 0, 0, 0);
     return result;
 };
 
-const isSameDay = (d1: Date, d2: Date): boolean =>
-    d1.getFullYear() === d2.getFullYear() &&
+/**
+ * Check if two datetimes fall on the same calendar day in local time.
+ */
+export const isSameDay = (s1: string, s2: string): boolean => {
+    const d1 = new Date(s1), d2 = new Date(s2);
+    return d1.getFullYear() === d2.getFullYear() &&
     d1.getMonth() === d2.getMonth() &&
     d1.getDate() === d2.getDate();
+};
 
-const isDateInRange = (date: Date, start: Date, end: Date | null): boolean => {
+/**
+    * Check if a date falls within a task's active range (start to end).
+*/
+export const isDateInRange = (date: string, start: string, end: string | null): boolean => {
     const dateOnly = toDateOnly(date);
     const startOnly = toDateOnly(start);
     if (dateOnly < startOnly) return false;
@@ -81,95 +76,91 @@ const isDateInRange = (date: Date, start: Date, end: Date | null): boolean => {
  * Check whether a task is completed for a specific date.
  * Compares only the YYYY-MM-DD portion.
  */
-export const isTaskCompletedForDate = (task: Task, date: Date): boolean => {
-    const dateStr = toLocalDateString(date);
-    return task.completions.some(
-        c => toLocalDateString(c.date) === dateStr,
-    );
+export const isTaskCompletedForDate = (task: TaskOverride, date: string): boolean => {
+    return task.status === 'COMPLETED'
+    && toLocalDateString(task.instanceDatetime, task?.template?.timezone ?? 'UTC')
+    === toLocalDateString(date, task?.template?.timezone ?? 'UTC');
 };
 
-/**
+/*
  * Determine whether a task falls on a specific calendar date,
  * considering its start/end range, repetition rules,
  * AND whether a completion record exists for that date
  * (so historical completions survive repetition edits).
  */
-export const isTaskOnDate = (task: Task, date: Date): boolean => {
-    // A completion on this date always means the task "belongs" here
-    if (isTaskCompletedForDate(task, date)) return true;
+export const isTaskOnDate = (task: TaskTemplate, date: string): boolean => {
+  if (task.isDeleted) return false;
+  if (!task.startDatetime) return false;
 
-    const startDate = new Date(task.startTime);
-    const endDate = task.endTime ? new Date(task.endTime) : null;
+  const taskStart = new Date(task.startDatetime);
+  const targetDate = new Date(date);
 
-    if (!isDateInRange(date, startDate, endDate)) return false;
+  // 2. Non-Recurring Logic (Simple Date Comparison)
+  if (!task.isRecurring || !task.rrule) {
+    return isSameDay(task.startDatetime, date);
+  }
 
-    const hasRepetition = task.repetition && task.repetition.length > 0;
-    const hasOnce = hasRepetition && task.repetition.some(r => r.frequency === 'once');
+  try {
+    const startOfDay = new Date(targetDate);
+    startOfDay.setHours(0, 0, 0, 0);
 
-    if (!hasRepetition || hasOnce) return isSameDay(startDate, date);
+    const endOfDay = new Date(targetDate);
+    endOfDay.setHours(23, 59, 59, 999);
 
-    const dayOfWeek = date.getDay();
-    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const ruleOptions = RRule.parseString(task.rrule);
+    ruleOptions.dtstart = taskStart;
 
-    for (const rep of task.repetition) {
-        const freq = rep.frequency;
-        if (freq === 'daily') return true;
-        if (freq === 'weekly' && startDate.getDay() === dayOfWeek) return true;
-        if (freq === 'monthly' && startDate.getDate() === date.getDate()) return true;
-        if (freq === 'yearly' && startDate.getDate() === date.getDate() && startDate.getMonth() === date.getMonth()) return true;
-        if (dayNames.includes(freq) && dayNames[dayOfWeek] === freq) return true;
+    const rule = new RRule(ruleOptions);
+
+    const occurrences = rule.between(startOfDay, endOfDay, true);
+
+    return occurrences.length > 0;
+  } catch (error) {
+    console.warn(`[isTaskOnDate] Failed to parse RRule for task ${task.id}`, error);
+    return isSameDay(task.startDatetime, date);
+  }
+};
+
+/**
+ * Returns all occurrence Dates for a task within the next 30 days (or specified window).
+ */
+export const getTaskOccurrences = (
+  task: TaskTemplate,
+  windowStart: Date = new Date(),
+  daysForward: number = 30
+): string[] => {
+  if (task.isDeleted || !task.startDatetime) return [];
+
+  const taskStart = new Date(task.startDatetime);
+  
+  const windowEnd = new Date(windowStart);
+  windowEnd.setDate(windowEnd.getDate() + daysForward);
+  windowEnd.setHours(23, 59, 59, 999);
+
+  if (!task.isRecurring || !task.rrule) {
+    if (taskStart >= windowStart && taskStart <= windowEnd) {
+      return [task.startDatetime];
     }
+    return [];
+  }
 
-    return false;
+  try {
+    const ruleOptions = RRule.parseString(task.rrule);
+    ruleOptions.dtstart = taskStart;
+    
+    const rule = new RRule(ruleOptions);
+
+    return rule.between(windowStart, windowEnd, true).map(d => d.toISOString());
+  } catch (error) {
+    console.warn(`Failed to parse recurrence for task ${task.id}`, error);
+    return [];
+  }
 };
 
 /**
  * Whether the user is allowed to complete a task for the given date.
  * Rule: cannot complete for a future date (tomorrow or later).
  */
-export const canCompleteForDate = (date: Date): boolean => {
-    const today = toDateOnly(new Date());
-    const target = toDateOnly(date);
-    return target <= today;
-};
-
-/**
- * Whether a task is scheduled on a date by its REPETITION rules only
- * (ignores completions). Used internally when we need pure schedule logic
- * without the "show completion" fallback.
- */
-export const isTaskScheduledOnDate = (task: Task, date: Date): boolean => {
-    const startDate = new Date(task.startTime);
-    const endDate = task.endTime ? new Date(task.endTime) : null;
-
-    if (!isDateInRange(date, startDate, endDate)) return false;
-
-    const hasRepetition = task.repetition && task.repetition.length > 0;
-    const hasOnce = hasRepetition && task.repetition.some(r => r.frequency === 'once');
-
-    if (!hasRepetition || hasOnce) return isSameDay(startDate, date);
-
-    const dayOfWeek = date.getDay();
-    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-
-    for (const rep of task.repetition) {
-        const freq = rep.frequency;
-        if (freq === 'daily') return true;
-        if (freq === 'weekly' && startDate.getDay() === dayOfWeek) return true;
-        if (freq === 'monthly' && startDate.getDate() === date.getDate()) return true;
-        if (freq === 'yearly' && startDate.getDate() === date.getDate() && startDate.getMonth() === date.getMonth()) return true;
-        if (dayNames.includes(freq) && dayNames[dayOfWeek] === freq) return true;
-    }
-
-    return false;
-};
-
-/**
- * Get the completion record for a specific date, or undefined if not completed.
- */
-export const getCompletionForDate = (task: Task, date: Date): TaskCompletion | undefined => {
-    const dateStr = toLocalDateString(date);
-    return task.completions.find(
-        c => toLocalDateString(c.date) === dateStr,
-    );
+export const canCompleteForDate = (date: string): boolean => {
+    return toDateOnly(new Date().toISOString()) <= toDateOnly(date);
 };
