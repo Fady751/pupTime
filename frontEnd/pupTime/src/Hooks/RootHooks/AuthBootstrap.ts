@@ -2,7 +2,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "../../redux/store";
 import { useEffect } from "react";
 import { fetchUser, setUser } from "../../redux/userSlice";
-import { getData } from "../../utils/storage/auth";
+import { AppMetaRepository } from "../../DB";
 
 const useAuthBootstrap = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -18,14 +18,17 @@ const useAuthBootstrap = () => {
   useEffect(() => {
     const loadOfflineUser = async () => {
       if (!data && !loading && !networkLoading && !isConnected) {
-        const offlineData = await getData();
-        if (offlineData?.user) {
-          dispatch(setUser(offlineData.user));
+        const offlineData = (await AppMetaRepository.get('user'))?.value;
+        if (offlineData) {
+          const parsed = JSON.parse(offlineData);
+          if(parsed?.user)
+            dispatch(setUser(parsed.user));
         }
       }
     };
     loadOfflineUser();
-  }, [data, loading, networkLoading, isConnected, dispatch]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, loading, networkLoading, isConnected, dispatch, AppMetaRepository]);
 };
 
 export default useAuthBootstrap;
