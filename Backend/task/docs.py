@@ -41,6 +41,11 @@ TASK_FILTER_PARAMS = [
         ),
         type=openapi.TYPE_STRING, format='date-time',
     ),
+    openapi.Parameter(
+        'is_deleted', openapi.IN_QUERY,
+        description='Filter by deleted status. If not provided, defaults to false (only active tasks)',
+        type=openapi.TYPE_BOOLEAN,
+    ),
 ]
 
 # Response schema for a RESCHEDULED override action

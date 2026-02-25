@@ -76,15 +76,22 @@ class TaskViewSet(ModelViewSet):
         ctx['updated_after'] = _parse_iso(
             self.request.query_params.get('updated_after')
         )
+        is_deleted_param = self.request.query_params.get('is_deleted')
+        if is_deleted_param is not None:
+            ctx['is_deleted'] = is_deleted_param.lower() in ('true', '1', 't', 'y', 'yes')
+        else:
+            ctx['is_deleted'] = False
         return ctx
 
     def get_queryset(self):
         if getattr(self, 'swagger_fake_view', False):
             return TaskTemplate.objects.none()
 
+        is_deleted = self.get_serializer_context().get('is_deleted', False)
+
         qs = (
             TaskTemplate.objects
-            .filter(user=self.request.user, is_deleted=False)
+            .filter(user=self.request.user, is_deleted=is_deleted)
             .select_related('user')
             .prefetch_related('overrides', 'categories')
         )
@@ -100,7 +107,7 @@ class TaskViewSet(ModelViewSet):
                 | Q(
                     overrides__instance_datetime__gte=start_dt,
                     overrides__instance_datetime__lte=end_dt,
-                    overrides__is_deleted=False,
+                    overrides__is_deleted=is_deleted,
                 )
             ).distinct()
 
@@ -110,7 +117,7 @@ class TaskViewSet(ModelViewSet):
                 Q(updated_at__gte=updated_after)
                 | Q(
                     overrides__updated_at__gte=updated_after,
-                    overrides__is_deleted=False,
+                    overrides__is_deleted=is_deleted,
                 )
             ).distinct()
 
