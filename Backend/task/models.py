@@ -35,7 +35,7 @@ class TaskTemplate(models.Model):
     timezone = models.CharField(max_length=64, default='UTC', help_text="e.g., 'Africa/Cairo'")
     
     created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    updated_at = models.DateTimeField(auto_now=True, db_index=True)
     is_deleted = models.BooleanField(default=False, help_text="Soft delete flag")
 
     def __str__(self):
@@ -66,7 +66,7 @@ class TaskOverride(models.Model):
     new_datetime = models.DateTimeField(null=True, blank=True, help_text="Used only if status is 'RESCHEDULED'.")
     
     created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    updated_at = models.DateTimeField(auto_now=True, db_index=True)
     is_deleted = models.BooleanField(default=False, help_text="Soft delete flag")
 
     class Meta:
