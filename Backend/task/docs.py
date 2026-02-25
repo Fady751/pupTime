@@ -113,7 +113,43 @@ list_schema = swagger_auto_schema(
 
 create_schema = swagger_auto_schema(
     operation_summary='Create a task',
-    request_body=TaskSerializer,
+    operation_description=(
+        'Creates a new task template and auto-generates overrides based on the rrule.\n\n'
+        'Optionally, pass `initial_overrides` to set specific dates with explicit statuses '
+        '(e.g. marking past instances as COMPLETED). These are upserted after the rrule '
+        'overrides are generated, so they override any auto-generated status for those dates.'
+    ),
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        required=['title', 'start_datetime'],
+        properties={
+            'title': openapi.Schema(type=openapi.TYPE_STRING),
+            'start_datetime': openapi.Schema(type=openapi.TYPE_STRING, format='date-time'),
+            'reminder_time': openapi.Schema(type=openapi.TYPE_STRING, format='date-time'),
+            'duration_minutes': openapi.Schema(type=openapi.TYPE_INTEGER),
+            'priority': openapi.Schema(type=openapi.TYPE_STRING, enum=['none', 'low', 'medium', 'high']),
+            'emoji': openapi.Schema(type=openapi.TYPE_STRING),
+            'categories': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_INTEGER)),
+            'is_recurring': openapi.Schema(type=openapi.TYPE_BOOLEAN),
+            'rrule': openapi.Schema(type=openapi.TYPE_STRING, description='e.g. FREQ=DAILY or FREQ=WEEKLY;BYDAY=MO'),
+            'timezone': openapi.Schema(type=openapi.TYPE_STRING, description='e.g. Africa/Cairo'),
+            'initial_overrides': openapi.Schema(
+                type=openapi.TYPE_ARRAY,
+                description='Optional list of overrides to upsert after auto-generation.',
+                items=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    required=['instance_datetime', 'status'],
+                    properties={
+                        'instance_datetime': openapi.Schema(type=openapi.TYPE_STRING, format='date-time'),
+                        'status': openapi.Schema(
+                            type=openapi.TYPE_STRING,
+                            enum=['PENDING', 'COMPLETED', 'SKIPPED', 'RESCHEDULED', 'FAILED'],
+                        ),
+                    },
+                ),
+            ),
+        },
+    ),
     responses={201: TaskSerializer},
 )
 
