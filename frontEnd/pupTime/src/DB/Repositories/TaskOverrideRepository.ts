@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 import { getDrizzleDb } from '../drizzleClient';
 import {
@@ -10,16 +10,54 @@ import {
 export const TaskOverrideRepository = {
 	async create(data: NewTaskOverride): Promise<TaskOverride> {
 		const db = await getDrizzleDb();
-		const [row] = await db.insert(taskOverrides).values(data).returning();
+		const [row] = await db
+			.insert(taskOverrides)
+			.values(data)
+			.onConflictDoNothing({
+				target: [taskOverrides.template_id, taskOverrides.instance_datetime],
+			})
+			.returning();
 		return row;
 	},
+	async create_many(data: NewTaskOverride[]): Promise<TaskOverride[]> {
+		const db = await getDrizzleDb();
 
-	async listByTemplate(templateId: string): Promise<TaskOverride[]> {
+		const rows = await db
+			.insert(taskOverrides)
+			.values(data)
+			.onConflictDoNothing({
+				target: [taskOverrides.template_id, taskOverrides.instance_datetime],
+			})
+			.returning();
+
+		return rows;
+	},
+	async upsertTaskOverrides(data: NewTaskOverride[]): Promise<{ inserted: TaskOverride[], deleted: string[] }> {
+		const db = await getDrizzleDb();
+
+		const deleted: string[] = [];
+		for (const d of data) {
+			const rows = await db
+				.delete(taskOverrides)
+				.where(
+					and(
+						eq(taskOverrides.template_id, d.template_id),
+						eq(taskOverrides.instance_datetime, d.instance_datetime)
+					)
+				).returning();
+			if (rows.length > 0) {
+				deleted.push(rows[0].id);
+			}
+		}
+
+		return { inserted: await this.create_many(data), deleted };
+	},
+	async listByTemplate(template_id: string): Promise<TaskOverride[]> {
 		const db = await getDrizzleDb();
 		return db
 			.select()
 			.from(taskOverrides)
-			.where(eq(taskOverrides.templateId, templateId));
+			.where(eq(taskOverrides.template_id, template_id));
 	},
 	async findById(id: string): Promise<TaskOverride | undefined> {
 		const db = await getDrizzleDb();
@@ -33,7 +71,13 @@ export const TaskOverrideRepository = {
 		const db = await getDrizzleDb();
 		await db
 			.update(taskOverrides)
-			.set({ isDeleted: true })
+			.set({ is_deleted: true })
+			.where(eq(taskOverrides.id, id));
+	},
+	async deleteById(id: string): Promise<void> {
+		const db = await getDrizzleDb();
+		await db
+			.delete(taskOverrides)
 			.where(eq(taskOverrides.id, id));
 	},
 	async update(

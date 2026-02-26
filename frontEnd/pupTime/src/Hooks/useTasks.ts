@@ -10,7 +10,7 @@ import {
   toSerializableTask,
   upsertTask,
   fetchTasks,
-} from '../redux/tasksSlice';
+} from '../redux/slices/tasksSlice';
 
 export const useTasks = (userId: number | null) => {
   const dispatch = useDispatch<AppDispatch>();

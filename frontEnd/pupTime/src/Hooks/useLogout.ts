@@ -1,8 +1,8 @@
 import { clearData } from '../utils/storage/auth';
 import { useDispatch } from 'react-redux';
 import { AppDispatch } from '../redux/store';
-import { clearUser } from '../redux/userSlice';
-import { clearTasks } from '../redux/tasksSlice';
+import { clearUser } from '../redux/slices/userSlice';
+import { clearTasks } from '../redux/slices/tasksSlice';
 import { dropAllTables } from '../DB';
 
 export function useLogout() {

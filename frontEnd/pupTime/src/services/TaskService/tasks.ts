@@ -8,63 +8,25 @@ export const formatTime = (date: Date) => {
 // Helper function to convert TaskTemplate to server format
 const toServerTaskData = (task: TaskTemplate) => {
   return {
-    id: task?.id,
-    title: task.title,
+    ...task,
     categories: task?.categories?.map(category => category.id),
-    priority: task?.priority,
-    emoji: task?.emoji,
-    start_datetime: task.startDatetime,
-    reminder_time: task?.reminderTime,
-    duration_minutes: task?.durationMinutes,
-    is_recurring: task?.isRecurring,
-    rrule: task?.rrule,
     timezone: task?.timezone ?? getCurrentTimezone(),
-    created_at: task?.createdAt,
-    updated_at: task?.updatedAt,
-    overrides: task?.overrides?.map(override => ({
-      id: override.id,
-      instance_datetime: override.instanceDatetime,
-      status: override.status,
-      new_datetime: override.newDatetime,
-      created_at: override.createdAt,
-      updated_at: override.updatedAt,
-    })),
   }
 };
 const toClientTaskOverride = (data: any): TaskOverride => {
-  return {
-    id: data?.id,
-    instanceDatetime: data?.instance_datetime,
-    status: data?.status,
-    newDatetime: data?.new_datetime,
-    createdAt: data?.created_at,
-    updatedAt: data?.updated_at,
-  } as TaskOverride;
+  return data as TaskOverride;
 }
 const toClientTaskTemplate = (data: any): TaskTemplate => {
   return {
-    id: data.id,
-    userId: data.user,
-    title: data.title,
-    priority: data.priority,
-    categories: data.categories,
-    emoji: data.emoji,
-    startDatetime: data.start_datetime,
-    reminderTime: data.reminder_time,
-    durationMinutes: data.duration_minutes,
-    isRecurring: data.is_recurring,
-    rrule: data.rrule,
-    timezone: data.timezone,
+    ...data,
+    user_id: data.user,
     overrides: data.overrides?.map((override: any) => toClientTaskOverride(override)),
-    createdAt: data.created_at,
-    updatedAt: data.updated_at,
   } as TaskTemplate;
 };
 
 export const createTaskTemplate = async (taskData: TaskTemplate): Promise<TaskTemplate> => {
   try {
     const response = await api.post('/task/', toServerTaskData(taskData));
-    response.data.id = response.data.id.toString();
     return toClientTaskTemplate(response.data);
     } catch (error: any) {
       console.error(error);
@@ -117,17 +79,8 @@ export const getTaskById = async (id: string): Promise<TaskTemplate> => {
 };
 
 export const patchTask = async (id: string, task: Partial<TaskTemplate>): Promise<TaskTemplate> => {
-    const formattedTaskData: any = {};
-    if(task.title) formattedTaskData.title = task.title;
+    const formattedTaskData: any = task;
     if(task.categories) formattedTaskData.categories = task.categories.map(category => category.id);
-    if(task.priority) formattedTaskData.priority = task.priority;
-    if(task.emoji) formattedTaskData.emoji = task.emoji;
-    if(task.startDatetime) formattedTaskData.start_datetime = task.startDatetime;
-    if(task.reminderTime) formattedTaskData.reminder_time = task.reminderTime;
-    if(task.durationMinutes) formattedTaskData.duration_minutes = task.durationMinutes;
-    if(task.isRecurring) formattedTaskData.is_recurring = task.isRecurring;
-    if(task.rrule) formattedTaskData.rrule = task.rrule;
-    if(task.timezone) formattedTaskData.timezone = task.timezone;
 
     try {
         const response = await api.patch(`/task/${id}`, formattedTaskData);
@@ -163,12 +116,41 @@ export const historyTask = async (id: string, filter?: {start_date?: string, end
   };
 };
 
-export const patchTaskOverride = async (id: string, id_override: string, data?: {status: string, new_datetime?: string}): Promise<TaskOverride> => {
+export type patchTaskOverrideResponse = {
+  type: 'RESCHEDULED';
+  rescheduled: TaskOverride;
+  new_instance: TaskOverride;
+} | {
+  type: 'OTHER';
+  override: TaskOverride;
+}
+
+export const patchTaskOverride = async (id: string, id_override: string, data?: {status: string, new_datetime?: string}): Promise<patchTaskOverrideResponse> => {
     try {
         const response = await api.patch(`/task/${id}/override/${id_override}`, data);
-        return toClientTaskOverride(response.data);
+        if(data?.status === 'RESCHEDULED' && response.data?.new_instance) {
+            return {
+              type: 'RESCHEDULED',
+              rescheduled: toClientTaskOverride(response.data),
+              new_instance: toClientTaskOverride(response.data.new_instance),
+            };
+        }
+        return {
+          type: 'OTHER',
+          override: toClientTaskOverride(response.data),
+        };
     } catch (error: any) {
         console.error(error);
     throw error;
   };
+};
+
+// edit it
+export const deleteTaskOverride = async (id: string, id_override: string): Promise<void> => {
+    try {
+        await api.delete(`/task/${id}/override/${id_override}`);
+    } catch (error: any) {
+        console.error(error);
+        throw error;
+    };
 };

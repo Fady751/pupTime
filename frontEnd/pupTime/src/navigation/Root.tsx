@@ -12,6 +12,8 @@ import useAuthBootstrap from '../Hooks/RootHooks/AuthBootstrap';
 // import useSyncQueue from '../Hooks/RootHooks/SyncBootstrap';
 // import useFetchTasks from '../Hooks/RootHooks/FetchTasks';
 import { useEffect } from 'react';
+import { getTasks } from '../services/TaskService/tasks';
+// import { AppMetaRepository } from '../DB';
 
 export default function Root() {
   const { data, loading } = useSelector((s: RootState) => s.user);
@@ -23,8 +25,13 @@ export default function Root() {
   // useFetchTasks();
 
   useEffect(() => {
-
-  }, []);
+    const test = async () => {
+      // AppMetaRepository.clear();
+      const tasks = await getTasks({});
+      console.log('Tasks:', tasks);
+    };
+    test();
+  }, [data?.id]);
 
   if (loading || networkLoading) return <LoadingScreen />;
 

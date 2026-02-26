@@ -1,7 +1,7 @@
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "../../redux/store";
 import { useEffect } from "react";
-import { fetchUser, setUser } from "../../redux/userSlice";
+import { fetchUser, setUser } from "../../redux/slices/userSlice";
 import { AppMetaRepository } from "../../DB";
 
 const useAuthBootstrap = () => {

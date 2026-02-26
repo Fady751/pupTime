@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { User } from '../types/user';
-import { getUser, GetUserResponse } from '../services/userAuthServices/getuser';
-import { AppMetaRepository } from '../DB';
+import { User } from '../../types/user';
+import { getUser, GetUserResponse } from '../../services/userAuthServices/getuser';
+import { AppMetaRepository } from '../../DB';
 
 type UserState = {
   data: User | null;

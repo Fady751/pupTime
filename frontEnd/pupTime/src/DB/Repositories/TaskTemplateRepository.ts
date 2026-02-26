@@ -10,8 +10,8 @@ import {
   type TaskOverride,
 } from '../schema';
 
-interface GetOverridesParams {
-  userId: number;
+export interface GetOverridesParams {
+  user_id: number;
   page?: number;
   page_size?: number;
   priority?: string | null;
@@ -38,7 +38,14 @@ interface PaginatedResult<T> {
 export const TaskTemplateRepository = {
   async create(data: NewTaskTemplate): Promise<TaskTemplate> {
     const db = await getDrizzleDb();
-    const [row] = await db.insert(taskTemplates).values(data).returning();
+      const [row] = await db
+    .insert(taskTemplates)
+    .values(data)
+    .onConflictDoUpdate({
+      target: taskTemplates.id,
+      set: data,
+    })
+    .returning();
     return row;
   },
 
@@ -51,12 +58,12 @@ export const TaskTemplateRepository = {
     return rows[0];
   },
 
-  async listByUser(userId: number): Promise<TaskTemplate[]> {
+  async listByUser(user_id: number): Promise<TaskTemplate[]> {
     const db = await getDrizzleDb();
     return db
       .select()
       .from(taskTemplates)
-      .where(eq(taskTemplates.userId, userId));
+      .where(eq(taskTemplates.user_id, user_id));
   },
 
   async update(
@@ -76,28 +83,26 @@ export const TaskTemplateRepository = {
     const db = await getDrizzleDb();
     await db
       .update(taskTemplates)
-      .set({ isDeleted: true })
+      .set({ is_deleted: true })
       .where(eq(taskTemplates.id, id));
   },
 
-  async filter(options: {
-    userId: number;
-    page?: number;
-    page_size?: number;
-    priority?: string | null;
-    category?: number | string | null;
-    start_date?: string;
-    end_date?: string;
-    ordering?: string;
-  }): Promise<PaginatedResult<TaskTemplate>> {
+  async deleteByTemplateId(id: string): Promise<void> {
+    const db = await getDrizzleDb();
+    await db
+      .delete(taskOverrides)
+      .where(eq(taskOverrides.template_id, id));
+  },
+
+  async filter(options: GetOverridesParams): Promise<PaginatedResult<TaskTemplate>> {
     const db = await getDrizzleDb();
     const page = Math.max(1, options.page ?? 1);
     const pageSize = Math.max(1, Math.min(options.page_size ?? 20, 100));
     const offset = (page - 1) * pageSize;
 
     const conditions = [
-      eq(taskTemplates.userId, options.userId),
-      eq(taskTemplates.isDeleted, false),
+      eq(taskTemplates.user_id, options.user_id),
+      eq(taskTemplates.is_deleted, false),
     ];
 
     if (options.priority) {
@@ -105,11 +110,11 @@ export const TaskTemplateRepository = {
     }
 
     if (options.start_date) {
-      conditions.push(gte(taskTemplates.startDatetime, options.start_date));
+      conditions.push(gte(taskTemplates.start_datetime, options.start_date));
     }
 
     if (options.end_date) {
-      conditions.push(lte(taskTemplates.startDatetime, options.end_date));
+      conditions.push(lte(taskTemplates.start_datetime, options.end_date));
     }
 
     const whereExpr = and(...conditions);
@@ -118,19 +123,19 @@ export const TaskTemplateRepository = {
     const orderExpr = (() => {
       switch (options.ordering) {
         case 'start_datetime':
-          return asc(taskTemplates.startDatetime);
+          return asc(taskTemplates.start_datetime);
         case '-start_datetime':
-          return desc(taskTemplates.startDatetime);
+          return desc(taskTemplates.start_datetime);
         case 'created_at':
-          return asc(taskTemplates.createdAt);
+          return asc(taskTemplates.created_at);
         case '-created_at':
-          return desc(taskTemplates.createdAt);
+          return desc(taskTemplates.created_at);
         case 'title':
           return asc(taskTemplates.title);
         case '-title':
           return desc(taskTemplates.title);
         default:
-          return desc(taskTemplates.createdAt);
+          return desc(taskTemplates.created_at);
       }
     })();
 
@@ -165,7 +170,7 @@ export const TaskTemplateRepository = {
     const db = await getDrizzleDb();
 
     const {
-      userId,
+      user_id,
       page = 1,
       page_size = 20,
       priority,
@@ -180,8 +185,8 @@ export const TaskTemplateRepository = {
     const offset = (pageNum - 1) * pageSize;
 
     const conditions = [
-      eq(taskTemplates.userId, userId),
-      eq(taskTemplates.isDeleted, false),
+      eq(taskTemplates.user_id, user_id),
+      eq(taskTemplates.is_deleted, false),
     ];
 
     if (priority) {
@@ -189,15 +194,15 @@ export const TaskTemplateRepository = {
     }
 
     if (start_date) {
-      conditions.push(gte(taskOverrides.instanceDatetime, start_date));
+      conditions.push(gte(taskOverrides.instance_datetime, start_date));
     }
 
     if (end_date) {
-      conditions.push(lte(taskOverrides.instanceDatetime, end_date));
+      conditions.push(lte(taskOverrides.instance_datetime, end_date));
     }
 
     if (category) {
-      conditions.push(eq(taskTemplateCategories.categoryId, Number(category)));
+      conditions.push(eq(taskTemplateCategories.category_id, Number(category)));
     }
 
     const whereExpr = and(...conditions);
@@ -208,13 +213,13 @@ export const TaskTemplateRepository = {
         template: taskTemplates,
       })
       .from(taskOverrides)
-      .innerJoin(taskTemplates, eq(taskOverrides.templateId, taskTemplates.id))
+      .innerJoin(taskTemplates, eq(taskOverrides.template_id, taskTemplates.id))
       .$dynamic();
 
     if (category) {
       query = query.innerJoin(
         taskTemplateCategories,
-        eq(taskTemplates.id, taskTemplateCategories.templateId)
+        eq(taskTemplates.id, taskTemplateCategories.template_id)
       );
     }
 
@@ -224,16 +229,16 @@ export const TaskTemplateRepository = {
     if (ordering) {
       switch (ordering) {
         case 'start_datetime':
-          orderByClause.push(asc(taskOverrides.instanceDatetime));
+          orderByClause.push(asc(taskOverrides.instance_datetime));
           break;
         case '-start_datetime':
-          orderByClause.push(desc(taskOverrides.instanceDatetime));
+          orderByClause.push(desc(taskOverrides.instance_datetime));
           break;
         case 'created_at':
-          orderByClause.push(asc(taskOverrides.createdAt));
+          orderByClause.push(asc(taskOverrides.created_at));
           break;
         case '-created_at':
-          orderByClause.push(desc(taskOverrides.createdAt));
+          orderByClause.push(desc(taskOverrides.created_at));
           break;
         case 'title':
           orderByClause.push(asc(taskTemplates.title));
@@ -242,10 +247,10 @@ export const TaskTemplateRepository = {
           orderByClause.push(desc(taskTemplates.title));
           break;
         default:
-          orderByClause.push(desc(taskOverrides.instanceDatetime));
+          orderByClause.push(desc(taskOverrides.instance_datetime));
       }
     } else {
-      orderByClause.push(desc(taskOverrides.instanceDatetime));
+      orderByClause.push(desc(taskOverrides.instance_datetime));
     }
     
     query = query.orderBy(...orderByClause);
@@ -273,13 +278,13 @@ export const TaskTemplateRepository = {
     let countQuery = db
       .select({ count: count() })
       .from(taskOverrides)
-      .innerJoin(taskTemplates, eq(taskOverrides.templateId, taskTemplates.id))
+      .innerJoin(taskTemplates, eq(taskOverrides.template_id, taskTemplates.id))
       .$dynamic();
 
     if (category) {
       countQuery = countQuery.innerJoin(
         taskTemplateCategories,
-        eq(taskTemplates.id, taskTemplateCategories.templateId)
+        eq(taskTemplates.id, taskTemplateCategories.template_id)
       );
     }
 

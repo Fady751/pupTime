@@ -1,6 +1,6 @@
 import { useDispatch } from 'react-redux';
 import { AppDispatch } from '../redux/store';
-import { fetchUser } from '../redux/userSlice';
+import { fetchUser } from '../redux/slices/userSlice';
 import { AppMetaRepository } from '../DB';
 
 export type LoginData = {
