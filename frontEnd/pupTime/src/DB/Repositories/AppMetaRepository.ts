@@ -31,4 +31,8 @@ export const AppMetaRepository = {
 		const db = await getDrizzleDb();
 		await db.delete(appMeta).where(eq(appMeta.key, key));
 	},
+	async clear(): Promise<void> {
+		const db = await getDrizzleDb();
+		await db.delete(appMeta);
+	},
 };

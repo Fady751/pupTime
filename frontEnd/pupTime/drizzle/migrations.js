@@ -1,10 +1,16 @@
-// Use require for JSON to guarantee it loads in React Native
-const journal = require('./meta/_journal.json'); 
-import m0000 from './0000_closed_wildside.sql';
+// This file is required for Expo/React Native SQLite migrations - https://orm.drizzle.team/quick-sqlite/expo
 
-export default {
-  journal,
-  migrations: {
-    m0000
+import journal from './meta/_journal.json';
+import m0000 from './0000_closed_wildside.sql';
+import m0001 from './0001_keen_glorian.sql';
+import m0002 from './0002_cynical_fenris.sql';
+
+  export default {
+    journal,
+    migrations: {
+      m0000,
+m0001,
+m0002
+    }
   }
-}
+  

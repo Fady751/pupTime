@@ -1,5 +1,5 @@
 import { configureStore } from '@reduxjs/toolkit';
-import userReducer from './userSlice';
+import userReducer from './slices/userSlice';
 import networkReducer from './networkSlice';
 // import tasksReducer from './tasksSlice';
 

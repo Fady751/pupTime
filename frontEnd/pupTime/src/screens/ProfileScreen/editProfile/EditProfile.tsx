@@ -16,7 +16,7 @@ import DateTimePicker, {
 } from "@react-native-community/datetimepicker";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "../../../redux/store";
-import { setUser } from "../../../redux/userSlice";
+import { setUser } from "../../../redux/slices/userSlice";
 import useTheme from "../../../Hooks/useTheme";
 import createStyles from "./EditProfile.styles";
 import { editUser, EditUserPayload } from "../../../services/userAuthServices/editUser";
