@@ -125,13 +125,22 @@ export type patchTaskOverrideResponse = {
   override: TaskOverride;
 }
 
-export const patchTaskOverride = async (id: string, id_override: string, data?: {status: string, new_datetime?: string}): Promise<patchTaskOverrideResponse> => {
+export type patchTaskOverrideRequest = {
+  status: string;
+  new_instance?: {
+    new_date: string;
+    id?: string;
+    status?: string;
+  };
+}
+
+export const patchTaskOverride = async (id: string, id_override: string, data?: patchTaskOverrideRequest): Promise<patchTaskOverrideResponse> => {
     try {
         const response = await api.patch(`/task/${id}/override/${id_override}`, data);
         if(data?.status === 'RESCHEDULED' && response.data?.new_instance) {
             return {
               type: 'RESCHEDULED',
-              rescheduled: toClientTaskOverride(response.data),
+              rescheduled: toClientTaskOverride(response.data.rescheduled),
               new_instance: toClientTaskOverride(response.data.new_instance),
             };
         }
@@ -145,7 +154,6 @@ export const patchTaskOverride = async (id: string, id_override: string, data?: 
   };
 };
 
-// edit it
 export const deleteTaskOverride = async (id: string, id_override: string): Promise<void> => {
     try {
         await api.delete(`/task/${id}/override/${id_override}`);

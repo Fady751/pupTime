@@ -61,6 +61,7 @@ import {
 	deleteTaskOverride as apiDeleteTaskOverride,
 	type getTasksRequest,
 	type getTasksResponse,
+	patchTaskOverrideRequest,
 } from './tasks';
 import {
 	type TaskTemplate,
@@ -283,7 +284,7 @@ export const createTemplate = async (
 export const updateTemplate = async (
 	id: string,
 	patch: Partial<TaskTemplate>,
-): Promise<TaskTemplate | undefined> => {
+): Promise<TaskTemplate & { deleted?: string[] } | undefined> => {
 	const count = await SyncQueueRepository.getCount();
 	// ── Online path ────────────
 	if (isOnline() && !count) {
@@ -312,9 +313,11 @@ export const updateTemplate = async (
 		...patch,
 	};
 	const inserted: TaskOverride[] = [];
+	const deleted: string[] = [];
 	if (isScheduleChange(patch)) {
 		const result = await regenerateLocalOverrides(updated as TaskTemplate);
 		inserted.push(...result.inserted);
+		deleted.push(...result.deleted);
 		payload.overrides = result.inserted;
 		for (const ov of result.deleted) {
 			await enqueueOperation('DELETE', 'TASK_OVERRIDE', ov, {});
@@ -326,7 +329,7 @@ export const updateTemplate = async (
 	}
 
 	const cats = await getLocalCategories(id);
-	return { ...updated, categories: cats, overrides: inserted } as TaskTemplate;
+	return { ...updated, categories: cats, overrides: inserted, deleted };
 };
 
 /**
@@ -375,7 +378,13 @@ export const updateOverrideStatus = async (
 	const count = await SyncQueueRepository.getCount();
 	if (isOnline() && !count) {
 		try {
-			const serverOv = await apiPatchTaskOverride(template_id, override_id, data);
+			const patchData: patchTaskOverrideRequest = {
+				status: data.status,
+				new_instance: data.new_datetime ? {
+					new_date: data.new_datetime
+				} : undefined,
+			};
+			const serverOv = await apiPatchTaskOverride(template_id, override_id, patchData);
 			if (serverOv.type === 'RESCHEDULED') {
 				await TaskService.updateOverride(override_id, {
 					template_id,
@@ -530,11 +539,18 @@ export const processQueue = async (): Promise<void> => {
 						await apiPatchTaskOverride(
 							payload.template_id,
 							item.local_id,
-							{ status: payload.status, new_datetime: payload.new_datetime },
+							{ status: payload.status },
 						);
 					}
 					else {
-						// TODO
+						await apiPatchTaskOverride(
+							payload.template_id,
+							item.local_id,
+							{ status: payload.status, new_instance: {
+								new_date: payload.new_datetime,
+								id: payload.new_instance.id
+							} },
+						);
 					}
 					break;
 				}
@@ -572,7 +588,7 @@ export const processQueue = async (): Promise<void> => {
  * Template: last updatedAt wins.
  * Overrides: keep local if non-PENDING, else take server.
  */
-export const pullFromServer = async (): Promise<void> => {
+export const pullFromServer = async (): Promise<boolean> => {
 	const queueCount = await SyncQueueRepository.getCount();
 	if (queueCount > 0) {
 		processQueue();
@@ -580,7 +596,7 @@ export const pullFromServer = async (): Promise<void> => {
 	const isSyncing = (await AppMetaRepository.get(SYNC_IN_PROGRESS_KEY))?.value === 'true';
 	const isProcessing = (await AppMetaRepository.get(PROCESS_QUEUE_KEY))?.value === 'true';
 	if (isSyncing || isProcessing) {
-		return;
+		return false;
 	}
 	await AppMetaRepository.set(SYNC_IN_PROGRESS_KEY, 'true');
 
@@ -589,6 +605,7 @@ export const pullFromServer = async (): Promise<void> => {
 
 	let page = 1;
 	let hasMore = true;
+	let changes = false;
 
 	while (hasMore) {
 		const request: getTasksRequest = {
@@ -598,6 +615,7 @@ export const pullFromServer = async (): Promise<void> => {
 		};
 
 		const response: getTasksResponse<TaskTemplate> = await apiGetTasks(request);
+		changes = response.count > 0;
 
 		for(const task of response.results) {
 			await saveServerResponseToLocal(task);
@@ -609,6 +627,7 @@ export const pullFromServer = async (): Promise<void> => {
 
 	await AppMetaRepository.set(LAST_SYNC_KEY, new Date().toISOString());
 	await AppMetaRepository.set(SYNC_IN_PROGRESS_KEY, 'false');
+	return changes;
 };
 
 /* ═══════════════════════════════════════════════════════════
@@ -623,18 +642,15 @@ export const pullFromServer = async (): Promise<void> => {
  * Called every ~5 min while the app is in the foreground,
  * and also triggered (fire-and-forget) on read operations.
  */
-export const fullSync = async (): Promise<void> => {
+export const fullSync = async (): Promise<boolean> => {
 	if (!isOnline()) {
-		console.log('[sync] offline — skipping');
-		return;
+		console.warn('[sync] offline — skipping');
+		return false;
 	}
-
-	console.log('[sync] starting full sync…');
 
 	try {
 		await processQueue();
-		await pullFromServer();
-		console.log('[sync] complete');
+		return await pullFromServer();
 	} catch (error) {
 		console.error('[sync] failed', error);
 		throw error;

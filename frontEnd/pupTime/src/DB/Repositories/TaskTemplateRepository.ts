@@ -181,7 +181,7 @@ export const TaskTemplateRepository = {
     } = params;
 
     const pageNum = Math.max(1, page);
-    const pageSize = Math.max(1, Math.min(page_size, 100));
+    const pageSize = Math.max(1, page_size);
     const offset = (pageNum - 1) * pageSize;
 
     const conditions = [
