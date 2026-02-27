@@ -109,6 +109,7 @@ class TaskViewSet(ModelViewSet):
                     overrides__instance_datetime__lte=end_dt,
                     overrides__is_deleted=is_deleted,
                 )
+                | Q(is_recurring=True)
             ).distinct()
 
         updated_after = _parse_iso(self.request.query_params.get('updated_after'))
