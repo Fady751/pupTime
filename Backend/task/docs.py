@@ -161,7 +161,10 @@ create_schema = swagger_auto_schema(
         properties={
             'title': openapi.Schema(type=openapi.TYPE_STRING),
             'start_datetime': openapi.Schema(type=openapi.TYPE_STRING, format='date-time'),
-            'reminder_time': openapi.Schema(type=openapi.TYPE_STRING, format='date-time'),
+            'reminder_time': openapi.Schema(
+                type=openapi.TYPE_INTEGER,
+                description='Minutes before the task start to trigger a reminder (e.g. 10, 30, 60). Must be non-negative.',
+            ),
             'duration_minutes': openapi.Schema(type=openapi.TYPE_INTEGER),
             'priority': openapi.Schema(type=openapi.TYPE_STRING, enum=['none', 'low', 'medium', 'high']),
             'emoji': openapi.Schema(type=openapi.TYPE_STRING),
@@ -197,13 +200,13 @@ retrieve_schema = swagger_auto_schema(
 update_schema = swagger_auto_schema(
     operation_summary='Full update a task',
     request_body=TaskSerializer,
-    responses={200: TaskSerializer},
+    responses={204: 'Task updated.'},
 )
 
 partial_update_schema = swagger_auto_schema(
     operation_summary='Partial update a task',
     request_body=TaskSerializer(partial=True),
-    responses={200: TaskSerializer},
+    responses={204: 'Task updated.'},
 )
 
 destroy_schema = swagger_auto_schema(
