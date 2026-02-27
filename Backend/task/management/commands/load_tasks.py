@@ -46,7 +46,7 @@ class Command(BaseCommand):
                 user=user,
                 title=item['title'],
                 start_datetime=datetime.fromisoformat(item['start_datetime'].replace('Z', '+00:00')),
-                reminder_time=datetime.fromisoformat(item['reminder_time'].replace('Z', '+00:00')) if item.get('reminder_time') else None,
+                reminder_time=item.get('reminder_time'),
                 duration_minutes=item.get('duration_minutes'),
                 is_recurring=item.get('is_recurring', False),
                 rrule=item.get('rrule'),

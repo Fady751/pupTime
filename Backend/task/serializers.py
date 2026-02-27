@@ -62,6 +62,12 @@ class TaskSerializer(serializers.ModelSerializer):
                 {'duration_minutes': 'duration_minutes must be non-negative.'}
             )
 
+        reminder = attrs.get('reminder_time')
+        if reminder is not None and reminder < 0:
+            raise serializers.ValidationError(
+                {'reminder_time': 'reminder_time must be non-negative (minutes before the task).'}
+            )
+
         return attrs
 
     def get_overrides(self, obj):
