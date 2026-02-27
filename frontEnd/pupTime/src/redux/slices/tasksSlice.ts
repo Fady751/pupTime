@@ -263,14 +263,33 @@ const tasksSlice = createSlice({
                 if (!payload) return;
                 const idx = state.items.findIndex((t) => t.id === payload.id);
                 if (idx !== -1) {
-                    state.total += payload.overrides.length - (payload?.deleted?.length ?? 0);
-                    let overrides = { ...state.items[ idx ].overrides, ...payload.overrides };
-                    state.items[ idx ] = { ...state.items[ idx ], ...payload };
-                    if (payload.deleted) {
-                        const deleted: Set<string> = new Set(payload.deleted);
-                        overrides = overrides.filter((t) => !deleted.has(t.id));
+                    const existingOverrides = Array.isArray(state.items[ idx ].overrides)
+                        ? state.items[ idx ].overrides
+                        : [];
+                    const newOverrides = Array.isArray(payload.overrides)
+                        ? payload.overrides
+                        : [];
+
+                    // Merge: keep existing, add/overwrite from payload by id
+                    const overrideMap = new Map(
+                        existingOverrides.map((o) => [ o.id, o ]),
+                    );
+                    for (const o of newOverrides) {
+                        overrideMap.set(o.id, o);
                     }
-                    state.items[ idx ].overrides = overrides;
+
+                    // Remove deleted overrides
+                    if (payload.deleted) {
+                        for (const id of payload.deleted) {
+                            overrideMap.delete(id);
+                        }
+                    }
+
+                    state.items[ idx ] = { ...state.items[ idx ], ...payload };
+                    state.items[ idx ].overrides = Array.from(overrideMap.values());
+                    state.total = state.items.reduce(
+                        (sum, t) => sum + (t.overrides?.length ?? 0), 0,
+                    );
                 }
             })
             .addCase(updateTask.rejected, (state, { error }) => {

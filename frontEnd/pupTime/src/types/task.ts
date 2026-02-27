@@ -164,3 +164,11 @@ export const getTaskOccurrences = (
 export const canCompleteForDate = (date: string): boolean => {
     return toDateOnly(new Date().toISOString()) <= toDateOnly(date);
 };
+
+
+/**
+ * Two override are equal if they have the same template_id, instance_datetime, status and id
+ */
+export const areOverridesEqual = (override1: TaskOverride, override2: TaskOverride): boolean => {
+	return override1.template_id === override2.template_id && override1.instance_datetime === override2.instance_datetime && override1.status === override2.status && override1.id === override2.id;
+};

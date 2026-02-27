@@ -4,7 +4,7 @@ import { StyleSheet, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import AuthNavigator from '../navigation/AuthNavigator';
-// import AppNavigator from '../navigation/AppNavigator';
+import AppNavigator from '../navigation/AppNavigator';
 import LoadingScreen from '../screens/Loading/loading';
 import OfflineBar from '../components/OfflineBar/offlineBar';
 import useNetworkListener from '../Hooks/RootHooks/NetworkBootstrap';
@@ -13,6 +13,7 @@ import useAuthBootstrap from '../Hooks/RootHooks/AuthBootstrap';
 // import useFetchTasks from '../Hooks/RootHooks/FetchTasks';
 import { useEffect } from 'react';
 import { getTasks } from '../services/TaskService/tasks';
+import { fullSync, getTemplatesWithOverrides } from '../services/TaskService/syncService';
 // import { AppMetaRepository } from '../DB';
 
 export default function Root() {
@@ -26,12 +27,10 @@ export default function Root() {
 
   useEffect(() => {
     const test = async () => {
-      // AppMetaRepository.clear();
-      const tasks = await getTasks({});
-      console.log('Tasks:', tasks);
+      
     };
     test();
-  }, [data?.id]);
+  }, [data]);
 
   if (loading || networkLoading) return <LoadingScreen />;
 
@@ -39,7 +38,7 @@ export default function Root() {
     <>
       <NavigationContainer>
         <SafeAreaView style={styles.safeArea}>
-          {data ?<Text>User is authenticated</Text> : <AuthNavigator />}
+          {data ? <AppNavigator /> : <AuthNavigator />}
         </SafeAreaView>
       </NavigationContainer>
       {!isConnected && <OfflineBar />}

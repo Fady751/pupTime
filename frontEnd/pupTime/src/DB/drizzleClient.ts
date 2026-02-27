@@ -15,6 +15,16 @@ const createDrizzleDb = (db: DB) => drizzle(db, { schema });
 
 export type DrizzleDb = Awaited<ReturnType<typeof getDrizzleDb>>;
 
+export const clearAllData = async (): Promise<void> => {
+	const db = await getDrizzleDb();
+	await db.delete(schema.taskOverrides);
+	await db.delete(schema.userCategories);
+	await db.delete(schema.categories);
+	await db.delete(schema.taskTemplates);
+	await db.delete(schema.syncQueue);
+	await db.delete(schema.appMeta);
+}
+
 export const getDrizzleDb = async (): Promise<ReturnType<typeof createDrizzleDb>> => {
 	if (!drizzleDbPromise) {
 		drizzleDbPromise = (async () => {

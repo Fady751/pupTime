@@ -1,4 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+import api from '../../services/api';
 
 export const checkInternetConnectivity = createAsyncThunk(
   'network/checkConnectivity',
@@ -8,10 +9,7 @@ export const checkInternetConnectivity = createAsyncThunk(
     }
 
     try {
-      await fetch('https://8.8.8.8', {
-        method: 'HEAD',
-        mode: 'no-cors',
-      });
+      await api.get('hello');
       return true;
     } catch {
       return false;

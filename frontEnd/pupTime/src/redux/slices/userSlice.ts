@@ -18,6 +18,9 @@ const initialState: UserState = {
 export const fetchUser = createAsyncThunk<User | null>(
   'user/fetchUser',
   async (_, { rejectWithValue }) => {
+    const user = await AppMetaRepository.get('user');
+    if (user?.value && user.value !== 'null') return JSON.parse(user.value);
+
     const id = await AppMetaRepository.get('id');
     if (!id?.value) return null;
 

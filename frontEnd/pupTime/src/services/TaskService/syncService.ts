@@ -142,7 +142,7 @@ const saveCategoriesToLocal = async (
 };
 
 /** Upsert a task template in the local DB. */
-const saveServerResponseToLocal = async (template: TaskTemplate): Promise<void> => {
+const saveServerResponseToLocal = async (template: TaskTemplate): Promise<TaskTemplate & {inserted: TaskOverride[], deleted: string[]}> => {
 	const nowIso = new Date().toISOString();
 	const tplData: NewTaskTemplate = {
 		id: template.id,
@@ -161,10 +161,9 @@ const saveServerResponseToLocal = async (template: TaskTemplate): Promise<void> 
 		updated_at: template.updated_at ?? nowIso,
 	};
 	await TaskTemplateRepository.create(tplData);
-
 	await saveCategoriesToLocal(template.id, template.categories ?? []);
 
-	await TaskService.createOverrides(template.id, template.overrides ?? []);
+	return { ...template, ...(await TaskService.createOverrides(template.id, template.overrides ?? [])) };
 };
 
 /** Upse */
@@ -290,7 +289,8 @@ export const updateTemplate = async (
 	if (isOnline() && !count) {
 		try {
 			const serverTask = await apiPatchTask(id, patch);
-			await saveServerResponseToLocal(serverTask);
+			const localChanges = await saveServerResponseToLocal(serverTask);
+			console.log("localChanges", localChanges);
 			return serverTask;
 		} catch (error) {
 			console.warn('[sync] update online failed, falling back to offline', error);
@@ -493,10 +493,12 @@ export const processQueue = async (): Promise<void> => {
 	if (isProcessing || isSyncing) {
 		return;
 	}
-	await AppMetaRepository.set(PROCESS_QUEUE_KEY, 'true');
-
 	const items = await SyncQueueRepository.getAll();
-
+	if (items.length === 0) {
+		return;
+	}
+	await AppMetaRepository.set(PROCESS_QUEUE_KEY, 'true');
+	
 	for (const item of items) {
 		if ((item.retry_count ?? 0) >= MAX_RETRIES) {
 			console.warn(`[sync] skipping item ${item.id} after ${MAX_RETRIES} retries`);
@@ -510,7 +512,7 @@ export const processQueue = async (): Promise<void> => {
 				/* ── TEMPLATE CREATE ──────────────────────── */
 				case 'CREATE:TASK_TEMPLATE': {
 					const serverTask = await apiCreateTemplate(payload as TaskTemplate);
-					if(!serverTask) {
+					if (!serverTask) {
 						console.warn(`[sync] failed to create task template ${item.local_id}`);
 						continue;
 					}
@@ -520,7 +522,7 @@ export const processQueue = async (): Promise<void> => {
 				/* ── TEMPLATE UPDATE ──────────────────────── */
 				case 'UPDATE:TASK_TEMPLATE': {
 					const serverTask = await apiPatchTask(item.local_id, payload as Partial<TaskTemplate>);
-					if(!serverTask) {
+					if (!serverTask) {
 						console.warn(`[sync] failed to update task template ${item.local_id}`);
 						continue;
 					}
@@ -535,7 +537,7 @@ export const processQueue = async (): Promise<void> => {
 
 				/* ── OVERRIDE UPDATE ──────────────────────── */
 				case 'UPDATE:TASK_OVERRIDE': {
-					if(!payload?.new_instance) {
+					if (!payload?.new_instance) {
 						await apiPatchTaskOverride(
 							payload.template_id,
 							item.local_id,
@@ -546,10 +548,12 @@ export const processQueue = async (): Promise<void> => {
 						await apiPatchTaskOverride(
 							payload.template_id,
 							item.local_id,
-							{ status: payload.status, new_instance: {
-								new_date: payload.new_datetime,
-								id: payload.new_instance.id
-							} },
+							{
+								status: payload.status, new_instance: {
+									new_date: payload.new_datetime,
+									id: payload.new_instance.id
+								}
+							},
 						);
 					}
 					break;
@@ -593,41 +597,49 @@ export const pullFromServer = async (): Promise<boolean> => {
 	if (queueCount > 0) {
 		processQueue();
 	}
+	await AppMetaRepository.set(SYNC_IN_PROGRESS_KEY, 'false');
 	const isSyncing = (await AppMetaRepository.get(SYNC_IN_PROGRESS_KEY))?.value === 'true';
 	const isProcessing = (await AppMetaRepository.get(PROCESS_QUEUE_KEY))?.value === 'true';
+
 	if (isSyncing || isProcessing) {
 		return false;
 	}
+	console.log('pulling from server');
 	await AppMetaRepository.set(SYNC_IN_PROGRESS_KEY, 'true');
 
-	const meta = await AppMetaRepository.get(LAST_SYNC_KEY);
-	const lastSync = meta?.value ?? undefined;
+	try {
+		const meta = await AppMetaRepository.get(LAST_SYNC_KEY);
+		const lastSync = meta?.value ?? undefined;
 
-	let page = 1;
-	let hasMore = true;
-	let changes = false;
+		let page = 1;
+		let hasMore = true;
+		let changes = false;
 
-	while (hasMore) {
-		const request: getTasksRequest = {
-			page,
-			page_size: 100,
-			...(lastSync ? { updated_after: lastSync } : {}),
-		};
+		while (hasMore) {
+			const request: getTasksRequest = {
+				page,
+				page_size: 100,
+				...(lastSync ? { updated_after: lastSync } : {}),
+			};
 
-		const response: getTasksResponse<TaskTemplate> = await apiGetTasks(request);
-		changes = response.count > 0;
+			const response: getTasksResponse<TaskTemplate> = await apiGetTasks(request);
+			changes = response.count > 0;
 
-		for(const task of response.results) {
-			await saveServerResponseToLocal(task);
+			for (const task of response.results) {
+				await saveServerResponseToLocal(task);
+			}
+
+			hasMore = response.next !== null;
+			page += 1;
 		}
 
-		hasMore = response.next !== null;
-		page += 1;
+		await AppMetaRepository.set(LAST_SYNC_KEY, new Date().toISOString());
+		await AppMetaRepository.set(SYNC_IN_PROGRESS_KEY, 'false');
+		return changes;
+	} catch (error) {
+		await AppMetaRepository.set(SYNC_IN_PROGRESS_KEY, 'false');
+		throw error;
 	}
-
-	await AppMetaRepository.set(LAST_SYNC_KEY, new Date().toISOString());
-	await AppMetaRepository.set(SYNC_IN_PROGRESS_KEY, 'false');
-	return changes;
 };
 
 /* ═══════════════════════════════════════════════════════════
