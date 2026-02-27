@@ -15,6 +15,7 @@ class TaskOverrideSerializer(serializers.ModelSerializer):
 
 
 class InitialOverrideSerializer(serializers.Serializer):
+    id = serializers.UUIDField(required=False)
     instance_datetime = serializers.DateTimeField()
     status = serializers.ChoiceField(choices=TaskOverride.STATUS_CHOICES)
 
@@ -107,10 +108,13 @@ class TaskSerializer(serializers.ModelSerializer):
         generate_overrides_for_task(task)
 
         for override_data in initial_overrides:
+            defaults = {'status': override_data['status']}
+            if 'id' in override_data:
+                defaults['id'] = override_data['id']
             TaskOverride.objects.update_or_create(
                 task=task,
                 instance_datetime=override_data['instance_datetime'],
-                defaults={'status': override_data['status']},
+                defaults=defaults,
             )
 
         return task
