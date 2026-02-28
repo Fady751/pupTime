@@ -179,6 +179,10 @@ create_schema = swagger_auto_schema(
                     type=openapi.TYPE_OBJECT,
                     required=['instance_datetime', 'status'],
                     properties={
+                        'id': openapi.Schema(
+                            type=openapi.TYPE_STRING, format='uuid',
+                            description='Optional. UUID for this override. Auto-generated if omitted.',
+                        ),
                         'instance_datetime': openapi.Schema(type=openapi.TYPE_STRING, format='date-time'),
                         'status': openapi.Schema(
                             type=openapi.TYPE_STRING,
