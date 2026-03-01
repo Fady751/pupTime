@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'user',
     'friendship',
     'task',
+    'ai_chat',
     'rest_framework',
     'rest_framework.authtoken',
     'drf_yasg',

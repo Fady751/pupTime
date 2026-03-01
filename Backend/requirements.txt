@@ -26,3 +26,5 @@ six==1.17.0
 sqlparse==0.5.5
 uritemplate==4.2.0
 urllib3==2.6.3
+langchain-core>=0.3.0
+langchain-google-genai>=2.1.0
