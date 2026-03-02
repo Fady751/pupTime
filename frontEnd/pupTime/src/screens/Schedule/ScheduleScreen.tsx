@@ -1,8 +1,8 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useCallback } from "react";
 import { View, TouchableOpacity, Text, StyleSheet } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Schedule } from "../../components/Schedule";
-import { Task, isTaskCompletedForDate, canCompleteForDate, toLocalDateString } from "../../types/task";
+import { type TaskTemplate } from "../../types/task";
 import useTheme from "../../Hooks/useTheme";
 import { useTasks } from "../../Hooks/useTasks";
 import { useSelector } from "react-redux";
@@ -12,15 +12,15 @@ const ScheduleScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const { colors } = useTheme();
   const data = useSelector((state: RootState) => state.user.data);
-  const { tasks, createTask, completeTask, uncompleteTask } = useTasks(data?.id as number);
-  const [togglingKeys, setTogglingKeys] = useState<string[]>([]);
+  const { tasks, loading, filter, changeOverride, applyFilter } = useTasks(
+    data?.id as number,
+  );
+  const [togglingIds, setTogglingIds] = useState<string[]>([]);
 
   const styles = useMemo(
     () =>
       StyleSheet.create({
-        container: {
-          flex: 1,
-        },
+        container: { flex: 1 },
         addButton: {
           position: "absolute",
           bottom: 30,
@@ -39,51 +39,56 @@ const ScheduleScreen: React.FC = () => {
           marginTop: -2,
         },
       }),
-    [colors]
+    [colors],
   );
 
-  const handleTaskPress = (task: Task) => {
-    console.log("Task pressed:", task.title);
+  /* ── Month change → update the store filter ──────── */
+  const handleMonthChange = useCallback(
+    async (startDate: string, endDate: string) => {
+      await applyFilter({
+        ...filter,
+        start_date: startDate,
+        end_date: endDate,
+      });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
+  const handleTaskPress = (template: TaskTemplate) => {
+    navigation.navigate("EditTask", { taskId: template.id });
   };
 
-  const handleCompleteToggle = async (taskId: string, date: Date) => {
-    const key = `${taskId}:${toLocalDateString(date)}`;
-    if (togglingKeys.includes(key)) return; // already in progress for this task/date
+  const handleCompleteToggle = async (
+    templateId: string,
+    overrideId: string,
+    currentStatus: string,
+  ) => {
+    if (togglingIds.includes(overrideId)) return;
 
-    const task = tasks.find(t => t.id === taskId);
-    if (!task) return;
-    const completed = isTaskCompletedForDate(task, date);
-
-    setTogglingKeys(prev => [...prev, key]);
+    setTogglingIds((prev) => [...prev, overrideId]);
     try {
-      if (completed) {
-        await uncompleteTask(taskId, date);
-      } else {
-        if (!canCompleteForDate(date)) return;  // silently ignore future dates
-        await completeTask(taskId, date);
-      }
+      await changeOverride(templateId, overrideId, {
+        status: currentStatus === "COMPLETED" ? "PENDING" : "COMPLETED",
+      });
     } finally {
-      setTogglingKeys(prev => prev.filter(k => k !== key));
+      setTogglingIds((prev) => prev.filter((id) => id !== overrideId));
     }
   };
 
-  const onSave = async (task: Task) => {
-    await createTask(task);
-  }
-
   const handleAddTask = () => {
-    navigation.navigate("AddTask", { onSave });
+    navigation.navigate("AddTask");
   };
 
   return (
     <View style={styles.container}>
       <Schedule
         tasks={tasks}
+        loading={loading}
+        onMonthChange={handleMonthChange}
         onTaskPress={handleTaskPress}
         onCompleteToggle={handleCompleteToggle}
-        isToggling={(taskId, date) =>
-          togglingKeys.includes(`${taskId}:${toLocalDateString(date)}`)
-        }
+        isToggling={(overrideId) => togglingIds.includes(overrideId)}
       />
 
       <TouchableOpacity style={styles.addButton} onPress={handleAddTask}>

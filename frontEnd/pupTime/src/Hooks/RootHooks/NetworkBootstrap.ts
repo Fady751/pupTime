@@ -17,7 +17,7 @@ const useNetworkListener = () => {
     });
 
     return unsubscribe;
-  }, [ dispatch ]);
+  }, []);
 };
 
 export default useNetworkListener;

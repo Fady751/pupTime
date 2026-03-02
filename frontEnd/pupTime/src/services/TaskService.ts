@@ -149,6 +149,12 @@ export const TaskService = {
 		await TaskOverrideRepository.deleteById(id);
 		await NotificationService.cancel(id);
 	},
+	async deleteByTemplateId(id: string): Promise<void> {
+		const overrides = await TaskOverrideRepository.listByTemplate(id);
+		for (const ov of overrides) {
+			await NotificationService.cancel(ov.id);
+		}
+	},
 };
 
 export default TaskService;

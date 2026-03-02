@@ -42,8 +42,8 @@ type TasksState = {
     error: string | null;
 };
 
-const PAGE_SIZE = 100;
-const SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+const PAGE_SIZE = 1000;
+const SYNC_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
 const sleep = (ms: number) => new Promise<void>((res) => setTimeout(res, ms));
 
 /* ═══════════════════════════════════════════════════════════
@@ -65,13 +65,14 @@ const buildParams = (
     category: filter.category_ids?.[ 0 ] ?? undefined,
     start_date: filter.start_date,
     end_date: filter.end_date,
-    ordering: filter.ordering,
+    ordering: filter.ordering ?? 'start_datetime',
 });
 
 /* ═══════════════════════════════════════════════════════════
    ASYNC THUNKS
    ═══════════════════════════════════════════════════════════ */
 
+let isFetching = false;
 /** Fetch the first page of tasks (resets the list). */
 export const fetchTasks = createAsyncThunk<
     { data: TaskTemplate[]; total: number; totalPages: number },
@@ -80,7 +81,16 @@ export const fetchTasks = createAsyncThunk<
 >('tasks/fetchTasks', async (userId, { getState }) => {
     const { filter } = getState().tasks;
     const params = buildParams(userId, filter, 1, PAGE_SIZE);
+    if(isFetching) {
+        return {
+            data: getState().tasks.items,
+            total: getState().tasks.total,
+            totalPages: getState().tasks.totalPages,
+        };
+    }
+    isFetching = true;
     const result = await getTemplatesWithOverrides(params);
+    isFetching = false;
     return {
         data: result.data as TaskTemplate[],
         total: result.total,
@@ -360,10 +370,10 @@ const bgSyncTask = async (taskData?: { userId: number; dispatch: AppDispatch }) 
     await dispatch(backgroundSync(userId));
 
     // Then loop every SYNC_INTERVAL_MS while the service is running
-    while (BackgroundService.isRunning()) {
-        await sleep(SYNC_INTERVAL_MS);
-        await dispatch(backgroundSync(userId));
-    }
+    // while (BackgroundService.isRunning()) {
+    //     await sleep(SYNC_INTERVAL_MS);
+    //     await dispatch(backgroundSync(userId));
+    // }
 };
 
 const bgSyncOptions = {

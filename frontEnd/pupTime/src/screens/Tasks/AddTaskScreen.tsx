@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
   ScrollView,
   Text,
@@ -6,565 +6,401 @@ import {
   TouchableOpacity,
   Alert,
   View,
+  Pressable,
+  ActivityIndicator,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import DateTimePicker, {
   DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
 import { createStyles } from "./styles";
-import { Task, RepetitionFrequency, TaskRepetition } from "../../types/task";
-import { getCategories } from "../../services/TaskService/syncService";
+import { getCategories } from "../../services/interestService/getCategories";
 import { Category } from "../../types/category";
 import {
   PRIORITIES,
   DEFAULT_REMINDERS,
-  REPETITION_BASE_OPTIONS,
-  WEEKDAY_OPTIONS,
   EMOJI_CATEGORIES,
 } from "../../constants/taskConstants";
 import useTheme from "../../Hooks/useTheme";
+import { useTasks } from "../../Hooks/useTasks";
+import { useSelector } from "react-redux";
+import { RootState } from "../../redux/store";
+import type { TaskTemplate } from "../../types/task";
+import { getCurrentTimezone } from "../../types/task";
+
+/* ═══════════════════════════════════════════════════════════
+   CONSTANTS & HELPERS
+   ═══════════════════════════════════════════════════════════ */
+
+const PRIORITY_META: Record<string, { color: string; emoji: string }> = {
+  none: { color: "#9CA3AF", emoji: "⚪" },
+  low: { color: "#22C55E", emoji: "🟢" },
+  medium: { color: "#F59E0B", emoji: "🟠" },
+  high: { color: "#EF4444", emoji: "🔴" },
+};
 
 const WEEKDAY_SHORT: Record<string, string> = {
-  sunday: "Su",
-  monday: "Mo",
-  tuesday: "Tu",
-  wednesday: "We",
-  thursday: "Th",
-  friday: "Fr",
-  saturday: "Sa",
+  MO: "Mo", TU: "Tu", WE: "We", TH: "Th", FR: "Fr", SA: "Sa", SU: "Su",
+};
+const WEEKDAY_KEYS = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"] as const;
+
+type RepFreq = "once" | "daily" | "weekly" | "monthly" | "yearly";
+const REP_OPTIONS: RepFreq[] = ["once", "daily", "weekly", "monthly", "yearly"];
+
+const buildRRule = (freq: RepFreq | null, weekdays: string[]): string | null => {
+  if (!freq || freq === "once") return null;
+  let rule = `FREQ=${freq.toUpperCase()}`;
+  if (freq === "weekly" && weekdays.length > 0) rule += `;BYDAY=${weekdays.join(",")}`;
+  return rule;
 };
 
-type Props = {
-  route?: any;
-  navigation?: any;
-};
+/* ═══════════════════════════════════════════════════════════
+   COMPONENT
+   ═══════════════════════════════════════════════════════════ */
 
-const AddTaskScreen: React.FC<Props> = ({ route, navigation }) => {
+type Props = { route?: any; navigation?: any };
+
+const AddTaskScreen: React.FC<Props> = ({ navigation }) => {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const onSave: (task: Task) => void = route?.params?.onSave;
+
+  const user = useSelector((state: RootState) => state.user.data);
+  const { create } = useTasks(user?.id!);
 
   const [categories, setCategories] = useState<Category[]>([]);
+  const [saving, setSaving] = useState(false);
 
+  // ── Form state ──
   const [title, setTitle] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
   const [priority, setPriority] = useState<"low" | "medium" | "high" | "none">("none");
-  const [date, setDate] = useState(new Date());
+  const [startDatetime, setStartDatetime] = useState<string>(new Date().toISOString());
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [endDate, setEndDate] = useState<Date | null>(null);
-  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
-  const [repetitionFrequency, setRepetitionFrequency] = useState<RepetitionFrequency | null>(null);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [repFreq, setRepFreq] = useState<RepFreq | null>(null);
+  const [selectedWeekdays, setSelectedWeekdays] = useState<string[]>([]);
   const [reminder, setReminder] = useState<number | null>(null);
-  const [emoji, setEmoji] = useState<string>("");
   const [reminderOptions, setReminderOptions] = useState<number[]>(DEFAULT_REMINDERS);
   const [customReminder, setCustomReminder] = useState("");
+  const [emoji, setEmoji] = useState<string>("");
   const [selectedEmojiCategory, setSelectedEmojiCategory] = useState(EMOJI_CATEGORIES[0].id);
-  const [selectedWeekdays, setSelectedWeekdays] = useState<RepetitionFrequency[]>([]);
-  const [weekdayTimes, setWeekdayTimes] = useState<Record<string, Date | null>>({});
-  const [activeWeekdayTimePicker, setActiveWeekdayTimePicker] = useState<string | null>(null);
-  const [repetitionTime, setRepetitionTime] = useState<Date | null>(null);
-  const [showRepetitionTimePicker, setShowRepetitionTimePicker] = useState(false);
+  const [durationMinutes, setDurationMinutes] = useState<string>("");
 
+  // Fetch categories
   useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const response = await getCategories();
-        setCategories(response);
-      } catch (error) {
-        console.error("Error fetching categories:", error);
-      }
-    };
-
-    fetchCategories();
+    getCategories().then(setCategories).catch(() => {});
   }, []);
 
-  const toggleCategory = (id: number) => {
-    if (selectedCategories.includes(id)) {
-      setSelectedCategories(prev => prev.filter(c => c !== id));
-    } else {
-      setSelectedCategories(prev => [...prev, id]);
-    }
+  // ── Handlers ──
+  const toggleCategory = useCallback((id: number) => {
+    setSelectedCategories((p) => (p.includes(id) ? p.filter((c) => c !== id) : [...p, id]));
+  }, []);
+
+  const toggleWeekday = useCallback((day: string) => {
+    setSelectedWeekdays((p) => (p.includes(day) ? p.filter((d) => d !== day) : [...p, day]));
+  }, []);
+
+  const onDateChange = (_e: DateTimePickerEvent, d?: Date) => {
+    setShowDatePicker(false);
+    if (_e.type === "dismissed" || !d) return;
+    const u = new Date(startDatetime);
+    u.setFullYear(d.getFullYear(), d.getMonth(), d.getDate());
+    setStartDatetime(u.toISOString());
   };
 
-  const toggleWeekday = (day: RepetitionFrequency) => {
-    setSelectedWeekdays(prev => {
-      if (prev.includes(day)) {
-        // Remove from weekdayTimes when deselecting
-        setWeekdayTimes(times => {
-          const newTimes = { ...times };
-          delete newTimes[day];
-          return newTimes;
-        });
-        return prev.filter(d => d !== day);
-      } else {
-        // Initialize as "all day" (null) when selecting
-        setWeekdayTimes(times => ({ ...times, [day]: null }));
-        return [...prev, day];
-      }
-    });
-  };
-
-  const handleWeekdayTimeChange = (
-    event: DateTimePickerEvent,
-    selectedTime?: Date
-  ) => {
-    const day = activeWeekdayTimePicker;
-    setActiveWeekdayTimePicker(null);
-    if (event.type === "dismissed" || !day) return;
-    if (selectedTime) {
-      setWeekdayTimes(prev => ({ ...prev, [day]: selectedTime }));
-    }
-  };
-
-  const handleRepetitionTimeChange = (
-    event: DateTimePickerEvent,
-    selectedTime?: Date
-  ) => {
-    setShowRepetitionTimePicker(false);
-    if (event.type === "dismissed") return;
-    if (selectedTime) setRepetitionTime(selectedTime);
-  };
-
-  const toggleWeekdayAllDay = (day: string) => {
-    setWeekdayTimes(prev => ({
-      ...prev,
-      [day]: prev[day] ? null : new Date(), // toggle between null and a default time
-    }));
-  };
-
-  const handleReminderSelect = (value: number) => {
-    setReminder(prev => (prev === value ? null : value));
+  const onTimeChange = (_e: DateTimePickerEvent, d?: Date) => {
+    setShowTimePicker(false);
+    if (_e.type === "dismissed" || !d) return;
+    const u = new Date(startDatetime);
+    u.setHours(d.getHours(), d.getMinutes(), 0, 0);
+    setStartDatetime(u.toISOString());
   };
 
   const handleAddCustomReminder = () => {
-    const nextValue = Number(customReminder);
-    if (!Number.isFinite(nextValue) || nextValue <= 0) return;
-    setReminderOptions(prev =>
-      Array.from(new Set([...prev, nextValue])).sort((a, b) => a - b)
-    );
-    setReminder(nextValue);
+    const v = Number(customReminder);
+    if (!Number.isFinite(v) || v <= 0) return;
+    setReminderOptions((p) => Array.from(new Set([...p, v])).sort((a, b) => a - b));
+    setReminder(v);
     setCustomReminder("");
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!title.trim()) {
-      Alert.alert("Error", "Please enter task title");
+      Alert.alert("Missing title", "Please enter a task title.");
       return;
     }
+    if (!user) return;
 
-    const repetition: TaskRepetition[] = repetitionFrequency
-      ? repetitionFrequency === "weekly" && selectedWeekdays.length > 0
-        ? selectedWeekdays.map(day => ({
-            frequency: day,
-            time: weekdayTimes[day] || null, // per-day time or null for all day
-          }))
-        : [
-            {
-              frequency: repetitionFrequency,
-              time: repetitionTime, // user-selected time or null for all day
-            },
-          ]
-      : [];
+    setSaving(true);
+    try {
+      const rrule = buildRRule(repFreq, selectedWeekdays);
+      const dur = Number(durationMinutes);
+      const nowIso = new Date().toISOString();
 
-    // Normalize start and end dates to day-only (ignore hours)
-    const startDateOnly = new Date(date);
-    startDateOnly.setHours(0, 0, 0, 0);
-    let endDateOnly: Date | null = null;
-    if (endDate) {
-      endDateOnly = new Date(endDate);
-      endDateOnly.setHours(0, 0, 0, 0);
-    }
+      const task: TaskTemplate = {
+        id: "", // will be generated by syncService
+        user_id: user.id,
+        title: title.trim(),
+        priority,
+        emoji: emoji || null,
+        start_datetime: startDatetime,
+        is_recurring: !!rrule,
+        rrule: rrule,
+        reminder_time: reminder,
+        duration_minutes: Number.isFinite(dur) && dur > 0 ? dur : null,
+        timezone: getCurrentTimezone(),
+        is_deleted: false,
+        created_at: nowIso,
+        updated_at: nowIso,
+        categories: selectedCategories
+          .map((id) => categories.find((c) => c.id === id)!)
+          .filter(Boolean),
+        overrides: [],
+      };
 
-    const task: Task = {
-      id: "",
-      user_id: 0,
-      title,
-      Categorys: selectedCategories.map(id => 
-        categories.find(c => c.id === id)!
-      ).filter(Boolean),
-      completions: [],
-      priority,
-      startTime: startDateOnly,
-      endTime: endDateOnly,
-      repetition,
-      reminderTime: reminder,
-      emoji,
-    };
-
-    if (onSave) onSave(task);
-    navigation.goBack();
-  };
-
-  const handleDateChange = (
-    event: DateTimePickerEvent,
-    selectedDate?: Date
-  ) => {
-    setShowDatePicker(false);
-    if (event.type === "dismissed") return;
-    if (selectedDate) {
-      // Set only the date portion, keep time at midnight
-      const next = new Date(selectedDate);
-      next.setHours(0, 0, 0, 0);
-      setDate(next);
+      await create(task);
+      navigation.goBack();
+    } catch (err) {
+      console.error("[AddTask] save failed", err);
+      Alert.alert("Error", "Failed to create task.");
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleEndDateChange = (
-    event: DateTimePickerEvent,
-    selectedDate?: Date
-  ) => {
-    setShowEndDatePicker(false);
-    if (event.type === "dismissed") return;
-    if (selectedDate) {
-      // Set only the date portion, keep time at midnight
-      const next = new Date(selectedDate);
-      next.setHours(0, 0, 0, 0);
-      setEndDate(next);
-    }
-  };
+  /* ══════════════════════════════════════════════
+     RENDER
+     ══════════════════════════════════════════════ */
+  const displayDate = new Date(startDatetime);
 
   return (
-        <ScrollView
-          style={styles.container}
-          contentContainerStyle={styles.scrollContent}
-        >
-      <Text style={styles.header}>Add Task</Text>
-
-      {/* Title */}
-      <Text style={styles.label}>Title</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Task title..."
-        value={title}
-        onChangeText={setTitle}
-      />
-
-      {/* Categories */}
-      <Text style={styles.label}>Categories</Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.categoriesScroll}
-        contentContainerStyle={styles.categoriesScrollContent}
-      >
-        {categories.map(cat => {
-          const isSelected = selectedCategories.includes(cat.id);
-          return (
-            <TouchableOpacity
-              key={cat.id}
-              style={[
-                styles.categoryChip,
-                isSelected && styles.categoryChipSelected,
-              ]}
-              onPress={() => toggleCategory(cat.id)}
-              activeOpacity={0.85}
-            >
-              <Text
-                style={[
-                  styles.categoryChipText,
-                  isSelected && styles.categoryChipTextSelected,
-                ]}
-              >
-                {cat.name}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
-
-      {/* Priority */}
-      <Text style={styles.label}>Priority</Text>
-      <View style={styles.priorityContainer}>
-        {PRIORITIES.map(p => (
-          <TouchableOpacity
-            key={p}
-            style={[styles.priorityBtn, priority === p && styles.prioritySelected]}
-            onPress={() => setPriority(p as any)}
-          >
-            <Text style={styles.priorityText}>{p}</Text>
-          </TouchableOpacity>
-        ))}
+    <SafeAreaView style={styles.safe}>
+      {/* ── Hero ────────────────────────────── */}
+      <View style={styles.heroContainer}>
+        <View style={styles.heroTopRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.heroTitle}>New Task</Text>
+            <Text style={styles.heroSubtitle}>
+              {emoji ? `${emoji} ` : "✨ "}Create something awesome
+            </Text>
+          </View>
+          <Pressable style={styles.backBtn} onPress={() => navigation.goBack()}>
+            <Text style={styles.backBtnText}>←</Text>
+          </Pressable>
+        </View>
       </View>
 
-      {/* Date & Time */}
-      <Text style={styles.label}>Start Time</Text>
-      <TouchableOpacity
-        style={styles.dateBtn}
-        onPress={() => setShowDatePicker(true)}
-      >
-        <Text style={styles.dateText}>{date.toLocaleDateString()}</Text>
-      </TouchableOpacity>
-      {showDatePicker && (
-        <DateTimePicker
-          value={date}
-          mode="date"
-          display="default"
-          onChange={handleDateChange}
-        />
-      )}
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
 
-      {/* End Date */}
-      <Text style={styles.label}>End Date</Text>
-      <View style={styles.priorityContainer}>
-        <TouchableOpacity
-          style={[styles.priorityBtn, !endDate && styles.prioritySelected]}
-          onPress={() => setEndDate(null)}
-        >
-          <Text style={styles.priorityText}>No end date</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.priorityBtn, !!endDate && styles.prioritySelected]}
-          onPress={() => {
-            if (!endDate) setEndDate(new Date(date));
-            setShowEndDatePicker(true);
-          }}
-        >
-          <Text style={styles.priorityText}>Pick end date</Text>
-        </TouchableOpacity>
-      </View>
-      {!!endDate && (
-        <Text style={styles.dateText}>{endDate.toLocaleDateString()}</Text>
-      )}
-      {showEndDatePicker && (
-        <DateTimePicker
-          value={endDate || date}
-          mode="date"
-          display="default"
-          onChange={handleEndDateChange}
-        />
-      )}
+        {/* ══════ TITLE & EMOJI ══════ */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionLabel}>Task Name</Text>
+          <View style={styles.titleInputContainer}>
+            <Text style={styles.titleEmoji}>{emoji || "📌"}</Text>
+            <TextInput
+              style={styles.titleInput}
+              placeholder="What needs to be done?"
+              placeholderTextColor={colors.secondaryText}
+              value={title}
+              onChangeText={setTitle}
+            />
+          </View>
+        </View>
 
-      {/* Repetition */}
-      <Text style={styles.label}>Repetition</Text>
-      <View style={styles.reminderContainer}>
-        {REPETITION_BASE_OPTIONS.map(option => (
-          <TouchableOpacity
-            key={option}
-            style={[
-              styles.reminderBtn,
-              repetitionFrequency === option && styles.reminderSelected,
-            ]}
-            onPress={() => {
-              setRepetitionFrequency(option);
-              if (option !== "weekly") {
-                setSelectedWeekdays([]);
-                setWeekdayTimes({});
-              }
-              if (option === "weekly") {
-                setRepetitionTime(null);
-              }
-            }}
-          >
-            <Text style={styles.reminderText}>{option}</Text>
-          </TouchableOpacity>
-        ))}
-        <TouchableOpacity
-          style={[styles.reminderBtn, !repetitionFrequency && styles.reminderSelected]}
-          onPress={() => {
-            setRepetitionFrequency(null);
-            setSelectedWeekdays([]);
-            setWeekdayTimes({});
-            setRepetitionTime(null);
-          }}
-        >
-          <Text style={styles.reminderText}>None</Text>
-        </TouchableOpacity>
-      </View>
-      {repetitionFrequency === "weekly" && (
-        <>
-          <View style={styles.weekdayContainer}>
-            {WEEKDAY_OPTIONS.map(day => {
-              const isSelected = selectedWeekdays.includes(day);
+        {/* ══════ PRIORITY ══════ */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionLabel}>Priority</Text>
+          <View style={styles.priorityRow}>
+            {PRIORITIES.map((p) => {
+              const meta = PRIORITY_META[p];
+              const active = priority === p;
               return (
-                <TouchableOpacity
-                  key={day}
+                <Pressable
+                  key={p}
                   style={[
-                    styles.weekdayChip,
-                    isSelected && styles.weekdayChipSelected,
+                    styles.priorityChip,
+                    active && styles.priorityChipSelected,
+                    active && { borderColor: meta.color, backgroundColor: meta.color + "18" },
                   ]}
-                  onPress={() => toggleWeekday(day)}
-                  activeOpacity={0.7}
+                  onPress={() => setPriority(p as any)}
                 >
-                  <Text
-                    style={[
-                      styles.weekdayChipText,
-                      isSelected && styles.weekdayChipTextSelected,
-                    ]}
-                  >
-                    {WEEKDAY_SHORT[day] || day}
+                  <Text style={[styles.priorityChipText, { color: active ? meta.color : colors.secondaryText }]}>
+                    {meta.emoji} {p}
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
               );
             })}
           </View>
-          {/* Per-day time selection */}
-          {selectedWeekdays.map(day => (
-            <View key={day} style={styles.weekdayTimeRow}>
-              <Text style={styles.weekdayTimeLabel}>{WEEKDAY_SHORT[day]}</Text>
-              <TouchableOpacity
-                style={[
-                  styles.weekdayTimeToggle,
-                  !weekdayTimes[day] && styles.weekdayTimeToggleActive,
-                ]}
-                onPress={() => toggleWeekdayAllDay(day)}
-              >
-                <Text
-                  style={[
-                    styles.weekdayTimeToggleText,
-                    !weekdayTimes[day] && styles.weekdayTimeToggleTextActive,
-                  ]}
-                >
-                  All Day
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.weekdayTimeToggle,
-                  !!weekdayTimes[day] && styles.weekdayTimeToggleActive,
-                ]}
-                onPress={() => setActiveWeekdayTimePicker(day)}
-              >
-                <Text
-                  style={[
-                    styles.weekdayTimeToggleText,
-                    !!weekdayTimes[day] && styles.weekdayTimeToggleTextActive,
-                  ]}
-                >
-                  {weekdayTimes[day]
-                    ? weekdayTimes[day]!.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                    : "Set Time"}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          ))}
-        </>
-      )}
-      {activeWeekdayTimePicker && (
-        <DateTimePicker
-          value={weekdayTimes[activeWeekdayTimePicker] || new Date()}
-          mode="time"
-          display="default"
-          onChange={handleWeekdayTimeChange}
-        />
-      )}
+        </View>
 
-      {/* Time picker for non-weekly repetitions */}
-      {repetitionFrequency && repetitionFrequency !== "weekly" && (
-        <View style={styles.weekdayTimeRow}>
-          <Text style={styles.weekdayTimeLabel}>Time</Text>
-          <TouchableOpacity
-            style={[
-              styles.weekdayTimeToggle,
-              !repetitionTime && styles.weekdayTimeToggleActive,
-            ]}
-            onPress={() => setRepetitionTime(null)}
-          >
-            <Text
-              style={[
-                styles.weekdayTimeToggleText,
-                !repetitionTime && styles.weekdayTimeToggleTextActive,
-              ]}
+        {/* ══════ DATE & TIME ══════ */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionLabel}>Schedule</Text>
+          <View style={styles.dateTimeRow}>
+            <Pressable style={styles.dateTimeBtn} onPress={() => setShowDatePicker(true)}>
+              <Text style={styles.dateTimeIcon}>📅</Text>
+              <View>
+                <Text style={styles.dateTimeLabel}>Date</Text>
+                <Text style={styles.dateTimeText}>
+                  {displayDate.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                </Text>
+              </View>
+            </Pressable>
+            <Pressable style={styles.dateTimeBtn} onPress={() => setShowTimePicker(true)}>
+              <Text style={styles.dateTimeIcon}>⏰</Text>
+              <View>
+                <Text style={styles.dateTimeLabel}>Time</Text>
+                <Text style={styles.dateTimeText}>
+                  {displayDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                </Text>
+              </View>
+            </Pressable>
+          </View>
+          {showDatePicker && (
+            <DateTimePicker value={displayDate} mode="date" display="default" onChange={onDateChange} />
+          )}
+          {showTimePicker && (
+            <DateTimePicker value={displayDate} mode="time" display="default" onChange={onTimeChange} />
+          )}
+        </View>
+
+        {/* ══════ DURATION ══════ */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionLabel}>Duration</Text>
+          <View style={styles.durationRow}>
+            <Text style={styles.durationIcon}>⏱</Text>
+            <TextInput
+              style={styles.durationInput}
+              placeholder="e.g. 30"
+              placeholderTextColor={colors.secondaryText}
+              keyboardType="numeric"
+              value={durationMinutes}
+              onChangeText={setDurationMinutes}
+            />
+            <Text style={styles.durationUnit}>min</Text>
+          </View>
+        </View>
+
+        {/* ══════ REPETITION ══════ */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionLabel}>Repeat</Text>
+          <View style={styles.repRow}>
+            <Pressable
+              style={[styles.repChip, !repFreq && styles.repChipSelected]}
+              onPress={() => { setRepFreq(null); setSelectedWeekdays([]); }}
             >
-              All Day
-            </Text>
-          </TouchableOpacity>
+              <Text style={[styles.repChipText, !repFreq && styles.repChipTextSelected]}>None</Text>
+            </Pressable>
+            {REP_OPTIONS.map((opt) => (
+              <Pressable
+                key={opt}
+                style={[styles.repChip, repFreq === opt && styles.repChipSelected]}
+                onPress={() => { setRepFreq(opt === repFreq ? null : opt); if (opt !== "weekly") setSelectedWeekdays([]); }}
+              >
+                <Text style={[styles.repChipText, repFreq === opt && styles.repChipTextSelected]}>{opt}</Text>
+              </Pressable>
+            ))}
+          </View>
+
+          {repFreq === "weekly" && (
+            <View style={styles.weekdayRow}>
+              {WEEKDAY_KEYS.map((day) => {
+                const on = selectedWeekdays.includes(day);
+                return (
+                  <Pressable key={day} style={[styles.weekdayChip, on && styles.weekdayChipSelected]} onPress={() => toggleWeekday(day)}>
+                    <Text style={[styles.weekdayChipText, on && styles.weekdayChipTextSelected]}>{WEEKDAY_SHORT[day]}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+        </View>
+
+        {/* ══════ CATEGORIES ══════ */}
+        {categories.length > 0 && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionLabel}>Categories</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoriesScroll} contentContainerStyle={styles.categoriesScrollContent}>
+              {categories.map((cat) => {
+                const on = selectedCategories.includes(cat.id);
+                return (
+                  <Pressable key={cat.id} style={[styles.categoryChip, on && styles.categoryChipSelected]} onPress={() => toggleCategory(cat.id)}>
+                    <Text style={[styles.categoryChipText, on && styles.categoryChipTextSelected]}>{cat.name}</Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* ══════ REMINDER ══════ */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionLabel}>Reminder (minutes before)</Text>
+          <View style={styles.reminderRow}>
+            {reminderOptions.map((r) => {
+              const on = reminder === r;
+              return (
+                <Pressable key={r} style={[styles.reminderChip, on && styles.reminderChipSelected]} onPress={() => setReminder(on ? null : r)}>
+                  <Text style={[styles.reminderChipText, on && styles.reminderChipTextSelected]}>{r} min</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          <View style={styles.customReminderRow}>
+            <TextInput
+              style={styles.customInput}
+              placeholder="Custom…"
+              placeholderTextColor={colors.secondaryText}
+              keyboardType="numeric"
+              value={customReminder}
+              onChangeText={setCustomReminder}
+            />
+            <TouchableOpacity style={styles.customAddBtn} onPress={handleAddCustomReminder}>
+              <Text style={styles.customAddBtnText}>+</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* ══════ EMOJI ══════ */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionLabel}>Icon</Text>
+          <View style={styles.emojiTabsRow}>
+            {EMOJI_CATEGORIES.map((cat) => (
+              <Pressable
+                key={cat.id}
+                style={[styles.emojiTab, selectedEmojiCategory === cat.id && styles.emojiTabActive]}
+                onPress={() => setSelectedEmojiCategory(cat.id)}
+              >
+                <Text style={[styles.emojiTabText, selectedEmojiCategory === cat.id && styles.emojiTabTextActive]}>
+                  {cat.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          <View style={styles.emojiGrid}>
+            {EMOJI_CATEGORIES.find((c) => c.id === selectedEmojiCategory)?.emojis.map((e) => (
+              <Pressable key={e} style={[styles.emojiBtn, emoji === e && styles.emojiSelected]} onPress={() => setEmoji(emoji === e ? "" : e)}>
+                <Text style={styles.emojiText}>{e}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
+        {/* ══════ SAVE ══════ */}
+        <View style={styles.actionsContainer}>
           <TouchableOpacity
-            style={[
-              styles.weekdayTimeToggle,
-              !!repetitionTime && styles.weekdayTimeToggleActive,
-            ]}
-            onPress={() => setShowRepetitionTimePicker(true)}
+            style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
+            onPress={handleSave}
+            disabled={saving}
+            activeOpacity={0.85}
           >
-            <Text
-              style={[
-                styles.weekdayTimeToggleText,
-                !!repetitionTime && styles.weekdayTimeToggleTextActive,
-              ]}
-            >
-              {repetitionTime
-                ? repetitionTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                : "Set Time"}
-            </Text>
+            {saving
+              ? <ActivityIndicator color="#FFF" />
+              : <Text style={styles.saveText}>Create Task</Text>}
           </TouchableOpacity>
         </View>
-      )}
-      {showRepetitionTimePicker && (
-        <DateTimePicker
-          value={repetitionTime || new Date()}
-          mode="time"
-          display="default"
-          onChange={handleRepetitionTimeChange}
-        />
-      )}
-
-      {/* Reminder */}
-      <Text style={styles.label}>Reminder (minutes)</Text>
-      <View style={styles.reminderContainer}>
-        {reminderOptions.map(r => (
-          <TouchableOpacity
-            key={r}
-            style={[styles.reminderBtn, reminder === r && styles.reminderSelected]}
-            onPress={() => handleReminderSelect(r)}
-          >
-            <Text style={styles.reminderText}>{r}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-      <View style={styles.inlineRow}>
-        <TextInput
-          style={styles.smallInput}
-          placeholder="Custom minutes"
-          placeholderTextColor="#94A3B8"
-          keyboardType="numeric"
-          value={customReminder}
-          onChangeText={setCustomReminder}
-        />
-        <TouchableOpacity style={styles.addBtn} onPress={handleAddCustomReminder}>
-          <Text style={styles.addBtnText}>+</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Emoji */}
-      <Text style={styles.label}>Emoji</Text>
-      <View style={styles.emojiTabsContainer}>
-        {EMOJI_CATEGORIES.map(cat => (
-          <TouchableOpacity
-            key={cat.id}
-            style={[
-              styles.emojiTab,
-              selectedEmojiCategory === cat.id && styles.emojiTabActive,
-            ]}
-            onPress={() => setSelectedEmojiCategory(cat.id)}
-          >
-            <Text
-              style={[
-                styles.emojiTabText,
-                selectedEmojiCategory === cat.id && styles.emojiTabTextActive,
-              ]}
-            >
-              {cat.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-      <View style={styles.emojiContainer}>
-        {EMOJI_CATEGORIES
-          .find(cat => cat.id === selectedEmojiCategory)
-          ?.emojis.map(e => (
-          <TouchableOpacity
-            key={e}
-            style={[styles.emojiBtn, emoji === e && styles.emojiSelected]}
-            onPress={() => setEmoji(e)}
-          >
-            <Text style={styles.emojiText}>{e}</Text>
-          </TouchableOpacity>
-          ))}
-      </View>
-
-      {/* Save Button */}
-      <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
-        <Text style={styles.saveText}>Add Task</Text>
-      </TouchableOpacity>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 

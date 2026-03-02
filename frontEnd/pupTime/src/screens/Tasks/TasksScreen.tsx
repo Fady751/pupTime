@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from "react";
+import React, { useMemo, useState, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -98,13 +98,28 @@ const TasksScreen: React.FC = () => {
   const user = useSelector((state: RootState) => state.user.data);
   const userId = user?.id;
 
-  const { tasks, loading, changeOverride } = useTasks(userId!);
+  const { tasks, loading, filter, changeOverride, applyFilter } = useTasks(userId!);
 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [togglingIds, setTogglingIds] = useState<string[]>([]);
 
   const dateStr = useMemo(() => toLocalDateString(selectedDate.toISOString()), [selectedDate]);
+  const nextDateStr = useMemo(() => {
+    const next = new Date(selectedDate);
+    next.setDate(next.getDate() + 1);
+    return toLocalDateString(next.toISOString());
+  }, [selectedDate]);
+
+  // Apply date filter whenever selected date changes
+  useEffect(() => {
+    applyFilter({
+      ...filter,
+      start_date: dateStr,
+      end_date: nextDateStr,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateStr]);
 
   /* ── Date navigation ─────────────────────────── */
   const goToPrevDay = useCallback(() => {
@@ -413,6 +428,14 @@ const TasksScreen: React.FC = () => {
           }
         />
       )}
+
+      {/* ========== FAB — Add Task ========== */}
+      <Pressable
+        style={styles.fab}
+        onPress={() => navigation.navigate("AddTask")}
+      >
+        <Text style={styles.fabText}>+</Text>
+      </Pressable>
 
       {/* ========== BOTTOM BAR ========== */}
       <BottomBar current="Tasks" navigation={navigation} />

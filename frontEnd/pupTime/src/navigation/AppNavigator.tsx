@@ -4,10 +4,10 @@ import HomeScreen from '../screens/Home/HomeScreen';
 // import IntroNavigator from '../screens/PermissionsIntro/IntroNavigator';
 import ProfileScreen from '../screens/ProfileScreen/ProfileScreen';
 import EditProfileScreen from '../screens/ProfileScreen/editProfile/EditProfile';
-// import ScheduleScreen from '../screens/Schedule/ScheduleScreen';
+import ScheduleScreen from '../screens/Schedule/ScheduleScreen';
 import AiButton from '../components/AiBottom/AiButtom';
 import TasksScreen from '../screens/Tasks/TasksScreen';
-// import AddTaskScreen from '../screens/Tasks/AddTaskScreen';
+import AddTaskScreen from '../screens/Tasks/AddTaskScreen';
 import EditTaskScreen from '../screens/Tasks/EditTaskScreen';
 import SettingsScreen from '../screens/Settings/SettingsScreen';
 // import FriendsListScreen from '../screens/Friends/FriendsListScreen';
@@ -40,11 +40,11 @@ const AppNavigator: React.FC = () => {
         {/* <Stack.Screen name="Intro" component={IntroNavigator} /> */}
         <Stack.Screen name="Profile" component={ProfileScreen} />
         <Stack.Screen name="EditProfile" component={EditProfileScreen} />
-        {/* <Stack.Screen name="Schedule" component={ScheduleScreen} /> */}
+        <Stack.Screen name="Schedule" component={ScheduleScreen} />
         {/* <Stack.Screen name="Timer" component={TimerScreen} /> */}
         {/* <Stack.Screen name="Friends" component={FriendsListScreen} /> */}
         <Stack.Screen name="Tasks" component={TasksScreen} />
-        {/* <Stack.Screen name="AddTask" component={AddTaskScreen} /> */}
+        <Stack.Screen name="AddTask" component={AddTaskScreen} />
         <Stack.Screen name="EditTask" component={EditTaskScreen} />
         {/* <Stack.Screen name="AddFriend" component={AddFriendScreen} /> */}
         {/* <Stack.Screen name="BlockedFriends" component={BlockedListScreen} /> */}

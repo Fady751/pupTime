@@ -26,7 +26,13 @@ const toClientTaskTemplate = (data: any): TaskTemplate => {
 
 export const createTaskTemplate = async (taskData: TaskTemplate): Promise<TaskTemplate> => {
   try {
-    const response = await api.post('/task/', toServerTaskData(taskData));
+    const body: any = {
+      ...toServerTaskData(taskData),
+    }
+    if(taskData?.overrides) {
+      body.initial_overrides = taskData.overrides;
+    }
+    const response = await api.post('/task/', body);
     return toClientTaskTemplate(response.data);
     } catch (error: any) {
       console.error(error);

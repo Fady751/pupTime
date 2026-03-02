@@ -21,6 +21,7 @@ export const clearAllData = async (): Promise<void> => {
 	await db.delete(schema.userCategories);
 	await db.delete(schema.categories);
 	await db.delete(schema.taskTemplates);
+	await db.delete(schema.taskTemplateCategories);
 	await db.delete(schema.syncQueue);
 	await db.delete(schema.appMeta);
 }

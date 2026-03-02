@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -113,15 +113,37 @@ const HomeScreen: React.FC = () => {
   const user = useSelector((state: RootState) => state.user.data);
   const userId = user?.id;
 
+  // Today's date string in local timezone
+  const todayStr = useMemo(() => toLocalDateString(new Date().toISOString()), []);
+  const tomorrowStr = useMemo(() => toLocalDateString(new Date(new Date().getTime() + 24 * 60 * 60 * 1000).toISOString()), []);
+
   // Only call useTasks when we have a userId
   const {
     tasks,
     loading,
-    changeOverride,
+    applyFilter,
   } = useTasks(userId!);
 
-  // Today's date string in local timezone
-  const todayStr = useMemo(() => toLocalDateString(new Date().toISOString()), []);
+  const refresh = () => {
+    applyFilter({
+      start_date: todayStr,
+      end_date: tomorrowStr,
+    });
+  };
+
+  // On mount, set the filter to today's tasks
+  useEffect(() => {
+    refresh();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [todayStr]);
+
+  // if any component use navication.goBack(), refresh the tasks
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("focus", () => {
+      refresh();
+    });
+    return unsubscribe;
+  }, [navigation, refresh]);
 
   // Flatten overrides for today
   const todayOverrides = useMemo(

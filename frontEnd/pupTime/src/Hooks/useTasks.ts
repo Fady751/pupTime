@@ -89,9 +89,9 @@ export const useTasks = (userId: number) => {
 
   /** Replace the active filter (resets the list). */
   const applyFilter = useCallback(
-    (newFilter: TaskFilter) => {
+    async (newFilter: TaskFilter) => {
       dispatch(setFilter(newFilter));
-      dispatch(fetchTasks(userId));
+      await dispatch(fetchTasks(userId));
     },
     [ userId, dispatch ],
   );

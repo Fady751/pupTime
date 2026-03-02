@@ -264,6 +264,7 @@ export const createTemplate = async (
 	// Enqueue (camelCase — tasks.ts handles conversion via toServerTaskData)
 	await enqueueOperation('CREATE', 'TASK_TEMPLATE', localId, {
 		...task,
+		id: localId,
 		categories: task.categories ?? [],
 		overrides: inserted,
 	});
@@ -349,6 +350,8 @@ export const deleteTemplate = async (id: string): Promise<void> => {
 		}
 	}
 
+	await saveCategoriesToLocal(id, []);
+	await TaskService.deleteByTemplateId(id);
 	await TaskTemplateRepository.deleteByTemplateId(id);
 	await enqueueOperation('DELETE', 'TASK_TEMPLATE', id, {});
 };
@@ -490,6 +493,7 @@ export const getTemplatesWithOverrides = async (
 export const processQueue = async (): Promise<void> => {
 	const isProcessing = (await AppMetaRepository.get(PROCESS_QUEUE_KEY))?.value === 'true';
 	const isSyncing = (await AppMetaRepository.get(SYNC_IN_PROGRESS_KEY))?.value === 'true';
+	
 	if (isProcessing || isSyncing) {
 		return;
 	}
@@ -654,17 +658,25 @@ export const pullFromServer = async (): Promise<boolean> => {
  * Called every ~5 min while the app is in the foreground,
  * and also triggered (fire-and-forget) on read operations.
  */
+let isSyncing = false;
 export const fullSync = async (): Promise<boolean> => {
+	if (isSyncing) {
+		return false;
+	}
 	if (!isOnline()) {
 		console.warn('[sync] offline — skipping');
 		return false;
 	}
+	isSyncing = true;
 
 	try {
 		await processQueue();
-		return await pullFromServer();
+		const changes = await pullFromServer();
+		isSyncing = false;
+		return changes;
 	} catch (error) {
 		console.error('[sync] failed', error);
+		isSyncing = false;
 		throw error;
 	}
 };

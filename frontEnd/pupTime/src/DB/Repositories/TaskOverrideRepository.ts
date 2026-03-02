@@ -45,7 +45,7 @@ export const TaskOverrideRepository = {
 					eq(taskOverrides.instance_datetime, d.instance_datetime)
 				)
 			);
-			if(selct.length > 0 && areOverridesEqual(d, selct[0])) {
+			if(selct.length > 0 && areOverridesEqual(d as TaskOverride, selct[0])) {
 				continue;
 			}
 			dataToInsert.push(d);
@@ -66,7 +66,7 @@ export const TaskOverrideRepository = {
 	},
 	async listByTemplate(template_id: string): Promise<TaskOverride[]> {
 		const db = await getDrizzleDb();
-		return db
+		return await db
 			.select()
 			.from(taskOverrides)
 			.where(eq(taskOverrides.template_id, template_id));
