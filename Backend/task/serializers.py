@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from .models import TaskTemplate, TaskOverride
-from .utils import generate_overrides_for_task
+from .utils import generate_overrides_for_task, generate_overrides_for_range
 
 
 class TaskOverrideSerializer(serializers.ModelSerializer):
@@ -15,6 +15,7 @@ class TaskOverrideSerializer(serializers.ModelSerializer):
 
 
 class InitialOverrideSerializer(serializers.Serializer):
+    id = serializers.UUIDField(required=False)
     instance_datetime = serializers.DateTimeField()
     status = serializers.ChoiceField(choices=TaskOverride.STATUS_CHOICES)
 
@@ -62,14 +63,24 @@ class TaskSerializer(serializers.ModelSerializer):
                 {'duration_minutes': 'duration_minutes must be non-negative.'}
             )
 
+        reminder = attrs.get('reminder_time')
+        if reminder is not None and reminder < 0:
+            raise serializers.ValidationError(
+                {'reminder_time': 'reminder_time must be non-negative (minutes before the task).'}
+            )
+
         return attrs
 
     def get_overrides(self, obj):
         is_deleted = self.context.get('is_deleted', False)
-        qs = obj.overrides.filter(is_deleted=is_deleted)
-
         start_date = self.context.get('start_date')
         end_date = self.context.get('end_date')
+
+        if start_date and end_date and not is_deleted:
+            generate_overrides_for_range(obj, start_date, end_date)
+
+        qs = obj.overrides.filter(is_deleted=is_deleted)
+
         if start_date and end_date:
             qs = qs.filter(
                 instance_datetime__gte=start_date,
@@ -84,6 +95,7 @@ class TaskSerializer(serializers.ModelSerializer):
             qs.order_by('instance_datetime'), many=True,
         ).data
 
+
     def create(self, validated_data):
         categories = validated_data.pop('categories', [])
         initial_overrides = validated_data.pop('initial_overrides', [])
@@ -93,22 +105,23 @@ class TaskSerializer(serializers.ModelSerializer):
         if categories:
             task.categories.set(categories)
 
-        # Auto-generate overrides from rrule
         generate_overrides_for_task(task)
 
-        # Upsert any explicitly provided overrides
         for override_data in initial_overrides:
+            defaults = {'status': override_data['status']}
+            if 'id' in override_data:
+                defaults['id'] = override_data['id']
             TaskOverride.objects.update_or_create(
                 task=task,
                 instance_datetime=override_data['instance_datetime'],
-                defaults={'status': override_data['status']},
+                defaults=defaults,
             )
 
         return task
 
     def update(self, instance, validated_data):
         categories = validated_data.pop('categories', None)
-        validated_data.pop('initial_overrides', None)  # not applicable on update
+        validated_data.pop('initial_overrides', None) 
         recurrence_changed = (
             'is_recurring' in validated_data or 'rrule' in validated_data
             or 'start_datetime' in validated_data

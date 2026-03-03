@@ -109,6 +109,7 @@ class TaskViewSet(ModelViewSet):
                     overrides__instance_datetime__lte=end_dt,
                     overrides__is_deleted=is_deleted,
                 )
+                | Q(is_recurring=True)
             ).distinct()
 
         updated_after = _parse_iso(self.request.query_params.get('updated_after'))
@@ -142,6 +143,18 @@ class TaskViewSet(ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def partial_update(self, request, *args, **kwargs):
+        kwargs['partial'] = True
+        return self.update(request, *args, **kwargs)
+
     def perform_destroy(self, instance):
         """Soft delete instead of hard delete."""
         instance.is_deleted = True
@@ -149,13 +162,13 @@ class TaskViewSet(ModelViewSet):
 
     @action(
         detail=True,
-        methods=['patch'],
+        methods=['patch', 'delete'],
         url_path=r'override/(?P<override_id>[0-9a-f-]+)',
         url_name='update-override',
     )
     @docs.override_schema
     def override(self, request, pk=None, override_id=None):
-        """Update the status of a single TaskOverride (complete, skip, reschedule …)."""
+        """Update or soft-delete a single TaskOverride."""
         task = self.get_object()
 
         try:
@@ -166,6 +179,11 @@ class TaskViewSet(ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+        if request.method == 'DELETE':
+            task_override.is_deleted = True
+            task_override.save(update_fields=['is_deleted'])
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
         new_status = request.data.get('status')
         valid_statuses = dict(TaskOverride.STATUS_CHOICES)
         if new_status not in valid_statuses:
@@ -175,16 +193,22 @@ class TaskViewSet(ModelViewSet):
             )
 
         if new_status == TaskOverride.STATUS_RESCHEDULED:
-            new_dt = request.data.get('new_datetime')
+            new_instance_data = request.data.get('new_instance')
+            if not new_instance_data or not isinstance(new_instance_data, dict):
+                return Response(
+                    {'error': 'new_instance object is required when status is RESCHEDULED.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            new_dt = new_instance_data.get('new_date')
             if not new_dt:
                 return Response(
-                    {'error': 'new_datetime is required when status is RESCHEDULED.'},
+                    {'error': 'new_instance.new_date is required when status is RESCHEDULED.'},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             parsed = _parse_iso(new_dt)
             if not parsed:
                 return Response(
-                    {'error': 'Invalid new_datetime format. Use ISO format.'},
+                    {'error': 'Invalid new_instance.new_date format. Use ISO format.'},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             task_override.new_datetime = parsed
@@ -193,10 +217,23 @@ class TaskViewSet(ModelViewSet):
         task_override.save()
 
         if new_status == TaskOverride.STATUS_RESCHEDULED:
+            valid_instance_statuses = dict(TaskOverride.STATUS_CHOICES)
+            instance_status = new_instance_data.get('status', TaskOverride.STATUS_PENDING)
+            if instance_status not in valid_instance_statuses:
+                return Response(
+                    {'error': f'Invalid new_instance.status. Choose from: {list(valid_instance_statuses.keys())}'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            defaults = {'status': instance_status}
+            new_id = new_instance_data.get('id')
+            if new_id:
+                defaults['id'] = new_id
+
             new_override, _ = TaskOverride.objects.get_or_create(
                 task=task,
                 instance_datetime=parsed,
-                defaults={'status': TaskOverride.STATUS_PENDING},
+                defaults=defaults,
             )
             return Response(
                 {

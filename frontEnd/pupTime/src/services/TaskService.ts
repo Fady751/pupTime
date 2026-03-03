@@ -8,41 +8,31 @@ import {
 import NotificationService from './NotificationService';
 import uuid from 'react-native-uuid';
 
-type CreateOverrideInput = {
-    id?: string | null;
-	templateId: string;
-	instanceDatetime: string;
-	newDatetime?: string | null;
-	status?: string;
-    createdAt?: string;
-    updatedAt?: string;
-};
-
 type UpdateOverrideInput = {
-    id?: string | null;
-    templateId?: string;
-	instanceDatetime?: string;
-	newDatetime?: string | null;
-	status?: string;
-    updatedAt?: string;
+	id?: string | null;
+	template_id?: string;
+	instance_datetime?: string;
+	new_datetime?: string | null;
+	status?: string | null;
+	updated_at?: string;
 };
 
 const generateId = (): string => uuid.v4() as string;
 
 const getEffectiveTimestamp = (
-	override: Pick<TaskOverride, 'instanceDatetime' | 'newDatetime'>,
+	override: Pick<TaskOverride, 'instance_datetime' | 'new_datetime' | 'status'>,
 	template?: TaskTemplate | null
 ): number | null => {
-	const base = override.instanceDatetime;
-	if (!base || override.newDatetime) return null;
+	const base = override.instance_datetime;
+	if (!base || override.new_datetime || override?.status !== 'PENDING') return null;
 
 	const date = new Date(base);
 	if (Number.isNaN(date.getTime())) return null;
 
 	let timestamp = date.getTime();
 
-	if (template?.reminderTime != null) {
-		const minutes = Number(template.reminderTime);
+	if (template?.reminder_time != null) {
+		const minutes = Number(template.reminder_time);
 		if (!Number.isNaN(minutes) && minutes > 0) {
 			timestamp -= minutes * 60 * 1000;
 		}
@@ -61,7 +51,7 @@ const scheduleNotificationForOverride = async (
 	if (!timestamp) return;
 
 	const title = template.title ?? 'Task reminder';
-	const body = 'You have a task coming up at ' + new Date(override.instanceDatetime).toLocaleTimeString();
+	const body = 'You have a task coming up at ' + new Date(override.instance_datetime).toLocaleTimeString();
 
 	await NotificationService.scheduleAtTime(
 		override.id,
@@ -76,27 +66,31 @@ export const TaskService = {
 	/**
 	 * Create a new override instance and schedule its notification.
 	 */
-	async createOverride(input: CreateOverrideInput): Promise<TaskOverride> {
-		const template = await TaskTemplateRepository.findById(input.templateId);
-		if (!template) {
-			throw new Error(`Task template not found: ${input.templateId}`);
-		}
+	async createOverrides(template_id: string, input: NewTaskOverride[]): Promise<{ inserted: TaskOverride[], deleted: string[] }> {
+		const template = await TaskTemplateRepository.findById(template_id);
+		if (!template) return { inserted: [], deleted: [] };
 
 		const nowIso = new Date().toISOString();
-		const data: NewTaskOverride = {
-            id: input.id ?? generateId(),
-			templateId: input.templateId,
-			instanceDatetime: input.instanceDatetime,
-			newDatetime: input.newDatetime ?? null,
-			status: input.status ?? 'PENDING',
-			isDeleted: false,
-			createdAt: input.createdAt ?? nowIso,
-			updatedAt: input.updatedAt ?? nowIso,
-		};
+		const data: NewTaskOverride[] = input.map((item) => ({
+			id: item.id ?? generateId(),
+			template_id: template_id,
+			instance_datetime: item.instance_datetime,
+			new_datetime: item.new_datetime ?? null,
+			status: item.status ?? 'PENDING',
+			is_deleted: false,
+			created_at: item.created_at ?? nowIso,
+			updated_at: item.updated_at ?? nowIso,
+		}));
+		const { inserted, deleted } = await TaskOverrideRepository.upsertTaskOverrides(data);
 
-		const override = await TaskOverrideRepository.create(data);
-		await scheduleNotificationForOverride(override, template);
-		return override;
+		for (const id of deleted) {
+			await NotificationService.cancel(id);
+		}
+
+		for (const ov of inserted) {
+			await scheduleNotificationForOverride(ov, template);
+		}
+		return { inserted, deleted };
 	},
 
 	/**
@@ -104,7 +98,8 @@ export const TaskService = {
 	 */
 	async updateOverride(
 		id: string,
-		patch: UpdateOverrideInput
+		patch: UpdateOverrideInput,
+		new_override?: NewTaskOverride
 	): Promise<TaskOverride | undefined> {
 		const existing = await TaskOverrideRepository.findById(id);
 		if (!existing) return undefined;
@@ -113,18 +108,18 @@ export const TaskService = {
 		await NotificationService.cancel(id);
 
 		const updatePatch: Partial<NewTaskOverride> = {
-			updatedAt: patch.updatedAt ?? new Date().toISOString(),
+			updated_at: patch.updated_at ?? new Date().toISOString(),
 		};
 
-        if (patch.templateId) {
-			updatePatch.templateId = patch.templateId;
+		if (patch.template_id) {
+			updatePatch.template_id = patch.template_id;
 		}
 
-		if (patch.instanceDatetime) {
-			updatePatch.instanceDatetime = patch.instanceDatetime;
+		if (patch.instance_datetime) {
+			updatePatch.instance_datetime = patch.instance_datetime;
 		}
-		if (patch.newDatetime !== undefined) {
-			updatePatch.newDatetime = patch.newDatetime ?? null;
+		if (patch.new_datetime !== undefined) {
+			updatePatch.new_datetime = patch.new_datetime ?? null;
 		}
 		if (patch.status) {
 			updatePatch.status = patch.status;
@@ -133,9 +128,15 @@ export const TaskService = {
 		const saved = await TaskOverrideRepository.update(id, updatePatch);
 		if (!saved) return undefined;
 
-		const template = await TaskTemplateRepository.findById(saved.templateId);
-		if (template) {
-			await scheduleNotificationForOverride(saved, template);
+		if (patch?.status === 'RESCHEDULED' && new_override) {
+			this.createOverrides(existing.template_id, [ new_override ]);
+		}
+		else {
+			const template = await TaskTemplateRepository.findById(saved.template_id);
+
+			if (template) {
+				await scheduleNotificationForOverride(saved, template);
+			}
 		}
 
 		return saved;
@@ -145,7 +146,7 @@ export const TaskService = {
 	 * Soft-delete an override and cancel its scheduled notification.
 	 */
 	async deleteOverride(id: string): Promise<void> {
-		await TaskOverrideRepository.softDelete(id);
+		await TaskOverrideRepository.deleteById(id);
 		await NotificationService.cancel(id);
 	},
 };

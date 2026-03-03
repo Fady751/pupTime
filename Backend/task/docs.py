@@ -83,10 +83,13 @@ override_schema = swagger_auto_schema(
     operation_summary='Update an override status',
     operation_description=(
         'Update the status of a single TaskOverride.\n\n'
-        '- **COMPLETED / SKIPPED / FAILED / PENDING**: returns the updated override object.\n'
-        '- **RESCHEDULED**: requires `new_datetime`. Marks the original override as RESCHEDULED '
-        'and creates a new PENDING override at `new_datetime`. '
-        'Returns `{ rescheduled: <original>, new_instance: <new> }`.'
+        '- **COMPLETED / SKIPPED / FAILED / PENDING**: only `status` is required.\n'
+        '- **RESCHEDULED**: `status` + `new_instance` object are required.\n'
+        '  - `new_instance.new_date` — required, the datetime for the new instance.\n'
+        '  - `new_instance.id` — optional UUID, backend auto-generates if omitted.\n'
+        '  - `new_instance.status` — optional, defaults to `PENDING`.\n\n'
+        'Returns `{ rescheduled: <original>, new_instance: <new> }` when RESCHEDULED, '
+        'otherwise returns the updated override object.'
     ),
     request_body=openapi.Schema(
         type=openapi.TYPE_OBJECT,
@@ -95,10 +98,26 @@ override_schema = swagger_auto_schema(
             'status': openapi.Schema(
                 type=openapi.TYPE_STRING,
                 enum=['PENDING', 'COMPLETED', 'SKIPPED', 'RESCHEDULED', 'FAILED'],
+                description='New status for the current override.',
             ),
-            'new_datetime': openapi.Schema(
-                type=openapi.TYPE_STRING, format='date-time',
-                description='Required when status is RESCHEDULED',
+            'new_instance': openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                description='Required when status is RESCHEDULED.',
+                properties={
+                    'new_date': openapi.Schema(
+                        type=openapi.TYPE_STRING, format='date-time',
+                        description='Required. Date/time for the new override instance.',
+                    ),
+                    'id': openapi.Schema(
+                        type=openapi.TYPE_STRING, format='uuid',
+                        description='Optional. UUID for the new instance. Auto-generated if not provided.',
+                    ),
+                    'status': openapi.Schema(
+                        type=openapi.TYPE_STRING,
+                        enum=['PENDING', 'COMPLETED', 'SKIPPED', 'RESCHEDULED', 'FAILED'],
+                        description='Optional. Status for the new instance. Defaults to PENDING.',
+                    ),
+                },
             ),
         },
     ),
@@ -107,6 +126,18 @@ override_schema = swagger_auto_schema(
             description='Override updated. Shape differs when status=RESCHEDULED (see description).',
             schema=TaskOverrideSerializer,
         ),
+    },
+)
+
+delete_override_schema = swagger_auto_schema(
+    operation_summary='Delete an override (soft delete)',
+    operation_description=(
+        'Soft-deletes a single TaskOverride by setting `is_deleted=True`.\n\n'
+        'The override will no longer appear in normal queries but is preserved in the database.'
+    ),
+    responses={
+        204: 'Override deleted.',
+        404: 'Override not found.',
     },
 )
 
@@ -130,7 +161,10 @@ create_schema = swagger_auto_schema(
         properties={
             'title': openapi.Schema(type=openapi.TYPE_STRING),
             'start_datetime': openapi.Schema(type=openapi.TYPE_STRING, format='date-time'),
-            'reminder_time': openapi.Schema(type=openapi.TYPE_STRING, format='date-time'),
+            'reminder_time': openapi.Schema(
+                type=openapi.TYPE_INTEGER,
+                description='Minutes before the task start to trigger a reminder (e.g. 10, 30, 60). Must be non-negative.',
+            ),
             'duration_minutes': openapi.Schema(type=openapi.TYPE_INTEGER),
             'priority': openapi.Schema(type=openapi.TYPE_STRING, enum=['none', 'low', 'medium', 'high']),
             'emoji': openapi.Schema(type=openapi.TYPE_STRING),
@@ -145,6 +179,10 @@ create_schema = swagger_auto_schema(
                     type=openapi.TYPE_OBJECT,
                     required=['instance_datetime', 'status'],
                     properties={
+                        'id': openapi.Schema(
+                            type=openapi.TYPE_STRING, format='uuid',
+                            description='Optional. UUID for this override. Auto-generated if omitted.',
+                        ),
                         'instance_datetime': openapi.Schema(type=openapi.TYPE_STRING, format='date-time'),
                         'status': openapi.Schema(
                             type=openapi.TYPE_STRING,
@@ -166,13 +204,13 @@ retrieve_schema = swagger_auto_schema(
 update_schema = swagger_auto_schema(
     operation_summary='Full update a task',
     request_body=TaskSerializer,
-    responses={200: TaskSerializer},
+    responses={204: 'Task updated.'},
 )
 
 partial_update_schema = swagger_auto_schema(
     operation_summary='Partial update a task',
     request_body=TaskSerializer(partial=True),
-    responses={200: TaskSerializer},
+    responses={204: 'Task updated.'},
 )
 
 destroy_schema = swagger_auto_schema(

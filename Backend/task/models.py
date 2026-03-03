@@ -23,7 +23,7 @@ class TaskTemplate(models.Model):
     emoji = models.CharField(max_length=8, blank=True, default='')
     
     start_datetime = models.DateTimeField(help_text="When the task starts, or the FIRST instance of a series.")
-    reminder_time = models.DateTimeField(null=True, blank=True, help_text="Optional reminder date for the task.")
+    reminder_time = models.IntegerField(null=True, blank=True, help_text="Minutes before the task starts to trigger a reminder.")
     duration_minutes = models.IntegerField(null=True, blank=True, help_text="Duration of the task in minutes.")
     is_recurring = models.BooleanField(default=False)
     rrule = models.CharField(

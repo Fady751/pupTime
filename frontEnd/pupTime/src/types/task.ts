@@ -78,7 +78,7 @@ export const isDateInRange = (date: string, start: string, end: string | null): 
  */
 export const isTaskCompletedForDate = (task: TaskOverride, date: string): boolean => {
     return task.status === 'COMPLETED'
-    && toLocalDateString(task.instanceDatetime, task?.template?.timezone ?? 'UTC')
+    && toLocalDateString(task.instance_datetime, task?.template?.timezone ?? 'UTC')
     === toLocalDateString(date, task?.template?.timezone ?? 'UTC');
 };
 
@@ -89,15 +89,15 @@ export const isTaskCompletedForDate = (task: TaskOverride, date: string): boolea
  * (so historical completions survive repetition edits).
  */
 export const isTaskOnDate = (task: TaskTemplate, date: string): boolean => {
-  if (task.isDeleted) return false;
-  if (!task.startDatetime) return false;
+  if (task.is_deleted) return false;
+  if (!task.start_datetime) return false;
 
-  const taskStart = new Date(task.startDatetime);
+  const taskStart = new Date(task.start_datetime);
   const targetDate = new Date(date);
 
   // 2. Non-Recurring Logic (Simple Date Comparison)
-  if (!task.isRecurring || !task.rrule) {
-    return isSameDay(task.startDatetime, date);
+  if (!task.is_recurring || !task.rrule) {
+    return isSameDay(task.start_datetime, date);
   }
 
   try {
@@ -117,7 +117,7 @@ export const isTaskOnDate = (task: TaskTemplate, date: string): boolean => {
     return occurrences.length > 0;
   } catch (error) {
     console.warn(`[isTaskOnDate] Failed to parse RRule for task ${task.id}`, error);
-    return isSameDay(task.startDatetime, date);
+    return isSameDay(task.start_datetime, date);
   }
 };
 
@@ -129,17 +129,17 @@ export const getTaskOccurrences = (
   windowStart: Date = new Date(),
   daysForward: number = 30
 ): string[] => {
-  if (task.isDeleted || !task.startDatetime) return [];
+  if (task.is_deleted || !task.start_datetime) return [];
 
-  const taskStart = new Date(task.startDatetime);
+  const taskStart = new Date(task.start_datetime);
   
   const windowEnd = new Date(windowStart);
   windowEnd.setDate(windowEnd.getDate() + daysForward);
   windowEnd.setHours(23, 59, 59, 999);
 
-  if (!task.isRecurring || !task.rrule) {
+  if (!task.is_recurring || !task.rrule) {
     if (taskStart >= windowStart && taskStart <= windowEnd) {
-      return [task.startDatetime];
+      return [task.start_datetime];
     }
     return [];
   }

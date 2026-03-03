@@ -1,6 +1,6 @@
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
-import { Task, TaskRepetition, toLocalDateString } from '../types/task';
-import { getTasksByUserId } from '../DB';
+import { Task, TaskRepetition, toLocalDateString } from '../../types/task';
+import { getTasksByUserId } from '../../DB';
 
 export type SerializedTaskCompletion = {
   id: string;

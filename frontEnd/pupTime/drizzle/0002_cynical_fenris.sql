@@ -1,0 +1,1 @@
+ALTER TABLE `sync_queue` ADD `local_id` text NOT NULL;

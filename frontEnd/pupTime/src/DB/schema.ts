@@ -1,23 +1,23 @@
-import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 export const taskTemplates = sqliteTable('task_templates', {
   id: text('id').primaryKey(),
-  userId: integer('user_id'),
+  user_id: integer('user_id'),
   title: text('title').notNull(),
   priority: text('priority').default('none'),
   emoji: text('emoji'),
-  startDatetime: text('start_datetime'),
-  reminderTime: integer('reminder_time'),
-  durationMinutes: integer('duration_minutes'),
-  isRecurring: integer('is_recurring', { mode: 'boolean' }).default(false),
+  start_datetime: text('start_datetime'),
+  reminder_time: integer('reminder_time'),
+  duration_minutes: integer('duration_minutes'),
+  is_recurring: integer('is_recurring', { mode: 'boolean' }).default(false),
   rrule: text('rrule'),
   timezone: text('timezone').default('UTC'),
-  isDeleted: integer('is_deleted', { mode: 'boolean' }).default(false),
-  createdAt: text('created_at'),
-  updatedAt: text('updated_at'),
+  is_deleted: integer('is_deleted', { mode: 'boolean' }).default(false),
+  created_at: text('created_at'),
+  updated_at: text('updated_at'),
 }, (table) => ({
-  userIdIdx: index('idx_templates_user_id').on(table.userId),
-  priorityIdx: index('idx_templates_priority').on(table.priority),
+  user_id_idx: index('idx_templates_user_id').on(table.user_id),
+  priority_idx: index('idx_templates_priority').on(table.priority),
 }));
 
 export const categories = sqliteTable('categories', {
@@ -26,45 +26,45 @@ export const categories = sqliteTable('categories', {
 });
 
 export const userCategories = sqliteTable('user_categories', {
-  userId: integer('user_id').notNull(),
-  categoryId: integer('category_id').notNull(),
+  user_id: integer('user_id').notNull(),
+  category_id: integer('category_id').notNull(),
 });
 
 export const taskTemplateCategories = sqliteTable('task_template_categories', {
 	id: integer('id').primaryKey({ autoIncrement: true }),
-	templateId: text('template_id').notNull(),
-	categoryId: integer('category_id').notNull(),
+	template_id: text('template_id').notNull(),
+	category_id: integer('category_id').notNull(),
 }, (table) => ({
-    templateIdIdx: index('idx_cat_template_id').on(table.templateId),
-    categoryIdIdx: index('idx_cat_category_id').on(table.categoryId),
+    template_id_idx: index('idx_cat_template_id').on(table.template_id),
+    category_id_idx: index('idx_cat_category_id').on(table.category_id),
 }));
 
 export const taskOverrides = sqliteTable('task_overrides', {
   id: text('id').primaryKey(),
-  templateId: text('template_id').notNull(),
-  instanceDatetime: text('instance_datetime').notNull(),
+  template_id: text('template_id').notNull(),
+  instance_datetime: text('instance_datetime').notNull(),
   status: text('status').default('PENDING'),
-  newDatetime: text('new_datetime'),
-  isDeleted: integer('is_deleted', { mode: 'boolean' }).default(false),
-  createdAt: text('created_at'),
-  updatedAt: text('updated_at'),
+  new_datetime: text('new_datetime'),
+  is_deleted: integer('is_deleted', { mode: 'boolean' }).default(false),
+  created_at: text('created_at'),
+  updated_at: text('updated_at'),
 }, (table) => ({
-  templateIdIdx: index('idx_overrides_template_id').on(table.templateId),
+  template_id_idx: index('idx_overrides_template_id').on(table.template_id),
   
-  instanceTimeIdx: index('idx_overrides_instance_time').on(table.instanceDatetime),
+  instance_time_idx: index('idx_overrides_instance_time').on(table.instance_datetime),
   
-  templateTimeIdx: index('idx_overrides_template_time').on(table.templateId, table.instanceDatetime),
+  template_time_unique: uniqueIndex('uq_overrides_template_time').on(table.template_id, table.instance_datetime),
 }));
 
 export const syncQueue = sqliteTable('sync_queue', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   operation: text('operation').notNull(),
-  entityType: text('entity_type').notNull(),
-  localId: text('local_id').notNull(),
+  entity_type: text('entity_type').notNull(),
+  local_id: text('local_id').notNull(),
   payload: text('payload').notNull(),
-  retryCount: integer('retry_count').default(0),
-  lastError: text('last_error'),
-  createdAt: text('created_at'),
+  retry_count: integer('retry_count').default(0),
+  last_error: text('last_error'),
+  created_at: text('created_at'),
 });
 
 export const appMeta = sqliteTable('app_meta', {

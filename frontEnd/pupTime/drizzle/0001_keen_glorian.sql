@@ -1,0 +1,1 @@
+ALTER TABLE `sync_queue` DROP COLUMN `local_id`;
