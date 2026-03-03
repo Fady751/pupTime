@@ -1,5 +1,7 @@
 from datetime import datetime
 
+from django.utils import timezone
+
 from django.db.models import Q
 from django.utils.decorators import method_decorator
 from rest_framework import status
@@ -12,6 +14,7 @@ from rest_framework.viewsets import ModelViewSet
 from . import docs
 from .models import TaskTemplate, TaskOverride
 from .serializers import TaskOverrideSerializer, TaskSerializer
+from .utils import generate_overrides_for_task
 
 
 class IsTaskOwner(BasePermission):
@@ -143,13 +146,51 @@ class TaskViewSet(ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
+    _RECURRENCE_FIELDS = {'start_datetime', 'rrule', 'is_recurring'}
+
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
+
+        recurrence_changed = bool(self._RECURRENCE_FIELDS & set(request.data.keys()))
+        now = timezone.now()
+
+        future_pending_ids_before = set()
+        if recurrence_changed:
+            future_pending_ids_before = set(
+                instance.overrides.filter(
+                    is_deleted=False,
+                    status=TaskOverride.STATUS_PENDING,
+                    instance_datetime__gt=now,
+                ).values_list('id', flat=True)
+            )
+
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+
+        if not recurrence_changed:
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        deleted_qs = instance.overrides.filter(id__in=future_pending_ids_before)
+        deleted_data = TaskOverrideSerializer(deleted_qs, many=True).data
+        deleted_qs.update(is_deleted=True)
+
+        generate_overrides_for_task(instance)
+
+        new_overrides_qs = instance.overrides.filter(
+            is_deleted=False,
+            status=TaskOverride.STATUS_PENDING,
+            instance_datetime__gt=now,
+        ).exclude(id__in=future_pending_ids_before)
+
+        return Response(
+            {
+                'new_overrides': TaskOverrideSerializer(new_overrides_qs, many=True).data,
+                'deleted_overrides': deleted_data,
+            },
+            status=status.HTTP_200_OK,
+        )
 
     def partial_update(self, request, *args, **kwargs):
         kwargs['partial'] = True
