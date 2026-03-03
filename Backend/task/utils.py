@@ -62,10 +62,6 @@ def generate_overrides_for_task(task, months_ahead=1):
 
     instances = list(rule.between(task.start_datetime, end_date, inc=True))
 
-    # Ensure the very first instance is ALWAYS included, even if rrule skips it
-    if task.start_datetime not in instances:
-        instances.insert(0, task.start_datetime)
-
     existing = set(
         task.overrides.filter(is_deleted=False)
         .values_list('instance_datetime', flat=True)
