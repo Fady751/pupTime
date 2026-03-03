@@ -8,9 +8,18 @@ export const formatTime = (date: Date) => {
 // Helper function to convert TaskTemplate to server format
 const toServerTaskData = (task: TaskTemplate) => {
   return {
-    ...task,
+    id: task.id? task.id: undefined,
+    title: task.title,
+    start_datetime: task.start_datetime,
+    reminder_time: task.reminder_time,
+    duration_minutes: task.duration_minutes,
+    priority: task.priority,
+    emoji: task.emoji,
     categories: task?.categories?.map(category => category.id),
+    is_recurring: task.is_recurring,
+    rrule: task.rrule,
     timezone: task?.timezone ?? getCurrentTimezone(),
+    initial_overrides: task.overrides,
   }
 };
 const toClientTaskOverride = (data: any): TaskOverride => {
@@ -26,18 +35,12 @@ const toClientTaskTemplate = (data: any): TaskTemplate => {
 
 export const createTaskTemplate = async (taskData: TaskTemplate): Promise<TaskTemplate> => {
   try {
-    const body: any = {
-      ...toServerTaskData(taskData),
-    }
-    if(taskData?.overrides) {
-      body.initial_overrides = taskData.overrides;
-    }
-    const response = await api.post('/task/', body);
+    const response = await api.post('/task/', toServerTaskData(taskData));
     return toClientTaskTemplate(response.data);
-    } catch (error: any) {
-      console.error(error);
-      throw error;
-    }
+  } catch (error: any) {
+    console.error(error);
+    throw error;
+  }
 };
 
 export type getTasksRequest = {
@@ -84,17 +87,17 @@ export const getTaskById = async (id: string): Promise<TaskTemplate> => {
   }
 };
 
-export const patchTask = async (id: string, task: Partial<TaskTemplate>): Promise<TaskTemplate> => {
+export const patchTask = async (id: string, task: Partial<TaskTemplate>): Promise<void> => {
     const formattedTaskData: any = task;
     if(task.categories) formattedTaskData.categories = task.categories.map(category => category.id);
+    if(task.overrides) formattedTaskData.initial_overrides = task.overrides;
 
     try {
-        const response = await api.patch(`/task/${id}`, formattedTaskData);
-        return toClientTaskTemplate(response.data);
+        await api.patch(`/task/${id}`, formattedTaskData);
     } catch (error: any) {
         console.error(error);
-    throw error;
-  }
+        throw error;
+    }
 };
 
 export const deleteTask = async (id: string): Promise<void> => {

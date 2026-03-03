@@ -167,53 +167,6 @@ const saveServerResponseToLocal = async (template: TaskTemplate): Promise<TaskTe
 };
 
 /** Upse */
-/**
- * Generate local overrides for the next 30 days so an offline-created
- * task appears in the calendar immediately.
- */
-const generateLocalOverrides = async (
-	template: TaskTemplate,
-	next: number = 30
-): Promise<{ inserted: TaskOverride[], deleted: string[] }> => {
-	if (!template.start_datetime) return { inserted: [], deleted: [] };
-
-
-	const occurrences = getTaskOccurrences(template, new Date(), next);
-
-	const { inserted, deleted } = await TaskService.createOverrides(
-		template.id,
-		occurrences.map((datetime) => ({
-			template_id: template.id,
-			instance_datetime: datetime,
-		} as NewTaskOverride))
-	);
-	return { inserted, deleted };
-};
-
-/**
- * Delete future PENDING overrides for a template and regenerate the
- * next 30 days.  Called during offline update when schedule fields change.
- */
-const regenerateLocalOverrides = async (
-	template: TaskTemplate,
-	next: number = 30
-): Promise<{ inserted: TaskOverride[], deleted: string[] }> => {
-	const db = await getDrizzleDb();
-	const todayIso = new Date().toISOString();
-
-	await db
-		.delete(taskOverrides)
-		.where(
-			and(
-				eq(taskOverrides.template_id, template.id),
-				eq(taskOverrides.status, 'PENDING'),
-				gte(taskOverrides.instance_datetime, todayIso),
-				eq(taskOverrides.is_deleted, false),
-			),
-		);
-
-	return await generateLocalOverrides(template, next);
-};
 
 /** Whether the patch touches schedule-related fields. */
 const isScheduleChange = (patch: Partial<TaskTemplate>): boolean =>
@@ -259,7 +212,7 @@ export const createTemplate = async (
 	await TaskTemplateRepository.create(templateData);
 	await saveCategoriesToLocal(localId, task.categories ?? []);
 
-	const { inserted } = await generateLocalOverrides(templateData as TaskTemplate);
+	const { inserted } = await TaskService.generateLocalOverrides(templateData as TaskTemplate);
 
 	// Enqueue (camelCase — tasks.ts handles conversion via toServerTaskData)
 	await enqueueOperation('CREATE', 'TASK_TEMPLATE', localId, {
@@ -289,10 +242,9 @@ export const updateTemplate = async (
 	// ── Online path ────────────
 	if (isOnline() && !count) {
 		try {
-			const serverTask = await apiPatchTask(id, patch);
-			const localChanges = await saveServerResponseToLocal(serverTask);
-			console.log("localChanges", localChanges);
-			return serverTask;
+			await apiPatchTask(id, patch);
+			// Hany TODO: update local DB
+			return;
 		} catch (error) {
 			console.warn('[sync] update online failed, falling back to offline', error);
 		}
@@ -313,21 +265,18 @@ export const updateTemplate = async (
 	const payload: Record<string, any> = {
 		...patch,
 	};
-	const inserted: TaskOverride[] = [];
-	const deleted: string[] = [];
+	let inserted: TaskOverride[] = [];
+	let deleted: string[] = [];
 	if (isScheduleChange(patch)) {
-		const result = await regenerateLocalOverrides(updated as TaskTemplate);
-		inserted.push(...result.inserted);
-		deleted.push(...result.deleted);
-		payload.overrides = result.inserted;
-		for (const ov of result.deleted) {
+		const res = await TaskService.regenerateLocalOverrides(updated as TaskTemplate);
+		inserted = res.inserted;
+		deleted = res.deleted;
+		for (const ov of deleted) {
 			await enqueueOperation('DELETE', 'TASK_OVERRIDE', ov, {});
 		}
-		await enqueueOperation('UPDATE', 'TASK_TEMPLATE', id, payload);
+		payload.overrides = inserted;
 	}
-	else {
-		await enqueueOperation('UPDATE', 'TASK_TEMPLATE', id, payload);
-	}
+	await enqueueOperation('UPDATE', 'TASK_TEMPLATE', id, payload);
 
 	const cats = await getLocalCategories(id);
 	return { ...updated, categories: cats, overrides: inserted, deleted };
@@ -515,21 +464,13 @@ export const processQueue = async (): Promise<void> => {
 			switch (`${item.operation}:${item.entity_type}`) {
 				/* ── TEMPLATE CREATE ──────────────────────── */
 				case 'CREATE:TASK_TEMPLATE': {
-					const serverTask = await apiCreateTemplate(payload as TaskTemplate);
-					if (!serverTask) {
-						console.warn(`[sync] failed to create task template ${item.local_id}`);
-						continue;
-					}
+					await apiCreateTemplate(payload as TaskTemplate);
 					break;
 				}
 
 				/* ── TEMPLATE UPDATE ──────────────────────── */
 				case 'UPDATE:TASK_TEMPLATE': {
-					const serverTask = await apiPatchTask(item.local_id, payload as Partial<TaskTemplate>);
-					if (!serverTask) {
-						console.warn(`[sync] failed to update task template ${item.local_id}`);
-						continue;
-					}
+					await apiPatchTask(item.local_id, payload as Partial<TaskTemplate>);
 					break;
 				}
 

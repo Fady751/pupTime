@@ -14,7 +14,7 @@ import useAuthBootstrap from '../Hooks/RootHooks/AuthBootstrap';
 import { useEffect } from 'react';
 import { getTasks } from '../services/TaskService/tasks';
 import { fullSync, getTemplatesWithOverrides } from '../services/TaskService/syncService';
-import { TaskTemplateRepository } from '../DB';
+import { AppMetaRepository, TaskTemplateRepository } from '../DB';
 // import { AppMetaRepository } from '../DB';
 
 export default function Root() {
@@ -36,6 +36,8 @@ export default function Root() {
       // console.log("task: ", task);
       // const tasksLocal = await TaskTemplateRepository.getTaskOverrides({user_id: data?.id ?? 0, page: 1, page_size: 1000, ordering: 'start_datetime', start_date: '2026-03-01', end_date: '2026-04-11'});
       // console.log("tasksLocal: ", tasksLocal);
+
+      // console.log(await AppMetaRepository.get("authToken"));
     };
     test();
   }, [data]);
