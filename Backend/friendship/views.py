@@ -40,8 +40,6 @@ class FriendshipRequestView(APIView):
         sender = request.user
         
         receiver = get_user_by_id(user_id)
-        
-        if re
 
         existing_friendship = check_existing_friendship(sender.id, receiver.id) 
     
