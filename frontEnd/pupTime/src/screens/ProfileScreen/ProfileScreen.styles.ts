@@ -8,7 +8,7 @@ const createStyles = (colors: AppColors) =>
       backgroundColor: colors.background,
     },
 
-    /* HEADER */
+    /* ── HEADER ─────────────────────────────────── */
     header: {
       height: 140,
       backgroundColor: colors.primary,
@@ -17,14 +17,31 @@ const createStyles = (colors: AppColors) =>
       justifyContent: "center",
       paddingHorizontal: 20,
     },
-
+    headerRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
     headerTitle: {
-      color: colors.primaryText,
+      color: "#FFFFFF",
       fontSize: 28,
-      fontWeight: "700",
+      fontWeight: "800",
+      letterSpacing: -0.5,
+    },
+    backBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      backgroundColor: "rgba(255,255,255,0.18)",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    backBtnText: {
+      fontSize: 20,
+      color: "#FFFFFF",
     },
 
-    /* USER CARD */
+    /* ── USER CARD ──────────────────────────────── */
     userCard: {
       backgroundColor: colors.surface,
       marginHorizontal: 20,
@@ -32,231 +49,154 @@ const createStyles = (colors: AppColors) =>
       borderRadius: 24,
       alignItems: "center",
       padding: 25,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.1,
+      shadowRadius: 24,
       elevation: 8,
     },
-
     avatarWrapper: {
       marginBottom: 10,
     },
-
     avatarRing: {
-      width: 90,
-      height: 90,
-      borderRadius: 45,
+      width: 94,
+      height: 94,
+      borderRadius: 47,
       borderWidth: 3,
       borderColor: colors.primary,
       alignItems: "center",
       justifyContent: "center",
     },
-
     avatar: {
-      width: 70,
-      height: 70,
-      borderRadius: 35,
+      width: 76,
+      height: 76,
+      borderRadius: 38,
       backgroundColor: colors.border,
     },
-
     onlineDot: {
       position: "absolute",
       bottom: 5,
       right: 5,
-      width: 14,
-      height: 14,
-      borderRadius: 7,
-      backgroundColor: "#00C853",
-      borderWidth: 2,
+      width: 16,
+      height: 16,
+      borderRadius: 8,
+      backgroundColor: "#22C55E",
+      borderWidth: 3,
       borderColor: colors.surface,
     },
-
     name: {
-      fontSize: 20,
+      fontSize: 22,
       fontWeight: "700",
       marginTop: 10,
       color: colors.text,
     },
-
     email: {
       color: colors.secondaryText,
+      fontSize: 14,
       marginBottom: 15,
+      marginTop: 2,
     },
-
     editBtn: {
       backgroundColor: colors.background,
-      paddingHorizontal: 20,
-      paddingVertical: 8,
-      borderRadius: 20,
+      paddingHorizontal: 24,
+      paddingVertical: 10,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
-
     editTxt: {
       color: colors.primary,
       fontWeight: "600",
+      fontSize: 14,
     },
 
-    /* STATS */
+    /* ── STATS ──────────────────────────────────── */
     statsRow: {
       flexDirection: "row",
       justifyContent: "space-between",
       marginHorizontal: 20,
       marginTop: 20,
+      gap: 10,
     },
-
     statCard: {
+      flex: 1,
       backgroundColor: colors.surface,
-      borderRadius: 20,
-      padding: 18,
+      borderRadius: 18,
+      paddingVertical: 16,
       alignItems: "center",
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.06,
+      shadowRadius: 12,
       elevation: 4,
     },
-
     statNum: {
-      fontSize: 18,
+      fontSize: 20,
       fontWeight: "700",
       color: colors.primary,
     },
-
     statLabel: {
       fontSize: 12,
       color: colors.secondaryText,
       marginTop: 4,
+      fontWeight: "500",
     },
 
-    /* SCHEDULE */
+    /* ── SCHEDULE ───────────────────────────────── */
     sectionTitle: {
       fontSize: 18,
-      fontWeight: "600",
+      fontWeight: "700",
       marginLeft: 20,
       marginTop: 25,
-      marginBottom: 10,
+      marginBottom: 12,
       color: colors.text,
     },
-
     scheduleCard: {
       backgroundColor: colors.surface,
       marginHorizontal: 20,
-      borderRadius: 24,
-      padding: 20,
+      borderRadius: 22,
+      padding: 18,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.06,
+      shadowRadius: 12,
       elevation: 4,
     },
-
     sessionRow: {
       flexDirection: "row",
       alignItems: "center",
-      marginBottom: 15,
+      marginBottom: 12,
     },
-
     time: {
-      width: 60,
+      width: 65,
       color: colors.secondaryText,
       fontWeight: "600",
+      fontSize: 13,
     },
-
     sessionBlock: {
       flex: 1,
-      height: 45,
+      height: 46,
       borderRadius: 14,
       justifyContent: "center",
       paddingLeft: 15,
     },
-
     sessionText: {
       color: "#FFF",
       fontWeight: "700",
+      fontSize: 14,
     },
-
-    /* FLOATING */
-    pupBtn: {
-      position: "absolute",
-      right: 25,
-      bottom: 90,
-      width: 70,
-      height: 70,
-      borderRadius: 35,
-      backgroundColor: colors.primary,
+    emptySchedule: {
       alignItems: "center",
-      justifyContent: "center",
-      elevation: 10,
+      paddingVertical: 20,
     },
-
-    pupTxt: {
-      color: colors.primaryText,
-      fontWeight: "800",
+    emptyEmoji: {
+      fontSize: 36,
+      marginBottom: 8,
     },
-
-    /* BOTTOM */
-    bottomBar: {
-      height: 70,
-      backgroundColor: colors.surface,
-      flexDirection: "row",
-      justifyContent: "space-around",
-      alignItems: "center",
-      borderTopLeftRadius: 25,
-      borderTopRightRadius: 25,
-      elevation: 15,
-    },
-
-    icon: {
-      fontSize: 20,
-      opacity: 0.5,
-    },
-
-    iconActive: {
-      fontSize: 24,
-    },
-
-    /* SIDE MENU */
-    sideMenu: {
-      position: "absolute",
-      right: 0,
-      top: 0,
-      bottom: 0,
-      backgroundColor: colors.surface,
-      paddingTop: 60,
-      paddingHorizontal: 20,
-      elevation: 20,
-      shadowColor: "#000",
-      shadowOpacity: 0.3,
-      shadowRadius: 20,
-    },
-
-    close: {
-      color: colors.text,
-      fontSize: 22,
-      marginBottom: 30,
-    },
-
-    section: {
-      marginTop: 20,
-    },
-
-    optionItem: {
-      paddingVertical: 18,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.divider,
-    },
-
-    optionText: {
+    emptyText: {
       color: colors.secondaryText,
-      fontSize: 16,
-      fontWeight: "500",
-    },
-
-    logoutButton: {
-      marginTop: 40,
-      backgroundColor: colors.buttonDanger ?? colors.error,
-      paddingVertical: 16,
-      borderRadius: 12,
-      alignItems: "center",
-    },
-
-    logoutText: {
-      color: "#fff",
-      fontSize: 16,
-      fontWeight: "bold",
-    },
-
-    settingsIcon: {
-      fontSize: 22,
-      color: colors.text,
+      fontSize: 14,
+      textAlign: "center",
     },
   });
 

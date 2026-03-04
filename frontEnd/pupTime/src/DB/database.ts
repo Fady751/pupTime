@@ -32,15 +32,3 @@ export const closeDatabase = async (): Promise<void> => {
 		databaseInstance = null;
 	}
 };
-
-export const dropAllTables = async (): Promise<void> => {
-	const db = await getDatabase();
-
-	await db.execute('DROP TABLE IF EXISTS task_overrides;');
-	await db.execute('DROP TABLE IF EXISTS user_categories;');
-	await db.execute('DROP TABLE IF EXISTS categories;');
-	await db.execute('DROP TABLE IF EXISTS task_templates;');
-	await db.execute('DROP TABLE IF EXISTS sync_queue;');
-	await db.execute('DROP TABLE IF EXISTS app_meta;');
-};
-

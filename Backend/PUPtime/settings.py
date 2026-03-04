@@ -30,6 +30,8 @@ USE_SQLITE = config('USE_SQLITE', default=False, cast=bool)
 
 ALLOWED_HOSTS = ["*"]
 
+APPEND_SLASH = True
+
 CORS_ALLOW_ALL_ORIGINS = True
 
 # Application definition
@@ -45,6 +47,7 @@ INSTALLED_APPS = [
     'user',
     'friendship',
     'task',
+    'ai_chat',
     'rest_framework',
     'rest_framework.authtoken',
     'drf_yasg',

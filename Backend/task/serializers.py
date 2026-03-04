@@ -105,8 +105,6 @@ class TaskSerializer(serializers.ModelSerializer):
         if categories:
             task.categories.set(categories)
 
-        generate_overrides_for_task(task)
-
         for override_data in initial_overrides:
             defaults = {'status': override_data['status']}
             if 'id' in override_data:
@@ -117,15 +115,13 @@ class TaskSerializer(serializers.ModelSerializer):
                 defaults=defaults,
             )
 
+        generate_overrides_for_task(task)
+
         return task
 
     def update(self, instance, validated_data):
         categories = validated_data.pop('categories', None)
-        validated_data.pop('initial_overrides', None) 
-        recurrence_changed = (
-            'is_recurring' in validated_data or 'rrule' in validated_data
-            or 'start_datetime' in validated_data
-        )
+        validated_data.pop('initial_overrides', None)
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
@@ -133,9 +129,6 @@ class TaskSerializer(serializers.ModelSerializer):
 
         if categories is not None:
             instance.categories.set(categories)
-
-        if recurrence_changed:
-            generate_overrides_for_task(instance)
 
         return instance
 

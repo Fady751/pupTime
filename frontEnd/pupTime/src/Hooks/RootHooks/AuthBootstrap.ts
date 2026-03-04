@@ -10,10 +10,10 @@ const useAuthBootstrap = () => {
   const { isConnected, loading: networkLoading } = useSelector((s: RootState) => s.network);
 
   useEffect(() => {
-    if (!networkLoading && isConnected) {
+    if (!networkLoading) {
       dispatch(fetchUser());
     }
-  }, [isConnected, networkLoading, dispatch]);
+  }, [networkLoading, dispatch]);
 
   useEffect(() => {
     const loadOfflineUser = async () => {

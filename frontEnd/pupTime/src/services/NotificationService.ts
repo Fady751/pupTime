@@ -62,6 +62,7 @@ class NotificationService {
       },
       trigger
     );
+    console.log(`Notification ${notificationId} scheduled at ${timestampMs}.`);
   }
 
   /**

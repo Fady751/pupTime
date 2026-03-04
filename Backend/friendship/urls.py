@@ -5,5 +5,9 @@ from .views import (
 )
 
 urlpatterns = [
-    
+    path ('request/<int:user_id>/', FriendshipRequestView.as_view(), name='friendship-request'),
+    path ('accept/<int:friendship_id>/', FriendshipAcceptView.as_view(), name='friendship-accept'),
+    path ('cancel/<int:friendship_id>/', FriendshipCancelRequestView.as_view(), name='friendship-cancel'),
+    path ('block/<int:user_id>/', BlockFriendshipView.as_view(), name='friendship-block'),
+    path ('unblock/<int:user_id>/', UnblockFriendshipView.as_view(), name='friendship-unblock'),
 ]

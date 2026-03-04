@@ -7,8 +7,7 @@ from user.models import User
 from .Backend import delete_cancelled_friendship
 
 
-class FriendshipSerializer(serializers.ModelSerializer):
-    sender = serializers.HiddenField(default=serializers.CurrentUserDefault())
+class FriendshipRequestSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Friendship
@@ -21,7 +20,7 @@ class FriendshipSerializer(serializers.ModelSerializer):
             'sent_at',
             'accepted_at'
         ]
-        read_only_fields = ['status', 'blocked_by', 'sent_at', 'accepted_at']
+        read_only_fields = ['blocked_by', 'sent_at', 'accepted_at']
 
     def validate(self, data):
         sender = self.context['request'].user
@@ -29,13 +28,6 @@ class FriendshipSerializer(serializers.ModelSerializer):
 
         if sender == receiver:
             raise serializers.ValidationError("You cannot send a friend request to yourself.")
-
-        if Friendship.objects.filter(
-            Q(sender=sender, receiver=receiver) |
-            Q(sender=receiver, receiver=sender)
-        ).exists():
-            raise serializers.ValidationError("Friendship already exists or pending.")
-
         return data
 
     def create(self, validated_data):
@@ -83,8 +75,7 @@ class FriendshipCancelRequestSerializer(serializers.ModelSerializer):
 class BlockFriendshipSerializer(serializers.ModelSerializer):
     class Meta:
         model = Friendship
-        fields = ['id', 'status', 'blocked_by', 'sender', 'receiver']
-        read_only_fields = ['id', 'sender', 'receiver' , 'status']
+        fields = ['receiver', 'blocked_by' , 'sender']
 
     def update(self, instance, validated_data):
         request_user = self.context['request'].user
@@ -101,13 +92,12 @@ class BlockFriendshipSerializer(serializers.ModelSerializer):
         return instance
     
 class UnblockFriendshipSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = Friendship
-        fields = ['id', 'status', 'blocked_by', 'sender', 'receiver']
-        read_only_fields = ['id', 'sender', 'receiver' , 'status']
+        fields = []
+        read_only_fields = []
 
-    def update(self, instance, validated_data):
+    def update(self, instance):
         request_user = self.context['request'].user
 
         if instance.status != Status.BLOCKED:
