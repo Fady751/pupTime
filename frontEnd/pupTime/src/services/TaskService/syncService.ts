@@ -272,7 +272,7 @@ export const updateTemplate = async (
 		inserted = res.inserted;
 		deleted = res.deleted;
 		for (const ov of deleted) {
-			await enqueueOperation('DELETE', 'TASK_OVERRIDE', ov, {});
+			await enqueueOperation('DELETE', 'TASK_OVERRIDE', ov, {template_id: id});
 		}
 		payload.overrides = inserted;
 	}
@@ -292,6 +292,7 @@ export const deleteTemplate = async (id: string): Promise<void> => {
 	if (isOnline() && !count) {
 		try {
 			await apiDeleteTask(id);
+			await TaskService.deleteByTemplateId(id);
 			await TaskTemplateRepository.deleteByTemplateId(id);
 			return;
 		} catch (error) {
