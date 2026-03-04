@@ -37,7 +37,7 @@ class TaskSerializer(serializers.ModelSerializer):
             'overrides',
             'created_at', 'updated_at',
         ]
-        read_only_fields = ['user', 'created_at', 'updated_at']
+        read_only_fields = ['user', 'created_at']
 
     def validate(self, attrs):
         is_recurring = attrs.get(
