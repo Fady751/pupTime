@@ -1,4 +1,6 @@
+import uuid
 from datetime import datetime
+from django.db import IntegrityError
 
 from django.utils import timezone
 
@@ -13,7 +15,7 @@ from rest_framework.viewsets import ModelViewSet
 
 from . import docs
 from .models import TaskTemplate, TaskOverride
-from .serializers import TaskOverrideSerializer, TaskSerializer
+from .serializers import InitialOverrideSerializer, TaskOverrideSerializer, TaskSerializer
 from .utils import generate_overrides_for_task
 
 
@@ -152,6 +154,34 @@ class TaskViewSet(ModelViewSet):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
 
+        raw_overrides = request.data.get('overrides', [])
+        if not isinstance(raw_overrides, list):
+            return Response(
+                {'overrides': 'Must be a list.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        validated_overrides = []
+        if raw_overrides:
+            ov_ser = InitialOverrideSerializer(data=raw_overrides, many=True)
+            ov_ser.is_valid(raise_exception=True)
+            validated_overrides = ov_ser.validated_data
+
+        raw_deleted_ids = request.data.get('deleted_overrides', [])
+        if not isinstance(raw_deleted_ids, list):
+            return Response(
+                {'deleted_overrides': 'Must be a list of UUIDs.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        validated_deleted_ids = []
+        for v in raw_deleted_ids:
+            try:
+                validated_deleted_ids.append(uuid.UUID(str(v)))
+            except (ValueError, AttributeError):
+                return Response(
+                    {'deleted_overrides': f'Invalid UUID: {v!r}'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         recurrence_changed = bool(self._RECURRENCE_FIELDS & set(request.data.keys()))
         now = timezone.now()
 
@@ -169,28 +199,73 @@ class TaskViewSet(ModelViewSet):
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        if not recurrence_changed:
+        if not recurrence_changed and not validated_overrides and not validated_deleted_ids:
             return Response(status=status.HTTP_204_NO_CONTENT)
 
-        deleted_qs = instance.overrides.filter(id__in=future_pending_ids_before)
-        deleted_data = TaskOverrideSerializer(deleted_qs, many=True).data
-        deleted_qs.update(is_deleted=True)
+        response_data = {}
 
-        generate_overrides_for_task(instance)
+        upserted = []
+        for override_data in validated_overrides:
+            override_id = override_data.get('id')
+            try:
+                if override_id:
+                    obj, _ = TaskOverride.objects.update_or_create(
+                        id=override_id,
+                        task=instance,
+                        defaults={
+                            'instance_datetime': override_data['instance_datetime'],
+                            'status': override_data['status'],
+                        },
+                    )
+                else:
+                    obj, _ = TaskOverride.objects.update_or_create(
+                        task=instance,
+                        instance_datetime=override_data['instance_datetime'],
+                        defaults={'status': override_data['status']},
+                    )
+            except IntegrityError:
+                return Response(
+                    {
+                        'overrides': (
+                            f"instance_datetime '{override_data['instance_datetime'].isoformat()}' "
+                            f"is already used by another override."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            upserted.append(obj)
+        response_data['updated_overrides'] = TaskOverrideSerializer(upserted, many=True).data
 
-        new_overrides_qs = instance.overrides.filter(
+        explicit_delete_qs = instance.overrides.filter(
+            id__in=validated_deleted_ids,
             is_deleted=False,
-            status=TaskOverride.STATUS_PENDING,
-            instance_datetime__gt=now,
-        ).exclude(id__in=future_pending_ids_before)
-
-        return Response(
-            {
-                'new_overrides': TaskOverrideSerializer(new_overrides_qs, many=True).data,
-                'deleted_overrides': deleted_data,
-            },
-            status=status.HTTP_200_OK,
         )
+        soft_deleted_data = list(TaskOverrideSerializer(explicit_delete_qs, many=True).data)
+        explicit_delete_qs.update(is_deleted=True)
+        response_data['deleted_overrides'] = soft_deleted_data
+
+        if recurrence_changed:
+            recurrence_delete_qs = instance.overrides.filter(
+                id__in=future_pending_ids_before,
+                is_deleted=False,
+            )
+            recurrence_deleted_data = list(
+                TaskOverrideSerializer(recurrence_delete_qs, many=True).data
+            )
+            recurrence_delete_qs.update(is_deleted=True)
+
+            generate_overrides_for_task(instance)
+
+            new_overrides_qs = instance.overrides.filter(
+                is_deleted=False,
+                status=TaskOverride.STATUS_PENDING,
+                instance_datetime__gt=now,
+            ).exclude(id__in=future_pending_ids_before)
+
+            response_data['new_overrides'] = TaskOverrideSerializer(new_overrides_qs, many=True).data
+            response_data['deleted_overrides'] = soft_deleted_data + recurrence_deleted_data
+
+        return Response(response_data, status=status.HTTP_200_OK)
 
     def partial_update(self, request, *args, **kwargs):
         kwargs['partial'] = True
