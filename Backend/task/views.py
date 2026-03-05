@@ -186,37 +186,55 @@ class TaskViewSet(ModelViewSet):
 
         response_data = {}
 
-        upserted = []
+        to_create = []
+        update_data = {}
         for override_data in validated_overrides:
             override_id = override_data.get('id')
-            try:
-                if override_id:
-                    obj, _ = TaskOverride.objects.update_or_create(
-                        id=override_id,
-                        task=instance,
-                        defaults={
-                            'instance_datetime': override_data['instance_datetime'],
-                            'status': override_data['status'],
-                        },
-                    )
-                else:
-                    obj, _ = TaskOverride.objects.update_or_create(
+            if override_id:
+                update_data[override_id] = override_data
+            else:
+                to_create.append(
+                    TaskOverride(
                         task=instance,
                         instance_datetime=override_data['instance_datetime'],
-                        defaults={'status': override_data['status']},
+                        status=override_data['status'],
                     )
-            except IntegrityError:
-                return Response(
-                    {
-                        'overrides': (
-                            f"instance_datetime '{override_data['instance_datetime'].isoformat()}' "
-                            f"is already used by another override."
-                        )
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
                 )
-            upserted.append(obj)
-        response_data['updated_overrides'] = TaskOverrideSerializer(upserted, many=True).data
+
+        try:
+            upserted_ids = []
+            if update_data:
+                existing_objs = list(TaskOverride.objects.filter(id__in=update_data.keys(), task=instance))
+                for obj in existing_objs:
+                    data = update_data[obj.id]
+                    obj.instance_datetime = data['instance_datetime']
+                    obj.status = data['status']
+                    upserted_ids.append(obj.id)
+                
+                if existing_objs:
+                    TaskOverride.objects.bulk_update(existing_objs, ['instance_datetime', 'status'])
+
+            if to_create:
+                TaskOverride.objects.bulk_create(
+                    to_create,
+                    update_conflicts=True,
+                    unique_fields=['task', 'instance_datetime'],
+                    update_fields=['status']
+                )
+
+            created_dts = [obj.instance_datetime for obj in to_create]
+            upserted_qs = TaskOverride.objects.filter(
+                Q(id__in=upserted_ids) | Q(task=instance, instance_datetime__in=created_dts)
+            )
+            response_data['updated_overrides'] = TaskOverrideSerializer(upserted_qs, many=True).data
+
+        except IntegrityError:
+            return Response(
+                {
+                    'overrides': 'One or more overrides contain a duplicated instance_datetime.'
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         explicit_delete_qs = instance.overrides.filter(
             id__in=validated_deleted_ids,
