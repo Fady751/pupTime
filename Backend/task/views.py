@@ -148,8 +148,6 @@ class TaskViewSet(ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
-    _RECURRENCE_FIELDS = {'start_datetime', 'rrule', 'is_recurring'}
-
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
@@ -182,25 +180,9 @@ class TaskViewSet(ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-        recurrence_changed = bool(self._RECURRENCE_FIELDS & set(request.data.keys()))
-        now = timezone.now()
-
-        future_pending_ids_before = set()
-        if recurrence_changed:
-            future_pending_ids_before = set(
-                instance.overrides.filter(
-                    is_deleted=False,
-                    status=TaskOverride.STATUS_PENDING,
-                    instance_datetime__gt=now,
-                ).values_list('id', flat=True)
-            )
-
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-
-        if not recurrence_changed and not validated_overrides and not validated_deleted_ids:
-            return Response(status=status.HTTP_204_NO_CONTENT)
 
         response_data = {}
 
@@ -243,27 +225,6 @@ class TaskViewSet(ModelViewSet):
         soft_deleted_data = list(TaskOverrideSerializer(explicit_delete_qs, many=True).data)
         explicit_delete_qs.update(is_deleted=True)
         response_data['deleted_overrides'] = soft_deleted_data
-
-        if recurrence_changed:
-            recurrence_delete_qs = instance.overrides.filter(
-                id__in=future_pending_ids_before,
-                is_deleted=False,
-            )
-            recurrence_deleted_data = list(
-                TaskOverrideSerializer(recurrence_delete_qs, many=True).data
-            )
-            recurrence_delete_qs.update(is_deleted=True)
-
-            generate_overrides_for_task(instance)
-
-            new_overrides_qs = instance.overrides.filter(
-                is_deleted=False,
-                status=TaskOverride.STATUS_PENDING,
-                instance_datetime__gt=now,
-            ).exclude(id__in=future_pending_ids_before)
-
-            response_data['new_overrides'] = TaskOverrideSerializer(new_overrides_qs, many=True).data
-            response_data['deleted_overrides'] = soft_deleted_data + recurrence_deleted_data
 
         return Response(response_data, status=status.HTTP_200_OK)
 
