@@ -69,7 +69,7 @@ class FriendshipCancelRequestSerializer(serializers.ModelSerializer):
         
         instance.status = Status.CANCELLED
         instance.save()
-        delete_cancelled_friendship.apply_async(args=[instance.id], countdown=3600)
+        delete_cancelled_friendship.apply_async(args=[instance.id], countdown=60)
         return instance
     
 class BlockFriendshipSerializer(serializers.ModelSerializer):
@@ -77,14 +77,11 @@ class BlockFriendshipSerializer(serializers.ModelSerializer):
         model = Friendship
         fields = ['receiver', 'blocked_by' , 'sender']
 
-    def update(self, instance, validated_data):
+    def update(self, instance , validated_data):
         request_user = self.context['request'].user
 
         if instance.status == Status.BLOCKED:
             raise serializers.ValidationError("This user is already blocked.")
-        
-        if request_user != instance.sender:
-            raise serializers.ValidationError("You can only block users you have a relationship with.")
         
         instance.status = Status.BLOCKED
         instance.blocked_by = request_user
@@ -109,5 +106,3 @@ class UnblockFriendshipSerializer(serializers.ModelSerializer):
         instance.delete()
         return None
         
-
-

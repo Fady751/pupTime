@@ -7,10 +7,14 @@ from django.contrib.auth import authenticate
 from django.shortcuts import get_object_or_404
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
+from django.db.models import Q
+
+from friendship.models import Friendship, Status
+
 from .serializers import (
-    UserSerializer, LoginSerializer, UserUpdateSerializer,
+    UserFriendsSerializer, UserReqeustSerializer, UserSerializer, LoginSerializer, UserUpdateSerializer,
     InterestSerializer, InterestCategorySerializer, UserInterestSerializer,
-    GoogleAuthSerializer,
+    GoogleAuthSerializer, UserFriendsSerializer
 )
 from .models import User, Interest, InterestCategory, UserInterest
 import uuid
@@ -297,3 +301,71 @@ class GoogleAuthView(APIView):
             'is_new_user': is_new_user,
             'has_interests': user.user_interests.exists(),
         }, status=status.HTTP_200_OK)
+    
+
+
+class UserFreindsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+    responses={
+        200: openapi.Response('User friends retrieved successfully', UserFriendsSerializer(many=True)),
+        400: openapi.Response('Bad request'),
+        403: openapi.Response('Forbidden'),
+        404: openapi.Response('User not found or user doesnot have friends yet'),
+    }
+    )
+    def get(self, request, user_id):
+
+        try:
+            user = User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        friendships = Friendship.objects.filter(
+            (Q(sender=user) | Q(receiver=user)) & Q(status=Status.ACCEPTED)
+        ).select_related('sender', 'receiver')
+
+        if not friendships.exists():
+            return Response({'error': 'User does not have friends yet'}, status=status.HTTP_404_NOT_FOUND)
+
+        friends = [
+            f.receiver if f.sender == user else f.sender
+            for f in friendships
+        ]
+
+        serializer = UserFriendsSerializer(friends, many=True)
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class UserReqeustsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        responses={
+            200: openapi.Response('User friend requests retrieved successfully', UserFriendsSerializer(many=True)),
+            400: openapi.Response('Bad request'),
+            403: openapi.Response('Forbidden'),
+            404: openapi.Response('User not found or user doesnot have friend requests yet'),
+        }
+    )
+    def get(self, request):
+
+        user_id = request.user.id
+
+        try:
+            user = User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        friend_requests = Friendship.objects.filter(
+            receiver=user, status=Status.PENDING
+        ).select_related('sender')
+
+        if not friend_requests.exists():
+            return Response({'error': 'User does not have friend requests yet'}, status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = UserReqeustSerializer(friend_requests, many=True)
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
