@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import (
     FriendshipRequestView, FriendshipAcceptView
-    , FriendshipCancelRequestView, BlockFriendshipView, UnblockFriendshipView
+    , FriendshipCancelRequestView, BlockFriendshipView, UnblockFriendshipView, check
 )
 
 urlpatterns = [
@@ -10,4 +10,5 @@ urlpatterns = [
     path ('cancel/<int:friendship_id>/', FriendshipCancelRequestView.as_view(), name='friendship-cancel'),
     path ('block/<int:user_id>/', BlockFriendshipView.as_view(), name='friendship-block'),
     path ('unblock/<int:user_id>/', UnblockFriendshipView.as_view(), name='friendship-unblock'),
+    path('check/', check.as_view(), name='friendship-check')
 ]
