@@ -1,3 +1,4 @@
+from friendship.models import Friendship, Status
 from rest_framework import serializers
 from django.conf import settings
 from google.oauth2 import id_token
@@ -127,3 +128,44 @@ class UserUpdateSerializer(serializers.ModelSerializer):
             instance.set_password(password)
         instance.save()
         return instance
+
+
+
+class UserFriendsSerializer(serializers.ModelSerializer):
+    friends = serializers.SerializerMethodField()
+
+    class Meta:
+            model = User
+            fields = [
+                'friends',
+                'id',
+                'username',
+                'email',
+                'gender',
+                'birth_day',
+                'streak_cnt',
+                'joined_on'
+            ]
+
+    def get_friends(self, obj):
+        return [{'id': friend.id, 'username': friend.username, 'email': friend.email , 
+                 'gender': friend.gender , 'birth_day': friend.birth_day , 'streak_cnt': friend.streak_cnt ,
+                   'joined_on': friend.joined_on} for friend in obj.friends.all()]
+    
+
+class SenderSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'streak_cnt' , 'gender']
+
+
+class UserReqeustSerializer(serializers.ModelSerializer):
+        
+    sender = SenderSerializer(read_only=True)
+
+    class Meta:
+        model = Friendship
+        fields = [
+            'sender',
+            'sent_at'
+        ]

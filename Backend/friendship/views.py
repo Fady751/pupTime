@@ -7,6 +7,7 @@ from django.contrib.auth import authenticate
 from django.shortcuts import get_object_or_404
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
+from django.db.models import Q
 
 from .Backend import (
     check_existing_friendship , 
@@ -44,7 +45,7 @@ class FriendshipRequestView(APIView):
         existing_friendship = check_existing_friendship(sender.id, receiver.id) 
     
         if existing_friendship:
-            return Response({"error": "relation request already exists or requested." , "status": existing_friendship.status}, status=400)
+            return Response({"error": "relation request already exists" , "status": existing_friendship.status}, status=400)
 
         serializer = FriendshipRequestSerializer(data={'sender': sender.id, 'receiver': receiver.id, 'status': Status.PENDING} , context={'request': request})
         print(serializer.initial_data , "------------------------------------------------------")
@@ -71,8 +72,8 @@ class FriendshipAcceptView(APIView):
         serializer.save()
         return Response(serializer.data)
 
-class FriendshipCancelRequestView(generics.DestroyAPIView):
-    serializer_class = FriendshipCancelRequestSerializer
+class FriendshipCancelRequestView(APIView):
+
     permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
@@ -83,7 +84,7 @@ class FriendshipCancelRequestView(generics.DestroyAPIView):
         }
     )
     def delete(self, request, *args, **kwargs):
-        instance = self.get_object()
+        
         serializer = self.get_serializer(instance, data=request.data)
         serializer.is_valid(raise_exception=True)
         self.perform_destroy(instance)
@@ -102,29 +103,34 @@ class BlockFriendshipView(APIView):
     def post(self, request, user_id):
         sender = request.user
         
+        if sender.id == user_id:
+            return Response({"error": "You cannot block yourself."}, status=status.HTTP_400_BAD_REQUEST)
+        
         try:
             receiver = User.objects.get(id=user_id)
         except User.DoesNotExist:
             return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        try:
-            existing_friendship = Friendship.objects.filter(
-                Q(sender=sender, receiver=receiver) | Q(sender=receiver, receiver=sender)).first()
-        except Friendship.DoesNotExist:
-            return Response({"error": "No existing relationship found"}, status=status.HTTP_404_NOT_FOUND)
+        existing_friendship = Friendship.objects.filter(
+            Q(sender=sender, receiver=receiver) | Q(sender=receiver, receiver=sender)).first()
 
+    
         if existing_friendship:
+
+            if existing_friendship.status == Status.BLOCKED:
+                return Response({"error": "This user is already blocked."}, status=status.HTTP_400_BAD_REQUEST)
+            
             relationship = existing_friendship
+
             serializer = BlockFriendshipSerializer(relationship, data={'status': Status.BLOCKED, 'blocked_by': sender.id}, partial=True , context={'request': request})
-            serializer.is_valid(raise_exception=True)
-            serializer.save()
-            data = serializer.data
+
         else:
-            serializer = BlockFriendshipSerializer(data={'sender': sender.id, 'receiver': receiver.id, 'status': Status.BLOCKED, 'blocked_by': sender.id} , context={'request': request})
-            serializer.is_valid(raise_exception=True)
-            serializer.save()
-           
-            data = serializer.data
+            serializer = BlockFriendshipSerializer(data={'sender': sender.id, 'receiver': receiver.id} , context={'request': request})
+
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        
+        data = serializer.data
 
         return Response(
             {
@@ -165,3 +171,11 @@ class UnblockFriendshipView(APIView):
             },
             status=status.HTTP_200_OK
         )
+    
+
+
+class check(APIView):
+
+    def get(self, request,):
+        data = Friendship.objects.all()
+        return Response(data.values())
