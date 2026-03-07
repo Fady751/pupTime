@@ -205,14 +205,27 @@ class TaskViewSet(ModelViewSet):
             upserted_ids = []
             if update_data:
                 existing_objs = list(TaskOverride.objects.filter(id__in=update_data.keys(), task=instance))
+                existing_ids = {obj.id for obj in existing_objs}
+
                 for obj in existing_objs:
                     data = update_data[obj.id]
                     obj.instance_datetime = data['instance_datetime']
                     obj.status = data['status']
                     upserted_ids.append(obj.id)
-                
+
                 if existing_objs:
                     TaskOverride.objects.bulk_update(existing_objs, ['instance_datetime', 'status'])
+
+                for override_id, data in update_data.items():
+                    if override_id not in existing_ids:
+                        to_create.append(
+                            TaskOverride(
+                                id=override_id,
+                                task=instance,
+                                instance_datetime=data['instance_datetime'],
+                                status=data['status'],
+                            )
+                        )
 
             if to_create:
                 TaskOverride.objects.bulk_create(
