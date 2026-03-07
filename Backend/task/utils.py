@@ -11,16 +11,17 @@ def generate_overrides_for_range(task, start_dt, end_dt):
         return  
 
     try:
-        rule = rrulestr(task.rrule, dtstart=task.start_datetime)
+        rule = rrulestr(task.rrule, dtstart=task.start_datetime.replace(microsecond=0))
     except (ValueError, TypeError):
         return
 
-    instances = list(rule.between(start_dt, end_dt, inc=True))
+    instances = list(rule.between(start_dt.replace(microsecond=0), end_dt, inc=True))
 
-    existing = set(
-        task.overrides.filter(is_deleted=False)
-        .values_list('instance_datetime', flat=True)
-    )
+    existing = {
+        dt.replace(microsecond=0)
+        for dt in task.overrides.filter(is_deleted=False).values_list('instance_datetime', flat=True)
+        if dt
+    }
 
     new_overrides = [
         TaskOverride(
@@ -29,7 +30,7 @@ def generate_overrides_for_range(task, start_dt, end_dt):
             status=TaskOverride.STATUS_PENDING,
         )
         for dt in instances
-        if dt not in existing
+        if dt.replace(microsecond=0) not in existing
     ]
 
     if new_overrides:
@@ -38,11 +39,12 @@ def generate_overrides_for_range(task, start_dt, end_dt):
 
 def generate_overrides_for_task(task, months_ahead=1):
     if not task.is_recurring or not task.rrule:
-        existing = set(
-            task.overrides.filter(is_deleted=False)
-            .values_list('instance_datetime', flat=True)
-        )
-        if task.start_datetime not in existing:
+        existing = {
+            dt.replace(microsecond=0)
+            for dt in task.overrides.filter(is_deleted=False).values_list('instance_datetime', flat=True)
+            if dt
+        }
+        if task.start_datetime and task.start_datetime.replace(microsecond=0) not in existing:
             override = TaskOverride(
                 task=task,
                 instance_datetime=task.start_datetime,
@@ -56,16 +58,17 @@ def generate_overrides_for_task(task, months_ahead=1):
     end_date = now + timedelta(days=30 * months_ahead)
 
     try:
-        rule = rrulestr(task.rrule, dtstart=task.start_datetime)
+        rule = rrulestr(task.rrule, dtstart=task.start_datetime.replace(microsecond=0))
     except (ValueError, TypeError):
         return []
 
-    instances = list(rule.between(task.start_datetime, end_date, inc=True))
+    instances = list(rule.between(task.start_datetime.replace(microsecond=0), end_date, inc=True))
 
-    existing = set(
-        task.overrides.filter(is_deleted=False)
-        .values_list('instance_datetime', flat=True)
-    )
+    existing = {
+        dt.replace(microsecond=0)
+        for dt in task.overrides.filter(is_deleted=False).values_list('instance_datetime', flat=True)
+        if dt
+    }
 
     new_overrides = [
         TaskOverride(
@@ -74,7 +77,7 @@ def generate_overrides_for_task(task, months_ahead=1):
             status=TaskOverride.STATUS_PENDING,
         )
         for dt in instances
-        if dt not in existing
+        if dt.replace(microsecond=0) not in existing
     ]
 
     if new_overrides:
