@@ -186,6 +186,14 @@ class TaskViewSet(ModelViewSet):
 
         response_data = {}
 
+        explicit_delete_qs = instance.overrides.filter(
+            id__in=validated_deleted_ids,
+            is_deleted=False,
+        )
+        soft_deleted_data = list(TaskOverrideSerializer(explicit_delete_qs, many=True).data)
+        explicit_delete_qs.update(is_deleted=True)
+        response_data['deleted_overrides'] = soft_deleted_data
+
         to_create = []
         update_data = {}
         for override_data in validated_overrides:
@@ -248,14 +256,6 @@ class TaskViewSet(ModelViewSet):
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
-        explicit_delete_qs = instance.overrides.filter(
-            id__in=validated_deleted_ids,
-            is_deleted=False,
-        )
-        soft_deleted_data = list(TaskOverrideSerializer(explicit_delete_qs, many=True).data)
-        explicit_delete_qs.update(is_deleted=True)
-        response_data['deleted_overrides'] = soft_deleted_data
 
         return Response(response_data, status=status.HTTP_200_OK)
 
