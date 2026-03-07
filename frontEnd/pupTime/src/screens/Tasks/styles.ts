@@ -20,7 +20,6 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
   heroTopRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
   },
   heroTitle: {
     fontSize: 24,
@@ -66,13 +65,23 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
     shadowRadius: 10,
     elevation: 3,
   },
+
+  /* ── Section Header (icon + label) ──────────── */
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  sectionIcon: {
+    fontSize: 16,
+    marginRight: 8,
+  },
   sectionLabel: {
     fontSize: 12,
     fontWeight: "700",
     color: colors.secondaryText,
     textTransform: "uppercase",
     letterSpacing: 0.8,
-    marginBottom: 12,
   },
 
   /* ── Title Input ────────────────────────────── */
@@ -217,7 +226,7 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
   },
   repChip: {
     paddingVertical: 10,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     borderRadius: 12,
     backgroundColor: colors.background,
     borderWidth: 1.5,
@@ -228,10 +237,9 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
     borderColor: colors.primary,
   },
   repChipText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "600",
     color: colors.secondaryText,
-    textTransform: "capitalize",
   },
   repChipTextSelected: {
     color: "#FFFFFF",
@@ -323,6 +331,29 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
   },
 
   /* ── Emoji ──────────────────────────────────── */
+  selectedEmojiPreview: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 14,
+    gap: 12,
+  },
+  selectedEmojiLarge: {
+    fontSize: 48,
+  },
+  clearEmojiBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  clearEmojiBtnText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: colors.secondaryText,
+  },
   emojiTabsRow: {
     flexDirection: "row",
     gap: 6,
@@ -359,9 +390,9 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
     justifyContent: "center",
   },
   emojiSelected: {
-    backgroundColor: "#F472B6",
+    backgroundColor: colors.primary + "25",
     borderWidth: 2,
-    borderColor: "#EC4899",
+    borderColor: colors.primary,
   },
   emojiText: {
     fontSize: 22,
@@ -419,7 +450,7 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
     fontSize: 14,
   },
 
-  // ── kept for legacy compat (unused by EditTaskScreen but may be used elsewhere) ──
+  // ── kept for legacy compat ──
   container: { flex: 1, padding: 20, backgroundColor: colors.background },
   header: { fontSize: 28, fontWeight: "bold", color: colors.text, marginBottom: 20 },
   label: { fontSize: 16, fontWeight: "600", color: colors.secondaryText, marginBottom: 8, marginTop: 15 },

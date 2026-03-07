@@ -8,7 +8,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useSelector } from "react-redux";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import type { RootState } from "../../redux/store";
 import useTheme from "../../Hooks/useTheme";
 import { useTasks } from "../../Hooks/useTasks";
@@ -18,6 +18,8 @@ import {
   type TaskTemplate,
   type TaskOverride,
   toLocalDateString,
+  floorDateByTimezone,
+  getOverridesForBetweenDate,
 } from "../../types/task";
 
 /* ═══════════════════════════════════════════════════════════
@@ -82,25 +84,6 @@ const formatTime = (isoString: string): string => {
   return `${h}:${m} ${ampm}`;
 };
 
-/** Flatten templates → overrides that fall on a specific date string (YYYY-MM-DD). */
-const getOverridesForDate = (
-  tasks: TaskTemplate[],
-  dateStr: string,
-): { template: TaskTemplate; override: TaskOverride }[] => {
-  const result: { template: TaskTemplate; override: TaskOverride }[] = [];
-  for (const tpl of tasks) {
-    if (tpl.is_deleted) continue;
-    for (const ov of tpl.overrides ?? []) {
-      if (ov.is_deleted) continue;
-      const ovDate = toLocalDateString(ov.instance_datetime, tpl.timezone ?? undefined);
-      if (ovDate === dateStr) {
-        result.push({ template: tpl, override: ov });
-      }
-    }
-  }
-  return result;
-};
-
 /* ═══════════════════════════════════════════════════════════
    COMPONENT
    ═══════════════════════════════════════════════════════════ */
@@ -109,46 +92,50 @@ const HomeScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const { colors } = useTheme();
   const styles = useMemo(() => createHomeStyles(colors), [colors]);
+    const route = useRoute();
 
   const user = useSelector((state: RootState) => state.user.data);
   const userId = user?.id;
 
   // Today's date string in local timezone
-  const todayStr = useMemo(() => toLocalDateString(new Date().toISOString()), []);
-  const tomorrowStr = useMemo(() => toLocalDateString(new Date(new Date().getTime() + 24 * 60 * 60 * 1000).toISOString()), []);
-
-  // Only call useTasks when we have a userId
-  const {
-    tasks,
-    loading,
-    applyFilter,
-  } = useTasks(userId!);
+    const dateStr = useMemo(() => floorDateByTimezone(new Date().toISOString()), []);
+  
+    const nextDateStr = useMemo(() => {
+      const next = new Date();
+      next.setDate(next.getDate() + 1);
+      return floorDateByTimezone(next.toISOString());
+    }, []);
+  
+    const current_filter = useMemo(() => {
+      return {
+        start_date: dateStr,
+        end_date: nextDateStr,
+      }
+    }, [dateStr, nextDateStr])
+  
+    const { tasks, loading, applyFilter } = useTasks(userId!, current_filter);
 
   const refresh = () => {
     applyFilter({
-      start_date: todayStr,
-      end_date: tomorrowStr,
+      start_date: dateStr,
+      end_date: nextDateStr,
     });
   };
-
-  // On mount, set the filter to today's tasks
-  useEffect(() => {
-    refresh();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [todayStr]);
 
   // if any component use navication.goBack(), refresh the tasks
   useEffect(() => {
     const unsubscribe = navigation.addListener("focus", () => {
-      refresh();
+      if (route.name === "Home") {
+        refresh();
+      }
     });
     return unsubscribe;
-  }, [navigation, refresh]);
+  }, []);
 
   // Flatten overrides for today
   const todayOverrides = useMemo(
-    () => (userId ? getOverridesForDate(tasks, todayStr) : []),
-    [tasks, todayStr, userId],
+    () => (userId ? getOverridesForBetweenDate(tasks, dateStr, nextDateStr) : []),
+    [tasks, dateStr, nextDateStr, userId],
   );
 
   const pendingOverrides = useMemo(

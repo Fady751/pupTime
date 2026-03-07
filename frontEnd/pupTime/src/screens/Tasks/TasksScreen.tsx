@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback, useEffect } from "react";
+import React, { useMemo, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -20,7 +20,8 @@ import { BottomBar } from "../../components/BottomBar/BottomBar";
 import {
   type TaskTemplate,
   type TaskOverride,
-  toLocalDateString,
+  floorDateByTimezone,
+  getOverridesForBetweenDate,
 } from "../../types/task";
 
 /* ═══════════════════════════════════════════════════════════
@@ -57,27 +58,6 @@ const formatTime = (isoString: string): string => {
   return `${h}:${m} ${ampm}`;
 };
 
-/** Flatten templates → overrides that fall on a specific date string (YYYY-MM-DD). */
-const getOverridesForDate = (
-  tasks: TaskTemplate[],
-  dateStr: string,
-): { template: TaskTemplate; override: TaskOverride }[] => {
-  const result: { template: TaskTemplate; override: TaskOverride }[] = [];
-  for (const tpl of tasks) {
-    if (tpl.is_deleted) continue;
-    for (const ov of tpl.overrides ?? []) {
-      if (ov.is_deleted) continue;
-      const ovDate = toLocalDateString(ov.instance_datetime, tpl.timezone ?? undefined);
-      if (ovDate === dateStr) {
-        result.push({ template: tpl, override: ov });
-      }
-    }
-  }
-  // Sort by time
-  result.sort((a, b) => new Date(a.override.instance_datetime).getTime() - new Date(b.override.instance_datetime).getTime());
-  return result;
-};
-
 const isToday = (date: Date): boolean => {
   const today = new Date();
   return (
@@ -98,28 +78,26 @@ const TasksScreen: React.FC = () => {
   const user = useSelector((state: RootState) => state.user.data);
   const userId = user?.id;
 
-  const { tasks, loading, filter, changeOverride, applyFilter } = useTasks(userId!);
-
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [togglingIds, setTogglingIds] = useState<string[]>([]);
 
-  const dateStr = useMemo(() => toLocalDateString(selectedDate.toISOString()), [selectedDate]);
+  const dateStr = useMemo(() => floorDateByTimezone(selectedDate.toISOString()), [selectedDate]);
+
   const nextDateStr = useMemo(() => {
     const next = new Date(selectedDate);
     next.setDate(next.getDate() + 1);
-    return toLocalDateString(next.toISOString());
+    return floorDateByTimezone(next.toISOString());
   }, [selectedDate]);
 
-  // Apply date filter whenever selected date changes
-  useEffect(() => {
-    applyFilter({
-      ...filter,
+  const current_filter = useMemo(() => {
+    return {
       start_date: dateStr,
       end_date: nextDateStr,
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateStr]);
+    }
+  }, [dateStr, nextDateStr])
+
+  const { tasks, loading, changeOverride } = useTasks(userId!, current_filter);
 
   /* ── Date navigation ─────────────────────────── */
   const goToPrevDay = useCallback(() => {
@@ -142,7 +120,7 @@ const TasksScreen: React.FC = () => {
 
   /* ── Filtered overrides ──────────────────────── */
   const todayOverrides = useMemo(
-    () => (userId ? getOverridesForDate(tasks, dateStr) : []),
+    () => (userId ? getOverridesForBetweenDate(tasks, dateStr, nextDateStr) : []),
     [tasks, dateStr, userId],
   );
 
