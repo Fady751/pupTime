@@ -26,16 +26,16 @@ import { useTasks } from "../../Hooks/useTasks";
 import { useSelector } from "react-redux";
 import { RootState } from "../../redux/store";
 import type { TaskTemplate } from "../../types/task";
+import { getAllLocalCategories } from "../../services/TaskService/syncService";
 
 /* ═══════════════════════════════════════════════════════════
    CONSTANTS & HELPERS
    ═══════════════════════════════════════════════════════════ */
 
-const PRIORITY_META: Record<string, { color: string; emoji: string }> = {
-  none: { color: "#9CA3AF", emoji: "⚪" },
-  low: { color: "#22C55E", emoji: "🟢" },
-  medium: { color: "#F59E0B", emoji: "🟠" },
-  high: { color: "#EF4444", emoji: "🔴" },
+const PRIORITY_META: Record<string, { color: string; emoji: string; label: string }> = {
+  low:    { color: "#22C55E", emoji: "🟢", label: "Low" },
+  medium: { color: "#F59E0B", emoji: "🟠", label: "Medium" },
+  high:   { color: "#EF4444", emoji: "🔴", label: "High" },
 };
 
 const WEEKDAY_SHORT: Record<string, string> = {
@@ -45,6 +45,14 @@ const WEEKDAY_KEYS = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"] as const;
 
 type RepFreq = "once" | "daily" | "weekly" | "monthly" | "yearly";
 const REP_OPTIONS: RepFreq[] = ["once", "daily", "weekly", "monthly", "yearly"];
+
+const REP_META: Record<RepFreq, { emoji: string; label: string }> = {
+  once:    { emoji: "1️⃣", label: "Once" },
+  daily:   { emoji: "📆", label: "Daily" },
+  weekly:  { emoji: "📅", label: "Weekly" },
+  monthly: { emoji: "🗓️", label: "Monthly" },
+  yearly:  { emoji: "🎂", label: "Yearly" },
+};
 
 const parseRRule = (rrule?: string | null): { freq: RepFreq | null; weekdays: string[] } => {
   if (!rrule) return { freq: null, weekdays: [] };
@@ -85,12 +93,12 @@ const EditTaskScreen: React.FC<Props> = ({ route, navigation }) => {
   // ── Form state ──
   const [title, setTitle] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
-  const [priority, setPriority] = useState<"low" | "medium" | "high" | "none">("none");
+  const [priority, setPriority] = useState<"low" | "medium" | "high">("low");
   const [startDatetime, setStartDatetime] = useState<string>(new Date().toISOString());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [isRecurring, setIsRecurring] = useState(false);
-  const [repFreq, setRepFreq] = useState<RepFreq | null>(null);
+  const [repFreq, setRepFreq] = useState<RepFreq>("once");
   const [selectedWeekdays, setSelectedWeekdays] = useState<string[]>([]);
   const [reminder, setReminder] = useState<number | null>(null);
   const [reminderOptions, setReminderOptions] = useState<number[]>(DEFAULT_REMINDERS);
@@ -103,14 +111,15 @@ const EditTaskScreen: React.FC<Props> = ({ route, navigation }) => {
   useEffect(() => {
     if (!taskToEdit) return;
     setTitle(taskToEdit.title ?? "");
-    setPriority((taskToEdit.priority as any) ?? "none");
+    const p = taskToEdit.priority as any;
+    setPriority(p === "none" ? "low" : (p ?? "low"));
     setEmoji(taskToEdit.emoji ?? "");
     setReminder(taskToEdit.reminder_time ?? null);
     setDurationMinutes(taskToEdit.duration_minutes ? String(taskToEdit.duration_minutes) : "");
     setIsRecurring(taskToEdit.is_recurring ?? false);
     if (taskToEdit.start_datetime) setStartDatetime(taskToEdit.start_datetime);
     const { freq, weekdays } = parseRRule(taskToEdit.rrule);
-    setRepFreq(freq);
+    setRepFreq(freq ?? "once");
     setSelectedWeekdays(weekdays);
     if (taskToEdit.categories) setSelectedCategories(taskToEdit.categories.map((c) => c.id));
     if (taskToEdit.reminder_time && !DEFAULT_REMINDERS.includes(taskToEdit.reminder_time)) {
@@ -119,7 +128,7 @@ const EditTaskScreen: React.FC<Props> = ({ route, navigation }) => {
   }, [taskToEdit]);
 
   useEffect(() => {
-    getCategories().then(setCategories).catch(() => {});
+    getAllLocalCategories().then(setCategories).catch(() => {});
   }, []);
 
   // ── Handlers ──
@@ -168,14 +177,27 @@ const EditTaskScreen: React.FC<Props> = ({ route, navigation }) => {
   };
 
   const handleSave = async () => {
-    if (!title.trim()) { Alert.alert("Missing title", "Please enter a task title."); return; }
+    // ── Validate all required fields ──
+    if (!title.trim()) {
+      Alert.alert("Missing Title", "Please enter a task title.");
+      return;
+    }
+    if (!emoji) {
+      Alert.alert("Missing Icon", "Please select an icon for your task.");
+      return;
+    }
+    const dur = Number(durationMinutes);
+    if (!Number.isFinite(dur) || dur <= 0) {
+      Alert.alert("Missing Duration", "Please enter a valid duration in minutes.");
+      return;
+    }
     if (!taskToEdit) return;
+
     setSaving(true);
     try {
       const rrule = buildRRule(repFreq, selectedWeekdays);
-      const dur = Number(durationMinutes);
-      const newDuration = Number.isFinite(dur) && dur > 0 ? dur : null;
-      const newEmoji = emoji || null;
+      const newDuration = dur;
+      const newEmoji = emoji;
       const newStartDatetime = startDatetime;
       const newIsRecurring = !!rrule;
       const newCategories = selectedCategories
@@ -186,7 +208,7 @@ const EditTaskScreen: React.FC<Props> = ({ route, navigation }) => {
       const patch: Partial<TaskTemplate> = {};
 
       if (title.trim() !== (taskToEdit.title ?? "")) patch.title = title.trim();
-      if (priority !== (taskToEdit.priority ?? "none")) patch.priority = priority;
+      if (priority !== (taskToEdit.priority ?? "low")) patch.priority = priority;
       if (newEmoji !== (taskToEdit.emoji ?? null)) patch.emoji = newEmoji;
       if (newStartDatetime !== taskToEdit.start_datetime) patch.start_datetime = newStartDatetime;
       if (newIsRecurring !== (taskToEdit.is_recurring ?? false)) patch.is_recurring = newIsRecurring;
@@ -218,10 +240,10 @@ const EditTaskScreen: React.FC<Props> = ({ route, navigation }) => {
       <SafeAreaView style={styles.safe}>
         <View style={styles.heroContainer}>
           <View style={styles.heroTopRow}>
-            <Text style={styles.heroTitle}>Edit Task</Text>
             <Pressable style={styles.backBtn} onPress={() => navigation.goBack()}>
               <Text style={styles.backBtnText}>←</Text>
             </Pressable>
+            <Text style={[styles.heroTitle, { marginLeft: 14 }]}>Edit Task</Text>
           </View>
         </View>
         <View style={styles.loadingCenter}>
@@ -240,25 +262,66 @@ const EditTaskScreen: React.FC<Props> = ({ route, navigation }) => {
       {/* ── Hero ────────────────────────────── */}
       <View style={styles.heroContainer}>
         <View style={styles.heroTopRow}>
-          <View style={{ flex: 1 }}>
+          <Pressable style={styles.backBtn} onPress={() => navigation.goBack()}>
+            <Text style={styles.backBtnText}>←</Text>
+          </Pressable>
+          <View style={{ flex: 1, marginLeft: 14 }}>
             <Text style={styles.heroTitle}>Edit Task</Text>
             <Text style={styles.heroSubtitle} numberOfLines={1}>
               {emoji ? `${emoji} ` : "📝 "}{taskToEdit.title}
             </Text>
           </View>
-          <Pressable style={styles.backBtn} onPress={() => navigation.goBack()}>
-            <Text style={styles.backBtnText}>←</Text>
-          </Pressable>
         </View>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
 
-        {/* ══════ TITLE & EMOJI ══════ */}
+        {/* ══════ ICON (moved up for visual impact) ══════ */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionLabel}>Task Name</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionIcon}>🎨</Text>
+            <Text style={styles.sectionLabel}>Icon *</Text>
+          </View>
+          {emoji ? (
+            <View style={styles.selectedEmojiPreview}>
+              <Text style={styles.selectedEmojiLarge}>{emoji}</Text>
+              <Pressable style={styles.clearEmojiBtn} onPress={() => setEmoji("")}>
+                <Text style={styles.clearEmojiBtnText}>✕</Text>
+              </Pressable>
+            </View>
+          ) : null}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={styles.emojiTabsRow}>
+              {EMOJI_CATEGORIES.map((cat) => (
+                <Pressable
+                  key={cat.id}
+                  style={[styles.emojiTab, selectedEmojiCategory === cat.id && styles.emojiTabActive]}
+                  onPress={() => setSelectedEmojiCategory(cat.id)}
+                >
+                  <Text style={[styles.emojiTabText, selectedEmojiCategory === cat.id && styles.emojiTabTextActive]}>
+                    {cat.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </ScrollView>
+          <View style={styles.emojiGrid}>
+            {EMOJI_CATEGORIES.find((c) => c.id === selectedEmojiCategory)?.emojis.map((e) => (
+              <Pressable key={e} style={[styles.emojiBtn, emoji === e && styles.emojiSelected]} onPress={() => setEmoji(emoji === e ? "" : e)}>
+                <Text style={styles.emojiText}>{e}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
+        {/* ══════ TITLE ══════ */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionIcon}>✏️</Text>
+            <Text style={styles.sectionLabel}>Task Name *</Text>
+          </View>
           <View style={styles.titleInputContainer}>
-            <Text style={styles.titleEmoji}>{emoji || "📌"}</Text>
+            <Text style={styles.titleEmoji}>{emoji || "⭐"}</Text>
             <TextInput
               style={styles.titleInput}
               placeholder="What needs to be done?"
@@ -271,7 +334,10 @@ const EditTaskScreen: React.FC<Props> = ({ route, navigation }) => {
 
         {/* ══════ PRIORITY ══════ */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionLabel}>Priority</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionIcon}>🚦</Text>
+            <Text style={styles.sectionLabel}>Priority *</Text>
+          </View>
           <View style={styles.priorityRow}>
             {PRIORITIES.map((p) => {
               const meta = PRIORITY_META[p];
@@ -287,7 +353,7 @@ const EditTaskScreen: React.FC<Props> = ({ route, navigation }) => {
                   onPress={() => setPriority(p as any)}
                 >
                   <Text style={[styles.priorityChipText, { color: active ? meta.color : colors.secondaryText }]}>
-                    {meta.emoji} {p}
+                    {meta.emoji} {meta.label}
                   </Text>
                 </Pressable>
               );
@@ -297,7 +363,10 @@ const EditTaskScreen: React.FC<Props> = ({ route, navigation }) => {
 
         {/* ══════ DATE & TIME ══════ */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionLabel}>Schedule</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionIcon}>📅</Text>
+            <Text style={styles.sectionLabel}>Schedule *</Text>
+          </View>
           <View style={styles.dateTimeRow}>
             <Pressable style={styles.dateTimeBtn} onPress={() => setShowDatePicker(true)}>
               <Text style={styles.dateTimeIcon}>📅</Text>
@@ -328,7 +397,10 @@ const EditTaskScreen: React.FC<Props> = ({ route, navigation }) => {
 
         {/* ══════ DURATION ══════ */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionLabel}>Duration</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionIcon}>⏱️</Text>
+            <Text style={styles.sectionLabel}>Duration *</Text>
+          </View>
           <View style={styles.durationRow}>
             <Text style={styles.durationIcon}>⏱</Text>
             <TextInput
@@ -345,21 +417,20 @@ const EditTaskScreen: React.FC<Props> = ({ route, navigation }) => {
 
         {/* ══════ REPETITION ══════ */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionLabel}>Repeat</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionIcon}>🔁</Text>
+            <Text style={styles.sectionLabel}>Repeat</Text>
+          </View>
           <View style={styles.repRow}>
-            <Pressable
-              style={[styles.repChip, !repFreq && styles.repChipSelected]}
-              onPress={() => { setRepFreq(null); setSelectedWeekdays([]); }}
-            >
-              <Text style={[styles.repChipText, !repFreq && styles.repChipTextSelected]}>None</Text>
-            </Pressable>
             {REP_OPTIONS.map((opt) => (
               <Pressable
                 key={opt}
                 style={[styles.repChip, repFreq === opt && styles.repChipSelected]}
-                onPress={() => { setRepFreq(opt === repFreq ? null : opt); if (opt !== "weekly") setSelectedWeekdays([]); }}
+                onPress={() => { setRepFreq(opt); if (opt !== "weekly") setSelectedWeekdays([]); }}
               >
-                <Text style={[styles.repChipText, repFreq === opt && styles.repChipTextSelected]}>{opt}</Text>
+                <Text style={[styles.repChipText, repFreq === opt && styles.repChipTextSelected]}>
+                  {REP_META[opt].emoji} {REP_META[opt].label}
+                </Text>
               </Pressable>
             ))}
           </View>
@@ -381,7 +452,10 @@ const EditTaskScreen: React.FC<Props> = ({ route, navigation }) => {
         {/* ══════ CATEGORIES ══════ */}
         {categories.length > 0 && (
           <View style={styles.sectionCard}>
-            <Text style={styles.sectionLabel}>Categories</Text>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionIcon}>🏷️</Text>
+              <Text style={styles.sectionLabel}>Categories</Text>
+            </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoriesScroll} contentContainerStyle={styles.categoriesScrollContent}>
               {categories.map((cat) => {
                 const on = selectedCategories.includes(cat.id);
@@ -397,7 +471,10 @@ const EditTaskScreen: React.FC<Props> = ({ route, navigation }) => {
 
         {/* ══════ REMINDER ══════ */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionLabel}>Reminder (minutes before)</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionIcon}>🔔</Text>
+            <Text style={styles.sectionLabel}>Reminder</Text>
+          </View>
           <View style={styles.reminderRow}>
             {reminderOptions.map((r) => {
               const on = reminder === r;
@@ -411,7 +488,7 @@ const EditTaskScreen: React.FC<Props> = ({ route, navigation }) => {
           <View style={styles.customReminderRow}>
             <TextInput
               style={styles.customInput}
-              placeholder="Custom…"
+              placeholder="Custom minutes…"
               placeholderTextColor={colors.secondaryText}
               keyboardType="numeric"
               value={customReminder}
@@ -420,31 +497,6 @@ const EditTaskScreen: React.FC<Props> = ({ route, navigation }) => {
             <TouchableOpacity style={styles.customAddBtn} onPress={handleAddCustomReminder}>
               <Text style={styles.customAddBtnText}>+</Text>
             </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* ══════ EMOJI ══════ */}
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionLabel}>Icon</Text>
-          <View style={styles.emojiTabsRow}>
-            {EMOJI_CATEGORIES.map((cat) => (
-              <Pressable
-                key={cat.id}
-                style={[styles.emojiTab, selectedEmojiCategory === cat.id && styles.emojiTabActive]}
-                onPress={() => setSelectedEmojiCategory(cat.id)}
-              >
-                <Text style={[styles.emojiTabText, selectedEmojiCategory === cat.id && styles.emojiTabTextActive]}>
-                  {cat.label}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-          <View style={styles.emojiGrid}>
-            {EMOJI_CATEGORIES.find((c) => c.id === selectedEmojiCategory)?.emojis.map((e) => (
-              <Pressable key={e} style={[styles.emojiBtn, emoji === e && styles.emojiSelected]} onPress={() => setEmoji(emoji === e ? "" : e)}>
-                <Text style={styles.emojiText}>{e}</Text>
-              </Pressable>
-            ))}
           </View>
         </View>
 
@@ -458,7 +510,7 @@ const EditTaskScreen: React.FC<Props> = ({ route, navigation }) => {
           >
             {saving
               ? <ActivityIndicator color="#FFF" />
-              : <Text style={styles.saveText}>Save Changes</Text>}
+              : <Text style={styles.saveText}>💾  Save Changes</Text>}
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete} activeOpacity={0.8}>

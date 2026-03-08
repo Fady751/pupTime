@@ -28,7 +28,7 @@ import {
 /**
  * Central hook for task CRUD, pagination, filtering, and background sync.
  */
-export const useTasks = (userId: number) => {
+export const useTasks = (userId: number, currentFilter?: TaskFilter) => {
   const dispatch = useDispatch<AppDispatch>();
 
   /* ── selectors ─────────────────────────────────── */
@@ -37,13 +37,16 @@ export const useTasks = (userId: number) => {
 
   /* ── initial fetch + background sync lifecycle ── */
   useEffect(() => {
+    if(currentFilter) {
+      dispatch(setFilter(currentFilter));
+    }
     dispatch(fetchTasks(userId));
     dispatch(startBackgroundSync(userId));
 
     return () => {
       dispatch(stopBackgroundSync());
     };
-  }, [ userId, dispatch ]);
+  }, [ userId, dispatch, currentFilter ]);
 
   /* ── actions ────────────────────────────────────── */
 

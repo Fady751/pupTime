@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -17,7 +17,8 @@ import { useTasks } from "../../Hooks/useTasks";
 import {
   type TaskTemplate,
   type TaskOverride,
-  toLocalDateString,
+  floorDateByTimezone,
+  getOverridesForBetweenDate,
 } from "../../types/task";
 
 /* ═══════════════════════════════════════════════════════════
@@ -45,30 +46,6 @@ const formatTime = (isoString: string): string => {
   return `${h}:${m} ${ampm}`;
 };
 
-/** Flatten templates → overrides that fall on a specific date string (YYYY-MM-DD). */
-const getOverridesForDate = (
-  tasks: TaskTemplate[],
-  dateStr: string,
-): { template: TaskTemplate; override: TaskOverride }[] => {
-  const result: { template: TaskTemplate; override: TaskOverride }[] = [];
-  for (const tpl of tasks) {
-    if (tpl.is_deleted) continue;
-    for (const ov of tpl.overrides ?? []) {
-      if (ov.is_deleted) continue;
-      const ovDate = toLocalDateString(ov.instance_datetime, tpl.timezone ?? undefined);
-      if (ovDate === dateStr) {
-        result.push({ template: tpl, override: ov });
-      }
-    }
-  }
-  result.sort(
-    (a, b) =>
-      new Date(a.override.instance_datetime).getTime() -
-      new Date(b.override.instance_datetime).getTime(),
-  );
-  return result;
-};
-
 /* ═══════════════════════════════════════════════════════════
    COMPONENT
    ═══════════════════════════════════════════════════════════ */
@@ -80,13 +57,43 @@ const ProfileSettingsScreen = ({ navigation }: { navigation: any }) => {
   const { isConnected } = useSelector((state: RootState) => state.network);
   const userId = data?.id;
 
-  const { tasks } = useTasks(userId!);
+  // Today's date string in local timezone
+  const dateStr = useMemo(() => floorDateByTimezone(new Date().toISOString()), []);
 
-  const todayStr = useMemo(() => toLocalDateString(new Date().toISOString()), []);
+  const nextDateStr = useMemo(() => {
+    const next = new Date();
+    next.setDate(next.getDate() + 1);
+    return floorDateByTimezone(next.toISOString());
+  }, []);
 
+  const current_filter = useMemo(() => {
+    return {
+      start_date: dateStr,
+      end_date: nextDateStr,
+    };
+  }, [dateStr, nextDateStr]);
+
+  const { tasks, loading, applyFilter } = useTasks(userId!, current_filter);
+
+  const refresh = () => {
+    applyFilter({
+      start_date: dateStr,
+      end_date: nextDateStr,
+    });
+  };
+
+  // Refresh tasks when screen gains focus
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("focus", () => {
+      refresh();
+    });
+    return unsubscribe;
+  }, [navigation, refresh]);
+
+  // Flatten overrides for today
   const todayOverrides = useMemo(
-    () => (userId ? getOverridesForDate(tasks, todayStr) : []),
-    [tasks, todayStr, userId],
+    () => (userId ? getOverridesForBetweenDate(tasks, dateStr, nextDateStr) : []),
+    [tasks, dateStr, nextDateStr, userId],
   );
 
   const pendingCount = useMemo(

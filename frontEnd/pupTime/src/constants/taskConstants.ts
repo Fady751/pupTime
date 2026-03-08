@@ -1,4 +1,4 @@
-export const PRIORITIES = [ "low", "medium", "high", "none" ] as const;
+export const PRIORITIES = [ "low", "medium", "high" ] as const;
 
 export const DEFAULT_REMINDERS = [ 5, 10, 15, 30, 60 ];
 
@@ -21,9 +21,10 @@ export const WEEKDAY_OPTIONS = [
 ] as const;
 
 export const EMOJI_CATEGORIES = [
-  { id: "work", label: "Work", emojis: [ "📝", "📌", "📅", "📈", "🧠" ] },
-  { id: "fitness", label: "Fitness", emojis: [ "💪", "🏃", "🧘", "🏋️", "⚡️" ] },
-  { id: "study", label: "Study", emojis: [ "📚", "✍️", "🧪", "🧮", "💡" ] },
-  { id: "shopping", label: "Shopping", emojis: [ "🛒", "🧾", "🎁", "🛍️", "💳" ] },
-  { id: "focus", label: "Focus", emojis: [ "🎯", "⏱️", "✅", "🔔", "🌟" ] },
+  { id: "general", label: "✨ General", emojis: [ "✅", "⭐", "🎯", "💡", "🔥", "⚡", "🚀", "💎", "🏆", "🔑" ] },
+  { id: "work", label: "💼 Work", emojis: [ "📝", "📊", "📈", "💻", "📧", "📋", "🗂️", "📎", "🖊️", "📁" ] },
+  { id: "health", label: "💪 Health", emojis: [ "🏃", "🧘", "🏋️", "🥗", "💊", "🧠", "😴", "🚴", "🏊", "❤️" ] },
+  { id: "study", label: "📚 Study", emojis: [ "📖", "✍️", "🧪", "🎓", "📐", "🔬", "🗓️", "🧮", "🖥️", "📕" ] },
+  { id: "life", label: "🏠 Life", emojis: [ "🛒", "🍳", "🧹", "🪴", "🐶", "🎁", "💰", "🏦", "🧺", "🔧" ] },
+  { id: "social", label: "🎉 Social", emojis: [ "☎️", "💬", "🤝", "🎂", "✈️", "📸", "🎮", "🎵", "🎬", "🍽️" ] },
 ];

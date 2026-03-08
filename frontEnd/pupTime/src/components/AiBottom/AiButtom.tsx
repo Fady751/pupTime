@@ -12,7 +12,7 @@ import useTheme from "../../Hooks/useTheme";
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 const BTN_SIZE = 65;
 const INIT_X = SCREEN_W - BTN_SIZE - 20;
-const INIT_Y = SCREEN_H - 200;
+const INIT_Y = SCREEN_H - 700;
 
 interface AiButtonProps {
   onPress?: () => void;

@@ -1,8 +1,8 @@
-import React, { useMemo, useState, useCallback } from "react";
+import React, { useMemo, useState, useCallback, useEffect } from "react";
 import { View, TouchableOpacity, Text, StyleSheet } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import { Schedule } from "../../components/Schedule";
-import { type TaskTemplate } from "../../types/task";
+import { type TaskTemplate, floorDateByTimezone } from "../../types/task";
 import useTheme from "../../Hooks/useTheme";
 import { useTasks } from "../../Hooks/useTasks";
 import { useSelector } from "react-redux";
@@ -12,9 +12,29 @@ const ScheduleScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const { colors } = useTheme();
   const data = useSelector((state: RootState) => state.user.data);
+  const route = useRoute();
+
+  // Today's date string in local timezone
+  const [dateStr, setDateSrt] = useState(floorDateByTimezone(new Date().toISOString()));
+
+  const [nextDateStr, setNextDateStr] = useState(() => {
+    const next = new Date();
+    next.setDate(next.getDate() + 1);
+    return floorDateByTimezone(next.toISOString());
+  });
+
+  const current_filter = useMemo(() => {
+    return {
+      start_date: dateStr,
+      end_date: nextDateStr,
+    };
+  }, [dateStr, nextDateStr]);
+
   const { tasks, loading, filter, changeOverride, applyFilter } = useTasks(
     data?.id as number,
+    current_filter,
   );
+
   const [togglingIds, setTogglingIds] = useState<string[]>([]);
 
   const styles = useMemo(
@@ -45,6 +65,8 @@ const ScheduleScreen: React.FC = () => {
   /* ── Month change → update the store filter ──────── */
   const handleMonthChange = useCallback(
     async (startDate: string, endDate: string) => {
+      setDateSrt(startDate);
+      setNextDateStr(endDate);
       await applyFilter({
         ...filter,
         start_date: startDate,

@@ -70,6 +70,8 @@ import {
 	getTaskOccurrences,
 } from '../../types/task';
 import type { Category } from '../../types/category';
+import { getCategories } from '../interestService/getCategories';
+import { fetchTasks } from '../../redux/slices/tasksSlice';
 
 /* ═══════════════════════════════════════════════════════════
    CONSTANTS & TYPES
@@ -78,7 +80,7 @@ import type { Category } from '../../types/category';
 const LAST_SYNC_KEY = 'lastSyncDate';
 const PROCESS_QUEUE_KEY = 'processQueue';
 const SYNC_IN_PROGRESS_KEY = 'syncInProgress';
-const MAX_RETRIES = 5;
+const MAX_RETRIES = 10;
 
 type EntityType = 'TASK_TEMPLATE' | 'TASK_OVERRIDE';
 type Operation = 'CREATE' | 'UPDATE' | 'DELETE';
@@ -124,6 +126,28 @@ const getLocalCategories = async (template_id: string): Promise<Category[]> => {
 		.where(eq(taskTemplateCategories.template_id, template_id));
 };
 
+/** Fetch all categories from the local DB. */
+export const getAllLocalCategories = async (): Promise<Category[]> => {
+	const db = await getDrizzleDb();
+	return db.select({ id: categories.id, name: categories.name }).from(categories);
+};
+
+/** download all categories localy */
+
+export const downloadCategories = async () => {
+	const cats = await getCategories();
+	await upsertCategories(cats);
+}
+
+/**  Upsert category records into the categories table so JOINs can resolve names */
+const upsertCategories = async (cats: Category[]) => {
+	const db = await getDrizzleDb();
+	await db
+		.insert(categories)
+		.values(cats)
+		.onConflictDoNothing();
+}
+
 /** Upsert categories for a template into the local DB. */
 const saveCategoriesToLocal = async (
 	template_id: string,
@@ -132,17 +156,19 @@ const saveCategoriesToLocal = async (
 	if (!cats?.length) return;
 	const db = await getDrizzleDb();
 
+	await upsertCategories(cats);
+
 	await db.delete(taskTemplateCategories).where(eq(taskTemplateCategories.template_id, template_id));
 
 	const to_add = cats.map((cat) => ({
 		template_id,
 		category_id: cat.id,
 	}));
-	await db.insert(taskTemplateCategories).values(to_add);
+	const rows = await db.insert(taskTemplateCategories).values(to_add).returning();
 };
 
 /** Upsert a task template in the local DB. */
-const saveServerResponseToLocal = async (template: TaskTemplate): Promise<TaskTemplate & {inserted: TaskOverride[], deleted: string[]}> => {
+const saveServerResponseToLocal = async (template: TaskTemplate): Promise<TaskTemplate & { inserted: TaskOverride[], deleted: string[] }> => {
 	const nowIso = new Date().toISOString();
 	const tplData: NewTaskTemplate = {
 		id: template.id,
@@ -166,7 +192,7 @@ const saveServerResponseToLocal = async (template: TaskTemplate): Promise<TaskTe
 	return { ...template, ...(await TaskService.createOverrides(template.id, template.overrides ?? [])) };
 };
 
-/** Upse */
+
 
 /** Whether the patch touches schedule-related fields. */
 const isScheduleChange = (patch: Partial<TaskTemplate>): boolean =>
@@ -238,17 +264,7 @@ export const updateTemplate = async (
 	id: string,
 	patch: Partial<TaskTemplate>,
 ): Promise<TaskTemplate & { deleted?: string[] } | undefined> => {
-	const count = await SyncQueueRepository.getCount();
-	// ── Online path ────────────
-	if (isOnline() && !count) {
-		try {
-			await apiPatchTask(id, patch);
-			// Hany TODO: update local DB
-			return;
-		} catch (error) {
-			console.warn('[sync] update online failed, falling back to offline', error);
-		}
-	}
+
 
 	// ── Offline path ───────────
 	const dbPatch: Partial<NewTaskTemplate> = {
@@ -271,10 +287,8 @@ export const updateTemplate = async (
 		const res = await TaskService.regenerateLocalOverrides(updated as TaskTemplate);
 		inserted = res.inserted;
 		deleted = res.deleted;
-		for (const ov of deleted) {
-			await enqueueOperation('DELETE', 'TASK_OVERRIDE', ov, {});
-		}
 		payload.overrides = inserted;
+		payload.deleted_overrides = deleted;
 	}
 	await enqueueOperation('UPDATE', 'TASK_TEMPLATE', id, payload);
 
@@ -292,6 +306,7 @@ export const deleteTemplate = async (id: string): Promise<void> => {
 	if (isOnline() && !count) {
 		try {
 			await apiDeleteTask(id);
+			await TaskService.deleteByTemplateId(id);
 			await TaskTemplateRepository.deleteByTemplateId(id);
 			return;
 		} catch (error) {
@@ -442,7 +457,7 @@ export const getTemplatesWithOverrides = async (
 export const processQueue = async (): Promise<void> => {
 	const isProcessing = (await AppMetaRepository.get(PROCESS_QUEUE_KEY))?.value === 'true';
 	const isSyncing = (await AppMetaRepository.get(SYNC_IN_PROGRESS_KEY))?.value === 'true';
-	
+
 	if (isProcessing || isSyncing) {
 		return;
 	}
@@ -451,7 +466,8 @@ export const processQueue = async (): Promise<void> => {
 		return;
 	}
 	await AppMetaRepository.set(PROCESS_QUEUE_KEY, 'true');
-	
+	await AppMetaRepository.set(SYNC_IN_PROGRESS_KEY, 'true');
+
 	for (const item of items) {
 		if ((item.retry_count ?? 0) >= MAX_RETRIES) {
 			console.warn(`[sync] skipping item ${item.id} after ${MAX_RETRIES} retries`);
@@ -523,9 +539,11 @@ export const processQueue = async (): Promise<void> => {
 					last_error: error?.message ?? 'Unknown error',
 				})
 				.where(eq(syncQueue.id, item.id));
+			break;
 		}
 	}
 	await AppMetaRepository.set(PROCESS_QUEUE_KEY, 'false');
+	await AppMetaRepository.set(SYNC_IN_PROGRESS_KEY, 'false');
 };
 
 /* ═══════════════════════════════════════════════════════════
@@ -542,7 +560,7 @@ export const pullFromServer = async (): Promise<boolean> => {
 	if (queueCount > 0) {
 		processQueue();
 	}
-	await AppMetaRepository.set(SYNC_IN_PROGRESS_KEY, 'false');
+
 	const isSyncing = (await AppMetaRepository.get(SYNC_IN_PROGRESS_KEY))?.value === 'true';
 	const isProcessing = (await AppMetaRepository.get(PROCESS_QUEUE_KEY))?.value === 'true';
 
@@ -613,6 +631,10 @@ export const fullSync = async (): Promise<boolean> => {
 	try {
 		await processQueue();
 		const changes = await pullFromServer();
+		if (changes) {
+			const userId = store.getState().user?.data?.id;
+			if (userId) store.dispatch(fetchTasks(userId));
+		}
 		isSyncing = false;
 		return changes;
 	} catch (error) {
