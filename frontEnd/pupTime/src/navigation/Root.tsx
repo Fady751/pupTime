@@ -15,6 +15,7 @@ import { useEffect } from 'react';
 import { getTasks } from '../services/TaskService/tasks';
 import { fullSync, getTemplatesWithOverrides } from '../services/TaskService/syncService';
 import { AppMetaRepository, TaskTemplateRepository } from '../DB';
+import { getExactlyTime } from '../types/task';
 // import { AppMetaRepository } from '../DB';
 
 export default function Root() {

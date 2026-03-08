@@ -35,9 +35,9 @@ const toClientTaskTemplate = (data: any): TaskTemplate => {
 
 export const createTaskTemplate = async (taskData: TaskTemplate): Promise<TaskTemplate> => {
   try {
-    console.log("request: ", toServerTaskData(taskData));
+    // console.log("request: ", toServerTaskData(taskData));
     const response = await api.post('/task/', toServerTaskData(taskData));
-    console.log("response: ", toClientTaskTemplate(response.data));
+    // console.log("response: ", toClientTaskTemplate(response.data));
     return toClientTaskTemplate(response.data);
   } catch (error: any) {
     console.error(error);
@@ -95,7 +95,9 @@ export const patchTask = async (id: string, task: Partial<TaskTemplate>): Promis
     if(task.overrides) formattedTaskData.initial_overrides = task.overrides;
 
     try {
+        console.log("request: ", formattedTaskData);
         const response = await api.patch(`/task/${id}`, formattedTaskData);
+        console.log("response: ", response.data);
       } catch (error: any) {
         console.error(error);
         throw error;

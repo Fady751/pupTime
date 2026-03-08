@@ -80,7 +80,7 @@ import { fetchTasks } from '../../redux/slices/tasksSlice';
 const LAST_SYNC_KEY = 'lastSyncDate';
 const PROCESS_QUEUE_KEY = 'processQueue';
 const SYNC_IN_PROGRESS_KEY = 'syncInProgress';
-const MAX_RETRIES = 5;
+const MAX_RETRIES = 10;
 
 type EntityType = 'TASK_TEMPLATE' | 'TASK_OVERRIDE';
 type Operation = 'CREATE' | 'UPDATE' | 'DELETE';
@@ -539,6 +539,7 @@ export const processQueue = async (): Promise<void> => {
 					last_error: error?.message ?? 'Unknown error',
 				})
 				.where(eq(syncQueue.id, item.id));
+			break;
 		}
 	}
 	await AppMetaRepository.set(PROCESS_QUEUE_KEY, 'false');

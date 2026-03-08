@@ -156,6 +156,7 @@ const Schedule: React.FC<ScheduleProps> = ({
   const { colors } = useTheme();
   const styles = useMemo(() => createScheduleStyles(colors), [colors]);
 
+  console.log("tasks: ", tasks);
   const today = useMemo(() => {
     const d = new Date();
     d.setHours(0, 0, 0, 0);

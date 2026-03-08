@@ -8,7 +8,7 @@ import {
 	type TaskOverride,
 } from '../DB';
 
-import { getTaskOccurrences, TaskTemplate } from '../types/task';
+import { getExactlyTime, getTaskOccurrences, TaskTemplate } from '../types/task';
 import NotificationService from './NotificationService';
 import uuid from 'react-native-uuid';
 
@@ -100,13 +100,14 @@ export const TaskService = {
 	/**
 	 * Generate local overrides for a template.
 	 */
-	async generateLocalOverrides (
+	async generateLocalOverrides(
 		template: TaskTemplate,
 		next: number = 30
 	): Promise<{ inserted: TaskOverride[], deleted: string[] }> {
 		if (!template.start_datetime) return { inserted: [], deleted: [] };
 
 		const occurrences = getTaskOccurrences(template, new Date(), next);
+		console.log("occurrences: ", occurrences);
 
 		const { inserted, deleted } = await TaskService.createOverrides(
 			template.id,
@@ -122,31 +123,51 @@ export const TaskService = {
 	 * Delete future PENDING overrides for a template and regenerate the
 	 * next 30 days.  Called during offline update when schedule fields change.
 	 */
-	async regenerateLocalOverrides (
+	async regenerateLocalOverrides(
 		template: TaskTemplate,
 		next: number = 30
 	): Promise<{ inserted: TaskOverride[], deleted: string[] }> {
 		const db = await getDrizzleDb();
 		const todayIso = new Date().toISOString();
 
-		const deleted = (await db
-			.delete(taskOverrides)
+		// Fetch ALL non-deleted future overrides (any status) to know every occupied date
+		const allOverrides = (await db
+			.select().from(taskOverrides)
 			.where(
 				and(
 					eq(taskOverrides.template_id, template.id),
-					eq(taskOverrides.status, 'PENDING'),
 					gte(taskOverrides.instance_datetime, todayIso),
 					eq(taskOverrides.is_deleted, false),
 				),
-			).returning()).map((item) => item.id);
+			));
 
-		for (const ov of deleted) {
-			await NotificationService.cancel(ov);
+		// Only PENDING overrides are candidates for deletion
+		const selected = allOverrides.filter(ov => ov.status === 'PENDING');
+
+		// Use ALL overrides (including COMPLETED) so we don't re-create on occupied dates
+		const selectedDates = new Set(allOverrides.map(ov => getExactlyTime(ov.instance_datetime)));
+
+		const occurrences = getTaskOccurrences(template, new Date(), next);
+		const occurrenceSet = new Set(occurrences);
+
+		const deleted = selected.filter((ov) => !occurrenceSet.has(getExactlyTime(ov.instance_datetime))).map(ov => ov.id);
+
+		const toInsert = occurrences.filter((datetime) =>
+			!selectedDates.has(getExactlyTime(datetime)))
+			.map((datetime) => ({
+				template_id: template.id,
+				instance_datetime: datetime,
+			} as NewTaskOverride));
+
+		for (const id of deleted) {
+			await NotificationService.cancel(id);
+			await TaskOverrideRepository.deleteById(id);
 		}
-		const res = await TaskService.generateLocalOverrides(template, next);
-
-		res.deleted = [...deleted, ...res.deleted];
-		return res;
+		const { inserted, deleted: insertedDeleted } = await TaskService.createOverrides(
+			template.id,
+			toInsert
+		);
+		return { inserted, deleted: [ ...deleted, ...insertedDeleted ] };
 	},
 	/**
 	 * Update an existing override: cancel old notification, save changes, then reschedule.

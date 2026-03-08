@@ -190,6 +190,20 @@ export const isTaskOnDate = (task: TaskTemplate, date: string): boolean => {
   }
 };
 
+export const getExactlyTime = (dateStr: string): string => {
+  const date = new Date(dateStr);
+  const d = new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+    date.getHours(),
+    date.getMinutes(),
+    0,
+    0
+  );
+  return d.toISOString();
+}
+
 /**
  * Returns all occurrence Dates for a task within the next 30 days (or specified window).
  */
@@ -208,7 +222,7 @@ export const getTaskOccurrences = (
 
   if (!task.is_recurring || !task.rrule) {
     if (taskStart >= windowStart && taskStart <= windowEnd) {
-      return [ task.start_datetime ];
+      return [ getExactlyTime(task.start_datetime) ];
     }
     return [];
   }
@@ -219,7 +233,7 @@ export const getTaskOccurrences = (
 
     const rule = new RRule(ruleOptions);
 
-    return rule.between(windowStart, windowEnd, true).map(d => d.toISOString());
+    return rule.between(windowStart, windowEnd, true).map(d => getExactlyTime(d.toISOString()));
   } catch (error) {
     console.warn(`Failed to parse recurrence for task ${task.id}`, error);
     return [];
