@@ -9,6 +9,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .ai_provider import ChatMessage, get_ai_provider
+from .Tools.task_tools import get_task_tools
 from .models import Conversation, Message
 from .serializers import (
     ConversationListSerializer,
@@ -85,7 +86,6 @@ class ChatView(APIView):
                     status=status.HTTP_404_NOT_FOUND,
                 )
         else:
-            # Create a new conversation with the first user message as the title
             title = user_text[:80]
             conversation = Conversation.objects.create(
                 user=request.user,
@@ -101,15 +101,23 @@ class ChatView(APIView):
         history = list(
             conversation.messages.order_by('created_at').values_list('role', 'content')
         )
-        chat_messages = [ChatMessage(role=r, content=c) for r, c in history]
+        system_prompt = ChatMessage(
+            role='system',
+            content=(
+                "You are a helpful personal task manager assistant. "
+                "You have tools to read, create, update, and delete the user's tasks. "
+                "Always call get_today_tasks first when the user asks about their schedule or today's tasks."
+            ),
+        )
+        chat_messages = [system_prompt] + [ChatMessage(role=r, content=c) for r, c in history]
 
-        # Stream the AI response back via server-sent events
         def event_stream():
             provider = get_ai_provider()
             full_response_parts: list[str] = []
+            tools = get_task_tools(request.user)
 
             try:
-                for chunk in provider.stream(chat_messages):
+                for chunk in provider.stream_with_tools(chat_messages, tools):
                     full_response_parts.append(chunk)
                     payload = json.dumps({
                         'conversation_id': str(conversation.id),

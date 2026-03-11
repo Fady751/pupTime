@@ -32,6 +32,9 @@ ALLOWED_HOSTS = ["*"]
 
 CORS_ALLOW_ALL_ORIGINS = True
 
+# Prevent Django from erroring on POST requests that don't have a trailing slash
+APPEND_SLASH = False
+
 # Application definition
 
 INSTALLED_APPS = [
