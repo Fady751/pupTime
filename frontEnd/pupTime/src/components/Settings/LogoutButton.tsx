@@ -4,7 +4,7 @@ import useTheme from "../../Hooks/useTheme";
 import createSettingsStyles from "./Settings.styles";
 import { useLogout } from "../../Hooks/useLogout";
 import ConfirmModal from "../Confirm/confirm";
-import { getPendingSyncItems } from "../../DB";
+import { SyncQueueRepository } from "../../DB";
 
 export const LogoutButton: React.FC = () => {
   const { colors } = useTheme();
@@ -13,8 +13,8 @@ export const LogoutButton: React.FC = () => {
   const [visible, setVisible] = React.useState(false);
 
   const handlePress = async () => {
-      const queue = await getPendingSyncItems();
-      if(queue.length > 0) {
+      const queue = await SyncQueueRepository.getCount();
+      if(queue > 0) {
         setVisible(true);
       }
       else {

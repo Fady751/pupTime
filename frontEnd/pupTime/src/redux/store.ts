@@ -1,13 +1,13 @@
 import { configureStore } from '@reduxjs/toolkit';
 import userReducer from './slices/userSlice';
-import networkReducer from './networkSlice';
-// import tasksReducer from './tasksSlice';
+import networkReducer from './slices/networkSlice';
+import tasksReducer from './slices/tasksSlice';
 
 export const store = configureStore({
   reducer: {
     user: userReducer,
     network: networkReducer,
-    // tasks: tasksReducer,
+    tasks: tasksReducer,
   },
 });
 

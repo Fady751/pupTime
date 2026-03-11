@@ -1,10 +1,14 @@
+import { and, eq, gte } from 'drizzle-orm';
 import {
+	getDrizzleDb,
 	TaskOverrideRepository,
+	taskOverrides,
 	TaskTemplateRepository,
 	type NewTaskOverride,
 	type TaskOverride,
-	type TaskTemplate,
 } from '../DB';
+
+import { getExactlyTime, getTaskOccurrences, TaskTemplate } from '../types/task';
 import NotificationService from './NotificationService';
 import uuid from 'react-native-uuid';
 
@@ -62,12 +66,86 @@ const scheduleNotificationForOverride = async (
 	);
 };
 
+export const scheduleNotificationsForOverrides = async (
+	overrides: TaskOverride[],
+	template: TaskTemplate
+): Promise<void> => {
+	const activeOverrides = overrides.filter((override) => {
+		const isDeleted = override.is_deleted === true;
+		const active = override.status === 'PENDING';
+
+		return !isDeleted && active;
+	});
+
+	console.log(`activeOverrides: (${activeOverrides.length})`);
+
+	if (activeOverrides.length === 0) {
+		// console.log(`Successfully processed scheduling for template: ${template.title}`);
+		return;
+	}
+
+	// Prepare permission + channel ONCE before the batch
+	try {
+		await NotificationService.prepare('tasks', 'Task Notifications');
+	} catch (error) {
+		console.error('Failed to prepare notification channel:', error);
+		return;
+	}
+
+	// Schedule all triggers concurrently (permission + channel already prepared)
+	await Promise.all(
+		activeOverrides.map(async (override) => {
+			try {
+				const taskTimeString = override.new_datetime || override.instance_datetime;
+
+				if (!taskTimeString) {
+					console.warn(`Override ${override.id} has no valid datetime string.`);
+					return;
+				}
+
+				const taskTimeMs = new Date(taskTimeString).getTime();
+
+				if (isNaN(taskTimeMs)) {
+					console.error(`Invalid date format for override ${override.id}: ${taskTimeString}`);
+					return;
+				}
+
+				const reminderMinutes = template.reminder_time ?? 0;
+				const reminderOffsetMs = reminderMinutes * 60 * 1000;
+				const notificationTimestamp = taskTimeMs - reminderOffsetMs;
+
+				if (notificationTimestamp <= Date.now()) return;
+
+				const title = template.title || 'Task Reminder';
+				const formattedTime = new Date(taskTimeMs).toLocaleTimeString([], {
+					hour: '2-digit',
+					minute: '2-digit',
+				});
+
+				const emojiPrefix = template.emoji ? `${template.emoji} ` : '';
+				const body = `${emojiPrefix}You have a task coming up at ${formattedTime}`;
+
+				await NotificationService.scheduleAtTimePrepared(
+					override.id,
+					title,
+					body,
+					notificationTimestamp,
+					'tasks'
+				);
+			} catch (error) {
+				console.error(`Failed to schedule notification for override ${override.id}:`, error);
+			}
+		})
+	);
+
+	// console.log(`Successfully processed scheduling for template: ${template.title}`);
+};
 export const TaskService = {
 	/**
 	 * Create a new override instance and schedule its notification.
 	 */
 	async createOverrides(template_id: string, input: NewTaskOverride[]): Promise<{ inserted: TaskOverride[], deleted: string[] }> {
-		const template = await TaskTemplateRepository.findById(template_id);
+		const template = await TaskTemplateRepository.findById(template_id) as TaskTemplate;
 		if (!template) return { inserted: [], deleted: [] };
 
 		const nowIso = new Date().toISOString();
@@ -87,12 +165,86 @@ export const TaskService = {
 			await NotificationService.cancel(id);
 		}
 
-		for (const ov of inserted) {
-			await scheduleNotificationForOverride(ov, template);
-		}
+		// for (const ov of inserted) {
+		// 	await scheduleNotificationForOverride(ov, template);
+		// }
+		await scheduleNotificationsForOverrides(inserted, template);
+
 		return { inserted, deleted };
 	},
 
+	/**
+	 * Generate local overrides for a template.
+	 */
+	async generateLocalOverrides(
+		template: TaskTemplate,
+		next: number = 30
+	): Promise<{ inserted: TaskOverride[], deleted: string[] }> {
+		if (!template.start_datetime) return { inserted: [], deleted: [] };
+
+		const occurrences = getTaskOccurrences(template, new Date(), next);
+		console.log("occurrences: ", occurrences);
+
+		const { inserted, deleted } = await TaskService.createOverrides(
+			template.id,
+			occurrences.map((datetime) => ({
+				template_id: template.id,
+				instance_datetime: datetime,
+			} as NewTaskOverride))
+		);
+		return { inserted, deleted };
+	},
+
+	/**
+	 * Delete future PENDING overrides for a template and regenerate the
+	 * next 30 days.  Called during offline update when schedule fields change.
+	 */
+	async regenerateLocalOverrides(
+		template: TaskTemplate,
+		next: number = 30
+	): Promise<{ inserted: TaskOverride[], deleted: string[] }> {
+		const db = await getDrizzleDb();
+		const todayIso = new Date().toISOString();
+
+		// Fetch ALL non-deleted future overrides (any status) to know every occupied date
+		const allOverrides = (await db
+			.select().from(taskOverrides)
+			.where(
+				and(
+					eq(taskOverrides.template_id, template.id),
+					gte(taskOverrides.instance_datetime, todayIso),
+					eq(taskOverrides.is_deleted, false),
+				),
+			));
+
+		// Only PENDING overrides are candidates for deletion
+		const selected = allOverrides.filter(ov => ov.status === 'PENDING');
+
+		// Use ALL overrides (including COMPLETED) so we don't re-create on occupied dates
+		const selectedDates = new Set(allOverrides.map(ov => getExactlyTime(ov.instance_datetime)));
+
+		const occurrences = getTaskOccurrences(template, new Date(), next);
+		const occurrenceSet = new Set(occurrences);
+
+		const deleted = selected.filter((ov) => !occurrenceSet.has(getExactlyTime(ov.instance_datetime))).map(ov => ov.id);
+
+		const toInsert = occurrences.filter((datetime) =>
+			!selectedDates.has(getExactlyTime(datetime)))
+			.map((datetime) => ({
+				template_id: template.id,
+				instance_datetime: datetime,
+			} as NewTaskOverride));
+
+		for (const id of deleted) {
+			await NotificationService.cancel(id);
+			await TaskOverrideRepository.deleteById(id);
+		}
+		const { inserted, deleted: insertedDeleted } = await TaskService.createOverrides(
+			template.id,
+			toInsert
+		);
+		return { inserted, deleted: [ ...deleted, ...insertedDeleted ] };
+	},
 	/**
 	 * Update an existing override: cancel old notification, save changes, then reschedule.
 	 */
@@ -135,7 +287,7 @@ export const TaskService = {
 			const template = await TaskTemplateRepository.findById(saved.template_id);
 
 			if (template) {
-				await scheduleNotificationForOverride(saved, template);
+				await scheduleNotificationForOverride(saved, template as TaskTemplate);
 			}
 		}
 
@@ -148,6 +300,12 @@ export const TaskService = {
 	async deleteOverride(id: string): Promise<void> {
 		await TaskOverrideRepository.deleteById(id);
 		await NotificationService.cancel(id);
+	},
+	async deleteByTemplateId(id: string): Promise<void> {
+		const overrides = await TaskOverrideRepository.listByTemplate(id);
+		for (const ov of overrides) {
+			await NotificationService.cancel(ov.id);
+		}
 	},
 };
 

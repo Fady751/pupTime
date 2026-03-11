@@ -5,6 +5,7 @@ import {
   taskTemplates,
   taskOverrides,
   taskTemplateCategories,
+  categories,
   type NewTaskTemplate,
   type TaskTemplate,
   type TaskOverride,
@@ -16,15 +17,16 @@ export interface GetOverridesParams {
   page_size?: number;
   priority?: string | null;
   category?: number | string | null;
+  template_id?: string;
   start_date?: string;
   end_date?: string;
   ordering?:
-    | 'start_datetime'
-    | '-start_datetime'
-    | 'created_at'
-    | '-created_at'
-    | 'title'
-    | '-title';
+  | 'start_datetime'
+  | '-start_datetime'
+  | 'created_at'
+  | '-created_at'
+  | 'title'
+  | '-title';
 }
 
 interface PaginatedResult<T> {
@@ -38,14 +40,14 @@ interface PaginatedResult<T> {
 export const TaskTemplateRepository = {
   async create(data: NewTaskTemplate): Promise<TaskTemplate> {
     const db = await getDrizzleDb();
-      const [row] = await db
-    .insert(taskTemplates)
-    .values(data)
-    .onConflictDoUpdate({
-      target: taskTemplates.id,
-      set: data,
-    })
-    .returning();
+    const [ row ] = await db
+      .insert(taskTemplates)
+      .values(data)
+      .onConflictDoUpdate({
+        target: taskTemplates.id,
+        set: data,
+      })
+      .returning();
     return row;
   },
 
@@ -55,7 +57,7 @@ export const TaskTemplateRepository = {
       .select()
       .from(taskTemplates)
       .where(eq(taskTemplates.id, id));
-    return rows[0];
+    return rows[ 0 ];
   },
 
   async listByUser(user_id: number): Promise<TaskTemplate[]> {
@@ -71,7 +73,7 @@ export const TaskTemplateRepository = {
     patch: Partial<NewTaskTemplate>
   ): Promise<TaskTemplate | undefined> {
     const db = await getDrizzleDb();
-    const [row] = await db
+    const [ row ] = await db
       .update(taskTemplates)
       .set(patch)
       .where(eq(taskTemplates.id, id))
@@ -90,14 +92,14 @@ export const TaskTemplateRepository = {
   async deleteByTemplateId(id: string): Promise<void> {
     const db = await getDrizzleDb();
     await db
-      .delete(taskOverrides)
-      .where(eq(taskOverrides.template_id, id));
+      .delete(taskTemplates)
+      .where(eq(taskTemplates.id, id));
   },
 
   async filter(options: GetOverridesParams): Promise<PaginatedResult<TaskTemplate>> {
     const db = await getDrizzleDb();
     const page = Math.max(1, options.page ?? 1);
-    const pageSize = Math.max(1, Math.min(options.page_size ?? 20, 100));
+    const pageSize = Math.max(1, options.page_size ?? 100);
     const offset = (page - 1) * pageSize;
 
     const conditions = [
@@ -115,6 +117,9 @@ export const TaskTemplateRepository = {
 
     if (options.end_date) {
       conditions.push(lte(taskTemplates.start_datetime, options.end_date));
+    }
+    if(options.template_id) {
+      conditions.push(eq(taskTemplates.id, options.template_id));
     }
 
     const whereExpr = and(...conditions);
@@ -139,7 +144,7 @@ export const TaskTemplateRepository = {
       }
     })();
 
-    const [{ count: totalCount }] = await db
+    const [ { count: totalCount } ] = await db
       .select({ count: count() })
       .from(taskTemplates)
       .where(whereExpr);
@@ -166,7 +171,7 @@ export const TaskTemplateRepository = {
 
   async getTaskOverrides(
     params: GetOverridesParams
-  ): Promise<PaginatedResult< TaskTemplate & { overrides: TaskOverride[] } >> {
+  ): Promise<PaginatedResult<TaskTemplate & { overrides: TaskOverride[] }>> {
     const db = await getDrizzleDb();
 
     const {
@@ -175,13 +180,14 @@ export const TaskTemplateRepository = {
       page_size = 20,
       priority,
       category,
+      template_id,
       start_date,
       end_date,
       ordering,
     } = params;
 
     const pageNum = Math.max(1, page);
-    const pageSize = Math.max(1, Math.min(page_size, 100));
+    const pageSize = Math.max(1, page_size);
     const offset = (pageNum - 1) * pageSize;
 
     const conditions = [
@@ -205,23 +211,24 @@ export const TaskTemplateRepository = {
       conditions.push(eq(taskTemplateCategories.category_id, Number(category)));
     }
 
+    if (template_id) {
+      conditions.push(eq(taskTemplates.id, template_id));
+    }
+
     const whereExpr = and(...conditions);
 
     let query = db
       .select({
         override: taskOverrides,
         template: taskTemplates,
+        category_id: categories.id,
+        category_name: categories.name,
       })
       .from(taskOverrides)
       .innerJoin(taskTemplates, eq(taskOverrides.template_id, taskTemplates.id))
+      .leftJoin(taskTemplateCategories, eq(taskTemplates.id, taskTemplateCategories.template_id))
+      .leftJoin(categories, eq(taskTemplateCategories.category_id, categories.id))
       .$dynamic();
-
-    if (category) {
-      query = query.innerJoin(
-        taskTemplateCategories,
-        eq(taskTemplates.id, taskTemplateCategories.template_id)
-      );
-    }
 
     query = query.where(whereExpr);
 
@@ -252,27 +259,38 @@ export const TaskTemplateRepository = {
     } else {
       orderByClause.push(desc(taskOverrides.instance_datetime));
     }
-    
+
     query = query.orderBy(...orderByClause);
 
     // 4. Execute Data Query & Transform
     const rawRows = await query.limit(pageSize).offset(offset);
 
-    // Grouping Logic: Merge overrides if they belong to the same template
-    const groupedMap = new Map<string, TaskTemplate & { overrides: TaskOverride[] }>();
+    // Grouping Logic: Merge overrides + categories if they belong to the same template
+    const groupedMap = new Map<string, TaskTemplate & { overrides: TaskOverride[]; categories: { id: number; name: string }[] }>();
 
     for (const row of rawRows) {
       const tId = row.template.id;
       if (!groupedMap.has(tId)) {
-        // Initialize the template with an empty overrides array
-        groupedMap.set(tId, { ...row.template, overrides: [] });
+        // Initialize the template with empty overrides and categories arrays
+        groupedMap.set(tId, { ...row.template, overrides: [], categories: [] });
       }
-      // Add the override to this template's list
-      groupedMap.get(tId)!.overrides.push(row.override);
+      const group = groupedMap.get(tId)!;
+
+      // Add the override (deduplicate by id since left-join may produce duplicate rows)
+      if (!group.overrides.some(o => o.id === row.override.id)) {
+        group.overrides.push(row.override);
+      }
+
+      // Add category if present and not already added
+      if (row.category_id != null && row.category_name != null) {
+        if (!group.categories.some(c => c.id === row.category_id)) {
+          group.categories.push({ id: row.category_id, name: row.category_name });
+        }
+      }
     }
 
     // Convert Map values to the specific return structure requested
-    const formattedData = Array.from(groupedMap.values()); // No need to wrap in { template: ... } since we want the template fields at the top level
+    const formattedData = Array.from(groupedMap.values());
 
     // 5. Execute Count Query
     let countQuery = db
@@ -288,7 +306,7 @@ export const TaskTemplateRepository = {
       );
     }
 
-    const [countResult] = await countQuery.where(whereExpr);
+    const [ countResult ] = await countQuery.where(whereExpr);
     const total = countResult?.count ?? 0;
     const totalPages = total === 0 ? 0 : Math.ceil(total / pageSize);
 

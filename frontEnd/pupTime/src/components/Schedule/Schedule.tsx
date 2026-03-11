@@ -1,435 +1,617 @@
-import React, { useState, useRef, useMemo, useCallback } from "react";
+import React, { useState, useRef, useMemo, useCallback, useEffect, memo } from "react";
 import {
   View,
   Text,
   Pressable,
-  ScrollView,
+  FlatList,
   Modal,
   Animated,
   PanResponder,
   Dimensions,
+  ActivityIndicator,
+  StyleSheet,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Task, isTaskOnDate, isTaskCompletedForDate } from "../../types/task";
-import TaskCard from "../Task/TaskCard";
+import {
+  type TaskTemplate,
+  type TaskOverride,
+  toLocalDateString,
+} from "../../types/task";
 import createScheduleStyles, { PRIORITY_COLORS } from "./Schedule.styles";
 import useTheme from "../../Hooks/useTheme";
 
-const MONTHS = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-];
+/* ═══════════════════════════════════════════════════════════
+   CONSTANTS
+   ═══════════════════════════════════════════════════════════ */
 
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const SCREEN_WIDTH = Dimensions.get("window").width;
 
-// Stable reference for today's date (resets only on component mount)
-const getTodayStart = () => {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d;
+const STATUS_COLORS: Record<string, string> = {
+  COMPLETED: "#22C55E",
+  SKIPPED: "#9CA3AF",
+  RESCHEDULED: "#8B5CF6",
+  PENDING: "#F59E0B",
+  FAILED: "#EF4444",
 };
+
+const STATUS_EMOJIS: Record<string, string> = {
+  PENDING: "⏳",
+  COMPLETED: "✅",
+  SKIPPED: "⏭️",
+  FAILED: "❌",
+  RESCHEDULED: "🔄",
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  PENDING: "Pending",
+  COMPLETED: "Done",
+  SKIPPED: "Skipped",
+  FAILED: "Failed",
+  RESCHEDULED: "Moved",
+};
+
+/* ═══════════════════════════════════════════════════════════
+   TYPES
+   ═══════════════════════════════════════════════════════════ */
+
+type OverrideItem = { template: TaskTemplate; override: TaskOverride };
 
 type ScheduleProps = {
-  tasks: Task[];
-  onTaskPress?: (task: Task) => void;
-  /** Called when user toggles a task's completion for a specific date */
-  onCompleteToggle?: (taskId: string, date: Date) => void;
-  /** Optional helper from parent to indicate a toggle is in progress for this task+date */
-  isToggling?: (taskId: string, date: Date) => boolean;
+  tasks: TaskTemplate[];
+  /** Called on mount AND whenever the visible month changes. */
+  onMonthChange?: (startDate: string, endDate: string) => void;
+  onTaskPress?: (template: TaskTemplate, override: TaskOverride) => void;
+  onCompleteToggle?: (
+    templateId: string,
+    overrideId: string,
+    currentStatus: string,
+  ) => void;
+  isToggling?: (overrideId: string) => boolean;
+  loading?: boolean;
+  /** Use View instead of SafeAreaView when embedded inside another SafeAreaView. */
+  embedded?: boolean;
 };
 
-type DayInfo = {
+type DayData = {
+  key: string;
   date: Date;
+  dateStr: string;
   day: number;
   isCurrentMonth: boolean;
   isToday: boolean;
-  tasks: Task[];
 };
 
-const getDaysInMonth = (year: number, month: number): number => {
-  return new Date(year, month + 1, 0).getDate();
+/* ═══════════════════════════════════════════════════════════
+   PURE HELPERS (zero allocations where possible)
+   ═══════════════════════════════════════════════════════════ */
+
+const getDaysInMonth = (y: number, m: number) => new Date(y, m + 1, 0).getDate();
+const getFirstDayOfMonth = (y: number, m: number) => new Date(y, m, 1).getDay();
+
+const sameDay = (a: Date, b: Date) =>
+  a.getFullYear() === b.getFullYear() &&
+  a.getMonth() === b.getMonth() &&
+  a.getDate() === b.getDate();
+
+const fmtTime = (iso: string) => {
+  const d = new Date(iso);
+  const h = d.getHours(), m = d.getMinutes();
+  const ap = h >= 12 ? "PM" : "AM";
+  return `${h % 12 || 12}:${m.toString().padStart(2, "0")} ${ap}`;
 };
 
-const getFirstDayOfMonth = (year: number, month: number): number => {
-  return new Date(year, month, 1).getDay();
+/** Visible date range for the 42-cell calendar grid. */
+const getVisibleRange = (year: number, month: number) => {
+  const firstDow = getFirstDayOfMonth(year, month);
+  const dim = getDaysInMonth(year, month);
+  const start = new Date(year, month, 1 - firstDow);
+  const end = new Date(year, month + 1, 42 - firstDow - dim);
+  return {
+    startDate: toLocalDateString(start.toISOString()),
+    endDate: toLocalDateString(end.toISOString()),
+  };
 };
 
-const isSameDay = (d1: Date, d2: Date): boolean => {
-  return (
-    d1.getFullYear() === d2.getFullYear() &&
-    d1.getMonth() === d2.getMonth() &&
-    d1.getDate() === d2.getDate()
-  );
+/* ═══════════════════════════════════════════════════════════
+   MEMOISED SUB-COMPONENTS (prevent re-renders)
+   ═══════════════════════════════════════════════════════════ */
+
+type DayCellProps = {
+  data: DayData;
+  isSelected: boolean;
+  dotColors: string[];
+  onPress: (d: DayData) => void;
+  styles: ReturnType<typeof createScheduleStyles>;
 };
 
-const Schedule: React.FC<ScheduleProps> = ({ tasks, onTaskPress, onCompleteToggle, isToggling }) => {
+/** Each calendar cell is its own memo component.
+ *  Only re-renders when its own props actually change. */
+const DayCell = memo<DayCellProps>(({ data, isSelected, dotColors, onPress, styles }) => (
+  <Pressable
+    style={[
+      styles.dayCell,
+      !data.isCurrentMonth && styles.dayCellOtherMonth,
+      data.isToday && !isSelected && styles.dayCellToday,
+      isSelected && styles.dayCellSelected,
+    ]}
+    onPress={() => onPress(data)}
+  >
+    <Text
+      style={[
+        styles.dayNumber,
+        data.isToday && !isSelected && styles.dayNumberToday,
+        isSelected && styles.dayNumberSelected,
+      ]}
+    >
+      {data.day}
+    </Text>
+    {dotColors.length > 0 && (
+      <View style={styles.taskIndicators}>
+        {dotColors.map((c, i) => (
+          <View key={i} style={[styles.taskDot, { backgroundColor: c }]} />
+        ))}
+      </View>
+    )}
+  </Pressable>
+));
+
+/* ═══════════════════════════════════════════════════════════
+   MAIN COMPONENT
+   ═══════════════════════════════════════════════════════════ */
+
+const Schedule: React.FC<ScheduleProps> = ({
+  tasks,
+  onMonthChange,
+  onTaskPress,
+  onCompleteToggle,
+  isToggling,
+  loading,
+  embedded,
+}) => {
   const { colors } = useTheme();
-  const styles = useMemo(() => createScheduleStyles(colors), [colors]);
-  const today = useMemo(() => getTodayStart(), []);
+  const styles = useMemo(() => createScheduleStyles(colors, embedded), [colors, embedded]);
+
+  // console.log("tasks: ", tasks);
+  const today = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
+
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
-  const [selectedDate, setSelectedDate] = useState<Date | null>(today);
+  const [selectedDate, setSelectedDate] = useState<Date>(today);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
-  const [showTaskDetail, setShowTaskDetail] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [pickerYear, setPickerYear] = useState(currentYear);
-  
+  const [pickerYear, setPickerYear] = useState(today.getFullYear());
+
   const slideAnim = useRef(new Animated.Value(0)).current;
-  
+
+  /* ── Notify parent of visible range whenever month changes ── */
+  useEffect(() => {
+    if (!onMonthChange) return;
+    const { startDate, endDate } = getVisibleRange(currentYear, currentMonth);
+    onMonthChange(startDate, endDate);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentMonth, currentYear]);
+
+  const isTodayMonth =
+    currentMonth === today.getMonth() && currentYear === today.getFullYear();
+
+  /* ── Gestures ─────────────────────────────────────── */
   const panResponder = useRef(
     PanResponder.create({
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        return Math.abs(gestureState.dx) > 20;
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 20,
+      onPanResponderRelease: (_, g) => {
+        if (g.dx < -50) goToNextMonth();
+        else if (g.dx > 50) goToPrevMonth();
       },
-      onPanResponderRelease: (_, gestureState) => {
-        if (gestureState.dx < -50) {
-          goToNextMonth();
-        } else if (gestureState.dx > 50) {
-          goToPrevMonth();
-        }
-      },
-    })
+    }),
   ).current;
 
-  const goToPrevMonth = useCallback(() => {
-    Animated.sequence([
-      Animated.timing(slideAnim, {
-        toValue: SCREEN_WIDTH,
-        duration: 150,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 0,
-        useNativeDriver: true,
-      }),
-    ]).start();
+  const animateSlide = useCallback(
+    (direction: number) => {
+      Animated.sequence([
+        Animated.timing(slideAnim, {
+          toValue: direction * SCREEN_WIDTH,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 0,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    },
+    [slideAnim],
+  );
 
-    if (currentMonth === 0) {
-      setCurrentMonth(11);
-      setCurrentYear((y) => y - 1);
-    } else {
-      setCurrentMonth((m) => m - 1);
-    }
-  }, [currentMonth, slideAnim]);
+  const goToPrevMonth = useCallback(() => {
+    animateSlide(1);
+    setCurrentMonth((m) => (m === 0 ? 11 : m - 1));
+    setCurrentYear((y) => (currentMonth === 0 ? y - 1 : y));
+  }, [animateSlide, currentMonth]);
 
   const goToNextMonth = useCallback(() => {
-    Animated.sequence([
-      Animated.timing(slideAnim, {
-        toValue: -SCREEN_WIDTH,
-        duration: 150,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 0,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    animateSlide(-1);
+    setCurrentMonth((m) => (m === 11 ? 0 : m + 1));
+    setCurrentYear((y) => (currentMonth === 11 ? y + 1 : y));
+  }, [animateSlide, currentMonth]);
 
-    if (currentMonth === 11) {
-      setCurrentMonth(0);
-      setCurrentYear((y) => y + 1);
-    } else {
-      setCurrentMonth((m) => m + 1);
-    }
-  }, [currentMonth, slideAnim]);
+  const goToToday = useCallback(() => {
+    setCurrentMonth(new Date().getMonth());
+    setCurrentYear(new Date().getFullYear());
+    setSelectedDate(() => {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      return d;
+    });
+  }, []);
 
-  const calendarDays = useMemo((): DayInfo[][] => {
-    const daysInMonth = getDaysInMonth(currentYear, currentMonth);
-    const firstDay = getFirstDayOfMonth(currentYear, currentMonth);
-    const daysInPrevMonth = getDaysInMonth(currentYear, currentMonth - 1);
-
-    const days: DayInfo[] = [];
-
-    // Previous month days
-    for (let i = firstDay - 1; i >= 0; i--) {
-      const day = daysInPrevMonth - i;
-      const date = new Date(currentYear, currentMonth - 1, day);
-      days.push({
-        date,
-        day,
-        isCurrentMonth: false,
-        isToday: isSameDay(date, today),
-        tasks: tasks.filter((t) => isTaskOnDate(t, date)),
-      });
-    }
-
-    // Current month days
-    for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(currentYear, currentMonth, day);
-      days.push({
-        date,
-        day,
-        isCurrentMonth: true,
-        isToday: isSameDay(date, today),
-        tasks: tasks.filter((t) => isTaskOnDate(t, date)),
-      });
-    }
-
-    // Next month days
-    const remaining = 42 - days.length;
-    for (let day = 1; day <= remaining; day++) {
-      const date = new Date(currentYear, currentMonth + 1, day);
-      days.push({
-        date,
-        day,
-        isCurrentMonth: false,
-        isToday: isSameDay(date, today),
-        tasks: tasks.filter((t) => isTaskOnDate(t, date)),
-      });
-    }
-
-    // Split into weeks
-    const weeks: DayInfo[][] = [];
-    for (let i = 0; i < days.length; i += 7) {
-      weeks.push(days.slice(i, i + 7));
-    }
-
-    return weeks;
-  }, [currentYear, currentMonth, tasks, today]);
-
-  const selectedDayTasks = useMemo(() => {
-    if (!selectedDate) return [];
-    return tasks.filter((t) => {
-      return isTaskOnDate(t, selectedDate);
-  });
-  }, [selectedDate, tasks]);
-
-  const handleDayPress = (dayInfo: DayInfo) => {
-    setSelectedDate(dayInfo.date);
-  };
-
-  const handleTaskPress = (task: Task) => {
-    setSelectedTask(task);
-    setShowTaskDetail(true);
-    onTaskPress?.(task);
-  };
-
-  const handleMonthSelect = (month: number) => {
-    setCurrentMonth(month);
-    setCurrentYear(pickerYear);
-    setShowMonthPicker(false);
-  };
-
-  const formatSelectedDate = (date: Date): string => {
-    const options: Intl.DateTimeFormatOptions = {
-      weekday: "long",
-      month: "long",
-      day: "numeric",
-    };
-    return date.toLocaleDateString("en-US", options);
-  };
-
-  const getTaskIndicatorColors = (dayTasks: Task[]): string[] => {
-    const indicatorColors: string[] = [];
-    const priorities = ["high", "medium", "low", "none"];
-    
-    for (const priority of priorities) {
-      const hasTask = dayTasks.some((t) => t.priority === priority);
-      if (hasTask && indicatorColors.length < 3) {
-        indicatorColors.push(PRIORITY_COLORS[priority as keyof typeof PRIORITY_COLORS]);
+  /* ═══════════════════════════════════════════════════════
+     PERFORMANCE: Pre-build date → OverrideItem[] lookup.
+     Built ONCE when `tasks` ref changes.
+     Each of 42 cells then does an O(1) Map.get().
+     ═══════════════════════════════════════════════════════ */
+  const overridesByDate = useMemo(() => {
+    const map = new Map<string, OverrideItem[]>();
+    for (const tpl of tasks) {
+      if (tpl.is_deleted) continue;
+      for (const ov of tpl.overrides ?? []) {
+        if (ov.is_deleted) continue;
+        const ds = toLocalDateString(ov.instance_datetime, tpl.timezone ?? undefined);
+        let arr = map.get(ds);
+        if (!arr) {
+          arr = [];
+          map.set(ds, arr);
+        }
+        arr.push({ template: tpl, override: ov });
       }
     }
-    
-    return indicatorColors;
-  };
+    // Sort each bucket by time once
+    for (const arr of map.values()) {
+      arr.sort(
+        (a, b) =>
+          new Date(a.override.instance_datetime).getTime() -
+          new Date(b.override.instance_datetime).getTime(),
+      );
+    }
+    return map;
+  }, [tasks]);
+
+  /* ── 42-cell grid data (cheap: just builds DayData[]) ── */
+  const calendarDays = useMemo((): DayData[][] => {
+    const dim = getDaysInMonth(currentYear, currentMonth);
+    const fow = getFirstDayOfMonth(currentYear, currentMonth);
+    const prevDim = getDaysInMonth(currentYear, currentMonth - 1);
+    const days: DayData[] = [];
+
+    // Previous month tail
+    for (let i = fow - 1; i >= 0; i--) {
+      const day = prevDim - i;
+      const date = new Date(currentYear, currentMonth - 1, day);
+      days.push({
+        key: `p${day}`,
+        date, day,
+        dateStr: toLocalDateString(date.toISOString()),
+        isCurrentMonth: false,
+        isToday: sameDay(date, today),
+      });
+    }
+    // Current month
+    for (let day = 1; day <= dim; day++) {
+      const date = new Date(currentYear, currentMonth, day);
+      days.push({
+        key: `c${day}`,
+        date, day,
+        dateStr: toLocalDateString(date.toISOString()),
+        isCurrentMonth: true,
+        isToday: sameDay(date, today),
+      });
+    }
+    // Next month head
+    const rem = 42 - days.length;
+    for (let day = 1; day <= rem; day++) {
+      const date = new Date(currentYear, currentMonth + 1, day);
+      days.push({
+        key: `n${day}`,
+        date, day,
+        dateStr: toLocalDateString(date.toISOString()),
+        isCurrentMonth: false,
+        isToday: sameDay(date, today),
+      });
+    }
+
+    const weeks: DayData[][] = [];
+    for (let i = 0; i < days.length; i += 7) weeks.push(days.slice(i, i + 7));
+    return weeks;
+  }, [currentYear, currentMonth, today]);
+
+  /* ── Dot colors per date (O(1) lookup) ─────────── */
+  const dotColorsForDate = useCallback(
+    (dateStr: string): string[] => {
+      const items = overridesByDate.get(dateStr);
+      if (!items || items.length === 0) return [];
+      const out: string[] = [];
+      for (const p of ["high", "medium", "low", "none"] as const) {
+        if (items.some((o) => o.template.priority === p) && out.length < 3)
+          out.push(PRIORITY_COLORS[p]);
+      }
+      return out;
+    },
+    [overridesByDate],
+  );
+
+  /* ── Selected day data ─────────────────────────── */
+  const selectedDateStr = useMemo(
+    () => toLocalDateString(selectedDate.toISOString()),
+    [selectedDate],
+  );
+
+  const selectedOverrides = useMemo(
+    () => overridesByDate.get(selectedDateStr) ?? [],
+    [selectedDateStr, overridesByDate],
+  );
+
+  const pendingCount = useMemo(
+    () => selectedOverrides.filter((o) => o.override.status === "PENDING").length,
+    [selectedOverrides],
+  );
+  const doneCount = useMemo(
+    () => selectedOverrides.filter((o) => o.override.status === "COMPLETED").length,
+    [selectedOverrides],
+  );
+
+  const handleDayPress = useCallback((d: DayData) => setSelectedDate(d.date), []);
+
+  const handleMonthSelect = useCallback(
+    (month: number) => {
+      setCurrentMonth(month);
+      setCurrentYear(pickerYear);
+      setShowMonthPicker(false);
+    },
+    [pickerYear],
+  );
+
+  const fmtSelectedDate = useMemo(
+    () =>
+      selectedDate.toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+      }),
+    [selectedDate],
+  );
+
+  /* ── Status picker modal ──────────────────────── */
+  const [pickerOverride, setPickerOverride] = useState<{
+    templateId: string;
+    overrideId: string;
+    currentStatus: string;
+  } | null>(null);
+
+  const PICKER_OPTIONS = useMemo(() => [
+    { status: 'PENDING', emoji: '⏳', label: 'Pending', desc: 'Not started yet' },
+    { status: 'COMPLETED', emoji: '✅', label: 'Completed', desc: 'Task is done' },
+    { status: 'SKIPPED', emoji: '⏭️', label: 'Skipped', desc: 'Skip this occurrence' },
+    { status: 'FAILED', emoji: '❌', label: 'Failed', desc: 'Could not complete' },
+  ], []);
+
+  /* ── Task list item renderer (for FlatList) ────── */
+  const renderTask = useCallback(
+    ({ item }: { item: OverrideItem }) => {
+      const { template, override } = item;
+      const done = override.status === "COMPLETED";
+      const skipped = override.status === "SKIPPED";
+      const isDone = done || skipped;
+      const pColor =
+        PRIORITY_COLORS[(template.priority ?? "none") as keyof typeof PRIORITY_COLORS] ??
+        PRIORITY_COLORS.none;
+      const sColor = override.status ? STATUS_COLORS[override.status] : STATUS_COLORS.PENDING;
+      const toggling = isToggling ? isToggling(override.id) : false;
+
+      return (
+        <Pressable
+          style={[taskItemStyles.card, { borderLeftColor: pColor, backgroundColor: colors.surface }]}
+          onPress={() => onTaskPress?.(template, override)}
+        >
+          {/* Top row: emoji + title + time */}
+          <View style={taskItemStyles.topRow}>
+            <Text style={taskItemStyles.emoji}>{template.emoji || "📌"}</Text>
+            <View style={taskItemStyles.middle}>
+              <Text
+                numberOfLines={1}
+                style={[
+                  taskItemStyles.title,
+                  { color: colors.text },
+                  isDone && taskItemStyles.titleDone,
+                  isDone && { color: colors.secondaryText },
+                ]}
+              >
+                {template.title}
+              </Text>
+              <Text style={[taskItemStyles.meta, { color: colors.secondaryText }]}>
+                {fmtTime(override.instance_datetime)}
+                {template.priority && template.priority !== "none"
+                  ? ` • ${template.priority.charAt(0).toUpperCase() + template.priority.slice(1)}`
+                  : ""}
+              </Text>
+            </View>
+          </View>
+
+          {/* Bottom row: status badge (tappable) */}
+          <View style={[taskItemStyles.bottomRow, { borderTopColor: colors.border }]}>
+            {onCompleteToggle ? (
+              <Pressable
+                style={[taskItemStyles.statusBadge, { backgroundColor: sColor + '12', borderColor: sColor + '25' }]}
+                onPress={(e) => {
+                  e.stopPropagation?.();
+                  setPickerOverride({
+                    templateId: template.id,
+                    overrideId: override.id,
+                    currentStatus: override.status ?? 'PENDING',
+                  });
+                }}
+                disabled={toggling}
+              >
+                <Text style={taskItemStyles.statusBadgeEmoji}>
+                  {toggling ? '⟳' : STATUS_EMOJIS[override.status ?? 'PENDING']}
+                </Text>
+                <Text style={[taskItemStyles.statusBadgeLabel, { color: sColor }]}>
+                  {toggling ? 'Updating...' : STATUS_LABELS[override.status ?? 'PENDING']}
+                </Text>
+                <Text style={[taskItemStyles.statusBadgeArrow, { color: sColor + '80' }]}>▾</Text>
+              </Pressable>
+            ) : (
+              <View style={[taskItemStyles.statusBadge, { backgroundColor: sColor + '12', borderColor: sColor + '25' }]}>
+                <Text style={taskItemStyles.statusBadgeEmoji}>
+                  {STATUS_EMOJIS[override.status ?? 'PENDING']}
+                </Text>
+                <Text style={[taskItemStyles.statusBadgeLabel, { color: sColor }]}>
+                  {STATUS_LABELS[override.status ?? 'PENDING']}
+                </Text>
+              </View>
+            )}
+          </View>
+        </Pressable>
+      );
+    },
+    [colors, isToggling, onTaskPress, onCompleteToggle],
+  );
+
+  const taskKeyExtractor = useCallback((item: OverrideItem) => item.override.id, []);
+
+  /* ═══════════════════════════════════════════════════
+     RENDER
+     ═══════════════════════════════════════════════════ */
+  const Container = embedded ? View : SafeAreaView;
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header with Calendar */}
+    <Container style={styles.container}>
+      {/* ========= CALENDAR HEADER ========= */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>📅 Schedule</Text>
+        {/* Title row + Today pill */}
+        <View style={headerRow}>
+          <Text style={styles.headerTitle}>📅 Schedule</Text>
+          {!isTodayMonth && (
+            <Pressable onPress={goToToday} style={todayPill}>
+              <Text style={todayPillText}>Today</Text>
+            </Pressable>
+          )}
+        </View>
 
-        {/* Month Navigation */}
+        {/* Month nav */}
         <View style={styles.monthNav}>
-          <Pressable
-            style={styles.navButton}
-            onPress={goToPrevMonth}
-            accessibilityLabel="Previous month"
-            accessibilityRole="button"
-          >
+          <Pressable style={styles.navButton} onPress={goToPrevMonth}>
             <Text style={styles.navButtonText}>←</Text>
           </Pressable>
-
           <Pressable
             onPress={() => {
               setPickerYear(currentYear);
               setShowMonthPicker(true);
             }}
             style={styles.monthYearContainer}
-            accessibilityLabel="Select month and year"
-            accessibilityRole="button"
           >
             <Text style={styles.monthText}>{MONTHS[currentMonth]}</Text>
             <Text style={styles.yearText}>{currentYear}</Text>
           </Pressable>
-
-          <Pressable
-            style={styles.navButton}
-            onPress={goToNextMonth}
-            accessibilityLabel="Next month"
-            accessibilityRole="button"
-          >
+          <Pressable style={styles.navButton} onPress={goToNextMonth}>
             <Text style={styles.navButtonText}>→</Text>
           </Pressable>
         </View>
 
-        {/* Week Days Header */}
+        {/* Weekday headers */}
         <View style={styles.weekDays}>
-          {WEEKDAYS.map((day) => (
-            <Text key={day} style={styles.weekDayText}>
-              {day}
-            </Text>
+          {WEEKDAYS.map((d) => (
+            <Text key={d} style={styles.weekDayText}>{d}</Text>
           ))}
         </View>
 
-        {/* Calendar Grid */}
-        <Animated.View
-          style={[
-            styles.calendarGrid,
-            { transform: [{ translateX: slideAnim }] },
-          ]}
-          {...panResponder.panHandlers}
-        >
-          {calendarDays.map((week, weekIdx) => (
-            <View key={weekIdx} style={styles.weekRow}>
-              {week.map((dayInfo, dayIdx) => {
-                const isSelected =
-                  selectedDate && isSameDay(dayInfo.date, selectedDate);
-                const indicatorColors = getTaskIndicatorColors(dayInfo.tasks);
+        {/* Calendar grid */}
+        <View style={calGridWrapper}>
+          <Animated.View
+            style={[styles.calendarGrid, { transform: [{ translateX: slideAnim }] }]}
+            {...panResponder.panHandlers}
+          >
+            {calendarDays.map((week, wi) => (
+              <View key={wi} style={styles.weekRow}>
+                {week.map((day) => (
+                  <DayCell
+                    key={day.key}
+                    data={day}
+                    isSelected={sameDay(day.date, selectedDate)}
+                    dotColors={dotColorsForDate(day.dateStr)}
+                    onPress={handleDayPress}
+                    styles={styles}
+                  />
+                ))}
+              </View>
+            ))}
+          </Animated.View>
 
-                return (
-                  <Pressable
-                    key={dayIdx}
-                    style={[
-                      styles.dayCell,
-                      !dayInfo.isCurrentMonth && styles.dayCellOtherMonth,
-                      dayInfo.isToday && !isSelected && styles.dayCellToday,
-                      isSelected && styles.dayCellSelected,
-                    ]}
-                    onPress={() => handleDayPress(dayInfo)}
-                    accessibilityLabel={`${dayInfo.day}, ${dayInfo.tasks.length} tasks`}
-                    accessibilityRole="button"
-                  >
-                    <Text
-                      style={[
-                        styles.dayNumber,
-                        dayInfo.isToday &&
-                          !isSelected &&
-                          styles.dayNumberToday,
-                        isSelected && styles.dayNumberSelected,
-                      ]}
-                    >
-                      {dayInfo.day}
-                    </Text>
-
-                    {indicatorColors.length > 0 && (
-                      <View style={styles.taskIndicators}>
-                        {indicatorColors.map((color, idx) => (
-                          <View
-                            key={idx}
-                            style={[styles.taskDot, { backgroundColor: color }]}
-                          />
-                        ))}
-                      </View>
-                    )}
-                  </Pressable>
-                );
-              })}
+          {/* Loading overlay */}
+          {loading && (
+            <View style={loadingOverlay}>
+              <ActivityIndicator size="small" color={colors.primary} />
             </View>
-          ))}
-        </Animated.View>
+          )}
+        </View>
       </View>
 
-      {/* Tasks List */}
+      {/* ========= TASK LIST ========= */}
       <View style={styles.content}>
+        {/* Section header with summary chips */}
         <View style={styles.sectionHeader}>
           <View>
-            <Text style={styles.sectionTitle}>
-              {selectedDate ? formatSelectedDate(selectedDate) : "Select a day"}
-            </Text>
+            <Text style={styles.sectionTitle}>{fmtSelectedDate}</Text>
             <Text style={styles.sectionSubtitle}>
-              {selectedDayTasks.length > 0
-                ? "Tap a task to view details"
+              {selectedOverrides.length > 0
+                ? `${pendingCount} pending · ${doneCount} done`
                 : "No tasks scheduled"}
             </Text>
           </View>
-
-          {selectedDayTasks.length > 0 && (
+          {selectedOverrides.length > 0 && (
             <View style={styles.taskCount}>
               <Text style={styles.taskCountText}>
-                {selectedDayTasks.length} task
-                {selectedDayTasks.length !== 1 ? "s" : ""}
+                {selectedOverrides.length} task
+                {selectedOverrides.length !== 1 ? "s" : ""}
               </Text>
             </View>
           )}
         </View>
 
-        <ScrollView
-          style={styles.tasksList}
+        {/* FlatList is more performant than ScrollView for lists */}
+        <FlatList
+          data={selectedOverrides}
+          keyExtractor={taskKeyExtractor}
+          renderItem={renderTask}
+          contentContainerStyle={[
+            { paddingHorizontal: 20, paddingBottom: 120 },
+            selectedOverrides.length === 0 && {
+              flexGrow: 1,
+              justifyContent: "center" as const,
+            },
+          ]}
           showsVerticalScrollIndicator={false}
-        >
-          {selectedDayTasks.length > 0 ? (
-            selectedDayTasks.map((task) => {
-              const taskDate = selectedDate ?? task.startTime;
-              const completed = isTaskCompletedForDate(task, taskDate);
-              return (
-                <View key={task.id} style={styles.taskRow}>
-                  <View style={styles.taskRowCard}>
-                    <TaskCard
-                      day={taskDate}
-                      task={task}
-                      compact
-                      onPress={handleTaskPress}
-                    />
-                  </View>
-                  {onCompleteToggle && (() => {
-                    const isFuture = taskDate > new Date(new Date().setHours(23, 59, 59, 999));
-                    const toggling = isToggling ? isToggling(task.id, taskDate) : false;
-                    return (
-                      <Pressable
-                        style={[
-                          styles.completeToggle,
-                          completed && styles.completeToggleDone,
-                          !completed && isFuture && styles.completeToggleDisabled,
-                        ]}
-                        onPress={() => onCompleteToggle(task.id, taskDate)}
-                        disabled={(!completed && isFuture) || toggling}
-                      >
-                        <Text style={styles.completeToggleText}>
-                          {toggling ? "..." : completed ? "✓" : isFuture ? "🔒" : "○"}
-                        </Text>
-                      </Pressable>
-                    );
-                  })()}
-                </View>
-              );
-            })
-          ) : (
+          nestedScrollEnabled
+          ListEmptyComponent={
             <View style={styles.emptyState}>
               <Text style={styles.emptyEmoji}>🌤️</Text>
-              <Text style={styles.emptyTitle}>No tasks today</Text>
+              <Text style={styles.emptyTitle}>No tasks scheduled</Text>
               <Text style={styles.emptySubtitle}>
-                Enjoy your free time or add a new task to stay productive!
+                Enjoy your free time or tap + to add a new task!
               </Text>
             </View>
-          )}
-        </ScrollView>
+          }
+        />
       </View>
 
-      {/* Month Picker Modal */}
+      {/* ========= MONTH PICKER MODAL ========= */}
       <Modal
         visible={showMonthPicker}
         transparent
@@ -450,17 +632,13 @@ const Schedule: React.FC<ScheduleProps> = ({ tasks, onTaskPress, onCompleteToggl
               <Pressable
                 style={styles.yearNavButton}
                 onPress={() => setPickerYear((y) => y - 1)}
-                accessibilityLabel="Previous year"
               >
                 <Text style={styles.yearNavText}>←</Text>
               </Pressable>
-
               <Text style={styles.yearNavTitle}>{pickerYear}</Text>
-
               <Pressable
                 style={styles.yearNavButton}
                 onPress={() => setPickerYear((y) => y + 1)}
-                accessibilityLabel="Next year"
               >
                 <Text style={styles.yearNavText}>→</Text>
               </Pressable>
@@ -468,29 +646,24 @@ const Schedule: React.FC<ScheduleProps> = ({ tasks, onTaskPress, onCompleteToggl
 
             <View style={styles.monthsGrid}>
               {MONTHS.map((month, idx) => {
-                const isSelected =
-                  idx === currentMonth && pickerYear === currentYear;
-                const isCurrent =
+                const sel = idx === currentMonth && pickerYear === currentYear;
+                const cur =
                   idx === today.getMonth() && pickerYear === today.getFullYear();
-
                 return (
                   <Pressable
                     key={month}
                     style={[
                       styles.monthPickerItem,
-                      isSelected && styles.monthPickerItemSelected,
-                      isCurrent && !isSelected && styles.monthPickerItemCurrent,
+                      sel && styles.monthPickerItemSelected,
+                      cur && !sel && styles.monthPickerItemCurrent,
                     ]}
                     onPress={() => handleMonthSelect(idx)}
-                    accessibilityLabel={`Select ${month} ${pickerYear}`}
                   >
                     <Text
                       style={[
                         styles.monthPickerItemText,
-                        isSelected && styles.monthPickerItemTextSelected,
-                        isCurrent &&
-                          !isSelected &&
-                          styles.monthPickerItemTextCurrent,
+                        sel && styles.monthPickerItemTextSelected,
+                        cur && !sel && styles.monthPickerItemTextCurrent,
                       ]}
                     >
                       {month.slice(0, 3)}
@@ -510,44 +683,245 @@ const Schedule: React.FC<ScheduleProps> = ({ tasks, onTaskPress, onCompleteToggl
         </Pressable>
       </Modal>
 
-      {/* Task Detail Modal */}
+      {/* ========= STATUS PICKER MODAL ========= */}
       <Modal
-        visible={showTaskDetail}
+        visible={!!pickerOverride}
         transparent
         animationType="slide"
-        onRequestClose={() => setShowTaskDetail(false)}
+        onRequestClose={() => setPickerOverride(null)}
       >
         <Pressable
-          style={styles.modalOverlay}
-          onPress={() => setShowTaskDetail(false)}
+          style={taskItemStyles.pickerOverlay}
+          onPress={() => setPickerOverride(null)}
         >
-          <View style={styles.modalContent}>
-            <View style={styles.modalHandle} />
+          <Pressable
+            style={[taskItemStyles.pickerSheet, { backgroundColor: colors.surface }]}
+            onPress={(e) => e.stopPropagation?.()}
+          >
+            <View style={[taskItemStyles.pickerHandle, { backgroundColor: colors.border }]} />
+            <Text style={[taskItemStyles.pickerTitle, { color: colors.text }]}>Change Status</Text>
 
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Task Details</Text>
-              <Pressable
-                style={styles.modalCloseButton}
-                onPress={() => setShowTaskDetail(false)}
-                accessibilityLabel="Close task details"
-              >
-                <Text style={styles.modalCloseText}>✕</Text>
-              </Pressable>
-            </View>
+            {PICKER_OPTIONS.map((opt) => {
+              const optColor = STATUS_COLORS[opt.status] ?? STATUS_COLORS.PENDING;
+              const isCurrent = pickerOverride?.currentStatus === opt.status;
+              return (
+                <Pressable
+                  key={opt.status}
+                  style={[
+                    taskItemStyles.pickerOption,
+                    isCurrent && { backgroundColor: optColor + '12' },
+                  ]}
+                  onPress={() => {
+                    if (!isCurrent && pickerOverride && onCompleteToggle) {
+                      onCompleteToggle(
+                        pickerOverride.templateId,
+                        pickerOverride.overrideId,
+                        opt.status,
+                      );
+                    }
+                    setPickerOverride(null);
+                  }}
+                >
+                  <Text style={taskItemStyles.pickerOptionEmoji}>{opt.emoji}</Text>
+                  <View style={taskItemStyles.pickerOptionTexts}>
+                    <Text style={[
+                      taskItemStyles.pickerOptionLabel,
+                      { color: colors.text },
+                      isCurrent && { color: optColor, fontWeight: '800' },
+                    ]}>
+                      {opt.label}
+                    </Text>
+                    <Text style={[taskItemStyles.pickerOptionDesc, { color: colors.secondaryText }]}>
+                      {opt.desc}
+                    </Text>
+                  </View>
+                  {isCurrent && (
+                    <Text style={[taskItemStyles.pickerOptionCheck, { color: optColor }]}>✓</Text>
+                  )}
+                </Pressable>
+              );
+            })}
 
-            <ScrollView style={styles.modalScroll}>
-              {selectedTask && (
-                <TaskCard
-                  task={selectedTask}
-                  day={selectedDate ?? selectedTask.startTime}
-                />
-              )}
-            </ScrollView>
-          </View>
+            <Pressable
+              style={[taskItemStyles.pickerCancel, { backgroundColor: colors.background }]}
+              onPress={() => setPickerOverride(null)}
+            >
+              <Text style={[taskItemStyles.pickerCancelText, { color: colors.secondaryText }]}>Cancel</Text>
+            </Pressable>
+          </Pressable>
         </Pressable>
       </Modal>
-    </SafeAreaView>
+    </Container>
   );
 };
+
+/* ═══════════════════════════════════════════════════════════
+   STATIC STYLES (created once, never re-allocated)
+   ═══════════════════════════════════════════════════════════ */
+
+const headerRow: Pressable["props"]["style"] = {
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "space-between",
+};
+
+const todayPill: Pressable["props"]["style"] = {
+  paddingHorizontal: 14,
+  paddingVertical: 6,
+  borderRadius: 16,
+  backgroundColor: "#4F46E5",
+};
+
+const todayPillText: Text["props"]["style"] = {
+  color: "#FFF",
+  fontSize: 13,
+  fontWeight: "700",
+};
+
+const calGridWrapper: View["props"]["style"] = {
+  position: "relative",
+};
+
+const loadingOverlay: View["props"]["style"] = {
+  ...StyleSheet.absoluteFillObject,
+  backgroundColor: "rgba(255,255,255,0.5)",
+  alignItems: "center",
+  justifyContent: "center",
+  borderRadius: 14,
+};
+
+const taskItemStyles = StyleSheet.create({
+  card: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderLeftWidth: 4,
+    borderRadius: 14,
+    marginBottom: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  topRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  emoji: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  middle: {
+    flex: 1,
+  },
+  title: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  titleDone: {
+    textDecorationLine: "line-through",
+  },
+  meta: {
+    fontSize: 12,
+    marginTop: 3,
+  },
+  bottomRow: {
+    flexDirection: "row",
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "#E5E7EB",
+  },
+  statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    gap: 6,
+  },
+  statusBadgeEmoji: {
+    fontSize: 13,
+  },
+  statusBadgeLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  statusBadgeArrow: {
+    fontSize: 10,
+    marginLeft: 2,
+  },
+  /* ── Modal picker styles ── */
+  pickerOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "flex-end",
+  },
+  pickerSheet: {
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 12,
+    paddingBottom: 40,
+    paddingHorizontal: 20,
+  },
+  pickerHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#D1D5DB",
+    alignSelf: "center",
+    marginBottom: 20,
+  },
+  pickerTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: 16,
+    color: "#111827",
+  },
+  pickerOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    marginBottom: 8,
+    gap: 14,
+  },
+  pickerOptionEmoji: {
+    fontSize: 22,
+  },
+  pickerOptionTexts: {
+    flex: 1,
+  },
+  pickerOptionLabel: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#111827",
+  },
+  pickerOptionDesc: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginTop: 1,
+  },
+  pickerOptionCheck: {
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  pickerCancel: {
+    marginTop: 8,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: "#F3F4F6",
+    alignItems: "center",
+  },
+  pickerCancelText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#6B7280",
+  },
+});
 
 export default Schedule;

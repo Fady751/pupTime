@@ -32,6 +32,14 @@ class NotificationService {
   }
 
   /**
+   * Prepare permission + channel ahead of time (call once before a batch).
+   */
+  async prepare(channelId: string = 'scheduled', channelName: string = 'Scheduled Tasks') {
+    await notifee.requestPermission();
+    await this.ensureChannel(channelId, channelName);
+  }
+
+  /**
    * 2. Schedule a notification at a specific time (Time X)
    */
   async scheduleAtTime(
@@ -44,9 +52,32 @@ class NotificationService {
     await notifee.requestPermission();
     await this.ensureChannel(channelId, 'Scheduled Tasks');
 
+    await this._createTrigger(notificationId, title, body, timestampMs, channelId);
+  }
+
+  /**
+   * Schedule without requesting permission / creating channel (already prepared).
+   */
+  async scheduleAtTimePrepared(
+    notificationId: string,
+    title: string,
+    body: string,
+    timestampMs: number,
+    channelId: string = 'scheduled'
+  ) {
+    await this._createTrigger(notificationId, title, body, timestampMs, channelId);
+  }
+
+  private async _createTrigger(
+    notificationId: string,
+    title: string,
+    body: string,
+    timestampMs: number,
+    channelId: string,
+  ) {
     const trigger: TimestampTrigger = {
       type: TriggerType.TIMESTAMP,
-      timestamp: timestampMs, // Time in milliseconds (e.g., date.getTime())
+      timestamp: timestampMs,
     };
 
     await notifee.createTriggerNotification(
@@ -72,6 +103,18 @@ class NotificationService {
     await notifee.cancelNotification(notificationId);
     console.log(`Notification ${notificationId} cancelled.`);
   }
+
+  /**
+   * 4. Cancel array of notifications
+   */
+  async cancelNotifications(notificationIds: string[]) {
+    await notifee.cancelTriggerNotifications(notificationIds);
+    console.log(`Notifications ${notificationIds} cancelled.`);
+  }
+
+  /**
+   * schedule
+   */
 
   /**
    * Optional: Cancel ALL scheduled notifications at once

@@ -215,16 +215,152 @@ retrieve_schema = swagger_auto_schema(
     responses={200: TaskSerializer},
 )
 
+_OVERRIDE_ITEM = openapi.Schema(
+    type=openapi.TYPE_OBJECT,
+    required=['instance_datetime', 'status'],
+    properties={
+        'id': openapi.Schema(
+            type=openapi.TYPE_STRING, format='uuid',
+            description=(
+                'Optional. When provided: looks up the override by this ID. '
+                'If found, updates it. If not found, creates a new row with this ID. '
+                'When omitted: looks up by instance_datetime instead.'
+            ),
+        ),
+        'instance_datetime': openapi.Schema(
+            type=openapi.TYPE_STRING, format='date-time',
+            description=(
+                'The scheduled datetime for this override instance. '
+                'Used as the lookup key when id is not provided. '
+                'If id is provided, this value is written as-is (and must not conflict with another override).'
+            ),
+        ),
+        'status': openapi.Schema(
+            type=openapi.TYPE_STRING,
+            enum=['PENDING', 'COMPLETED', 'SKIPPED', 'RESCHEDULED', 'FAILED'],
+        ),
+    },
+)
+
+_OVERRIDE_RESPONSE_ITEM = openapi.Schema(
+    type=openapi.TYPE_OBJECT,
+    properties={
+        'id': openapi.Schema(type=openapi.TYPE_STRING, format='uuid'),
+        'instance_datetime': openapi.Schema(type=openapi.TYPE_STRING, format='date-time'),
+        'status': openapi.Schema(type=openapi.TYPE_STRING),
+        'new_datetime': openapi.Schema(type=openapi.TYPE_STRING, format='date-time', x_nullable=True),
+        'created_at': openapi.Schema(type=openapi.TYPE_STRING, format='date-time'),
+        'updated_at': openapi.Schema(type=openapi.TYPE_STRING, format='date-time'),
+    },
+)
+
+_UPDATE_RESPONSE_200 = openapi.Schema(
+    type=openapi.TYPE_OBJECT,
+    description=(
+        'Returned when overrides were upserted/deleted OR when the recurrence rule changed. '
+        '`new_overrides` is only present when the recurrence rule changed.'
+    ),
+    properties={
+        'updated_overrides': openapi.Schema(
+            type=openapi.TYPE_ARRAY,
+            description='Overrides that were upserted from the `overrides` field.',
+            items=_OVERRIDE_RESPONSE_ITEM,
+        ),
+        'deleted_overrides': openapi.Schema(
+            type=openapi.TYPE_ARRAY,
+            description=(
+                'Overrides that were soft-deleted. Includes both explicitly deleted ones '
+                '(from `deleted_overrides` field) and pending future ones removed due to '
+                'a recurrence rule change.'
+            ),
+            items=_OVERRIDE_RESPONSE_ITEM,
+        ),
+        'new_overrides': openapi.Schema(
+            type=openapi.TYPE_ARRAY,
+            description='Only present when the recurrence rule changed. Newly generated PENDING overrides.',
+            items=_OVERRIDE_RESPONSE_ITEM,
+        ),
+    },
+)
+
+_UPDATE_FIELDS = {
+    'title': openapi.Schema(type=openapi.TYPE_STRING),
+    'start_datetime': openapi.Schema(type=openapi.TYPE_STRING, format='date-time'),
+    'reminder_time': openapi.Schema(
+        type=openapi.TYPE_INTEGER,
+        description='Minutes before the task start to trigger a reminder. Must be non-negative.',
+    ),
+    'duration_minutes': openapi.Schema(type=openapi.TYPE_INTEGER),
+    'priority': openapi.Schema(type=openapi.TYPE_STRING, enum=['none', 'low', 'medium', 'high']),
+    'emoji': openapi.Schema(type=openapi.TYPE_STRING),
+    'categories': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_INTEGER)),
+    'is_recurring': openapi.Schema(type=openapi.TYPE_BOOLEAN),
+    'rrule': openapi.Schema(type=openapi.TYPE_STRING, description='e.g. FREQ=DAILY or FREQ=WEEKLY;BYDAY=MO'),
+    'timezone': openapi.Schema(type=openapi.TYPE_STRING, description='e.g. Africa/Cairo'),
+    'overrides': openapi.Schema(
+        type=openapi.TYPE_ARRAY,
+        description=(
+            'Optional. Overrides to upsert.\n'
+            '- **With `id`**: looks up by ID → updates if found, creates with that ID if not.\n'
+            '- **Without `id`**: looks up by `instance_datetime` → updates if found, creates (auto ID) if not.\n'
+            '- Returns `400` if `instance_datetime` conflicts with another existing override.'
+        ),
+        items=_OVERRIDE_ITEM,
+    ),
+    'deleted_overrides': openapi.Schema(
+        type=openapi.TYPE_ARRAY,
+        description='Optional. List of override UUIDs to soft-delete.',
+        items=openapi.Schema(type=openapi.TYPE_STRING, format='uuid'),
+    ),
+}
+
 update_schema = swagger_auto_schema(
     operation_summary='Full update a task',
-    request_body=TaskSerializer,
-    responses={204: 'Task updated.'},
+    operation_description=(
+        'Replaces all editable fields on the task template.\n\n'
+        '**Override operations** (both optional):\n'
+        '- `overrides` — upsert overrides. With `id`: lookup by ID. Without `id`: lookup by `instance_datetime`.\n'
+        '- `deleted_overrides` — array of override UUIDs to soft-delete.\n\n'
+        '**Responses:**\n'
+        '- `204` — only template fields changed, no override operations performed.\n'
+        '- `200` — at least one override was upserted/deleted, OR the recurrence rule changed '
+        '(in which case `new_overrides` is also included).\n'
+        '- `400` — validation error or `instance_datetime` conflict in `overrides`.'
+    ),
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        required=['title', 'start_datetime'],
+        properties=_UPDATE_FIELDS,
+    ),
+    responses={
+        204: 'Task updated. No override changes.',
+        200: openapi.Response(description='Task updated with override changes.', schema=_UPDATE_RESPONSE_200),
+        400: 'Validation error or instance_datetime conflict in overrides.',
+    },
 )
 
 partial_update_schema = swagger_auto_schema(
     operation_summary='Partial update a task',
-    request_body=TaskSerializer(partial=True),
-    responses={204: 'Task updated.'},
+    operation_description=(
+        'Updates only the provided fields on the task template.\n\n'
+        '**Override operations** (both optional):\n'
+        '- `overrides` — upsert overrides. With `id`: lookup by ID. Without `id`: lookup by `instance_datetime`.\n'
+        '- `deleted_overrides` — array of override UUIDs to soft-delete.\n\n'
+        '**Responses:**\n'
+        '- `204` — only template fields changed, no override operations performed.\n'
+        '- `200` — at least one override was upserted/deleted, OR the recurrence rule changed '
+        '(in which case `new_overrides` is also included).\n'
+        '- `400` — validation error or `instance_datetime` conflict in `overrides`.'
+    ),
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties=_UPDATE_FIELDS,
+    ),
+    responses={
+        204: 'Task updated. No override changes.',
+        200: openapi.Response(description='Task updated with override changes.', schema=_UPDATE_RESPONSE_200),
+        400: 'Validation error or instance_datetime conflict in overrides.',
+    },
 )
 
 destroy_schema = swagger_auto_schema(

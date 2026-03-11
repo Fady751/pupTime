@@ -1,19 +1,27 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 
+let listenerInitialized = false;
+
 export const checkInternetConnectivity = createAsyncThunk(
   'network/checkConnectivity',
   async (isNetworkConnected: boolean) => {
     if (!isNetworkConnected) {
       return false;
     }
-
+    if (listenerInitialized) return;
+    listenerInitialized = true;
     try {
-      await fetch('https://8.8.8.8', {
-        method: 'HEAD',
+      await fetch('https://google.com', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         mode: 'no-cors',
       });
+      listenerInitialized = false;
       return true;
     } catch {
+      listenerInitialized = false;
       return false;
     }
   }

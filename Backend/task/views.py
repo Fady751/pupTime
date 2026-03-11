@@ -1,4 +1,6 @@
+import uuid
 from datetime import datetime
+from django.db import IntegrityError
 
 from django.utils import timezone
 
@@ -13,7 +15,7 @@ from rest_framework.viewsets import ModelViewSet
 
 from . import docs
 from .models import TaskTemplate, TaskOverride
-from .serializers import TaskOverrideSerializer, TaskSerializer
+from .serializers import InitialOverrideSerializer, TaskOverrideSerializer, TaskSerializer
 from .utils import generate_overrides_for_task
 
 
@@ -146,51 +148,116 @@ class TaskViewSet(ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
-    _RECURRENCE_FIELDS = {'start_datetime', 'rrule', 'is_recurring'}
-
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
 
-        recurrence_changed = bool(self._RECURRENCE_FIELDS & set(request.data.keys()))
-        now = timezone.now()
-
-        future_pending_ids_before = set()
-        if recurrence_changed:
-            future_pending_ids_before = set(
-                instance.overrides.filter(
-                    is_deleted=False,
-                    status=TaskOverride.STATUS_PENDING,
-                    instance_datetime__gt=now,
-                ).values_list('id', flat=True)
+        raw_overrides = request.data.get('overrides', [])
+        if not isinstance(raw_overrides, list):
+            return Response(
+                {'overrides': 'Must be a list.'},
+                status=status.HTTP_400_BAD_REQUEST,
             )
+        validated_overrides = []
+        if raw_overrides:
+            ov_ser = InitialOverrideSerializer(data=raw_overrides, many=True)
+            ov_ser.is_valid(raise_exception=True)
+            validated_overrides = ov_ser.validated_data
+
+        raw_deleted_ids = request.data.get('deleted_overrides', [])
+        if not isinstance(raw_deleted_ids, list):
+            return Response(
+                {'deleted_overrides': 'Must be a list of UUIDs.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        validated_deleted_ids = []
+        for v in raw_deleted_ids:
+            try:
+                validated_deleted_ids.append(uuid.UUID(str(v)))
+            except (ValueError, AttributeError):
+                return Response(
+                    {'deleted_overrides': f'Invalid UUID: {v!r}'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        if not recurrence_changed:
-            return Response(status=status.HTTP_204_NO_CONTENT)
+        response_data = {}
 
-        deleted_qs = instance.overrides.filter(id__in=future_pending_ids_before)
-        deleted_data = TaskOverrideSerializer(deleted_qs, many=True).data
-        deleted_qs.update(is_deleted=True)
-
-        generate_overrides_for_task(instance)
-
-        new_overrides_qs = instance.overrides.filter(
+        explicit_delete_qs = instance.overrides.filter(
+            id__in=validated_deleted_ids,
             is_deleted=False,
-            status=TaskOverride.STATUS_PENDING,
-            instance_datetime__gt=now,
-        ).exclude(id__in=future_pending_ids_before)
-
-        return Response(
-            {
-                'new_overrides': TaskOverrideSerializer(new_overrides_qs, many=True).data,
-                'deleted_overrides': deleted_data,
-            },
-            status=status.HTTP_200_OK,
         )
+        soft_deleted_data = list(TaskOverrideSerializer(explicit_delete_qs, many=True).data)
+        explicit_delete_qs.update(is_deleted=True)
+        response_data['deleted_overrides'] = soft_deleted_data
+
+        to_create = []
+        update_data = {}
+        for override_data in validated_overrides:
+            override_id = override_data.get('id')
+            if override_id:
+                update_data[override_id] = override_data
+            else:
+                to_create.append(
+                    TaskOverride(
+                        task=instance,
+                        instance_datetime=override_data['instance_datetime'],
+                        status=override_data['status'],
+                    )
+                )
+
+        try:
+            upserted_ids = []
+            if update_data:
+                existing_objs = list(TaskOverride.objects.filter(id__in=update_data.keys(), task=instance))
+                existing_ids = {obj.id for obj in existing_objs}
+
+                for obj in existing_objs:
+                    data = update_data[obj.id]
+                    obj.instance_datetime = data['instance_datetime']
+                    obj.status = data['status']
+                    upserted_ids.append(obj.id)
+
+                if existing_objs:
+                    TaskOverride.objects.bulk_update(existing_objs, ['instance_datetime', 'status'])
+
+                for override_id, data in update_data.items():
+                    if override_id not in existing_ids:
+                        to_create.append(
+                            TaskOverride(
+                                id=override_id,
+                                task=instance,
+                                instance_datetime=data['instance_datetime'],
+                                status=data['status'],
+                            )
+                        )
+
+            if to_create:
+                TaskOverride.objects.bulk_create(
+                    to_create,
+                    update_conflicts=True,
+                    unique_fields=['task', 'instance_datetime'],
+                    update_fields=['status']
+                )
+
+            created_dts = [obj.instance_datetime for obj in to_create]
+            upserted_qs = TaskOverride.objects.filter(
+                Q(id__in=upserted_ids) | Q(task=instance, instance_datetime__in=created_dts)
+            )
+            response_data['updated_overrides'] = TaskOverrideSerializer(upserted_qs, many=True).data
+
+        except IntegrityError:
+            return Response(
+                {
+                    'overrides': 'One or more overrides contain a duplicated instance_datetime.'
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(response_data, status=status.HTTP_200_OK)
 
     def partial_update(self, request, *args, **kwargs):
         kwargs['partial'] = True

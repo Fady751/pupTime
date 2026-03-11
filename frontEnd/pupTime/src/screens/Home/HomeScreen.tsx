@@ -1,95 +1,73 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useEffect } from "react";
 import {
   View,
   Text,
   ScrollView,
   Pressable,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useSelector } from "react-redux";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import type { RootState } from "../../redux/store";
 import useTheme from "../../Hooks/useTheme";
-import { useTasksForSpecificDay } from "../../Hooks/useTasksForSpecificDay";
+import { useTasks } from "../../Hooks/useTasks";
 import createHomeStyles from "./HomeScreen.styles";
 import { BottomBar } from "../../components/BottomBar/BottomBar";
-import { Task, isTaskCompletedForDate } from "../../types/task";
+import {
+  type TaskTemplate,
+  type TaskOverride,
+  toLocalDateString,
+  floorDateByTimezone,
+  getOverridesForBetweenDate,
+} from "../../types/task";
 
-// Priority colors for task cards
-const PRIORITY_COLORS = {
+/* ═══════════════════════════════════════════════════════════
+   CONSTANTS
+   ═══════════════════════════════════════════════════════════ */
+
+const PRIORITY_COLORS: Record<string, string> = {
   high: "#EF4444",
   medium: "#F59E0B",
   low: "#22C55E",
   none: "#9CA3AF",
 };
 
-// Quick action button colors
+const STATUS_COLORS: Record<string, string> = {
+  COMPLETED: "#22C55E",
+  SKIPPED: "#9CA3AF",
+  RESCHEDULED: "#8B5CF6",
+  PENDING: "#F59E0B",
+};
+
 const QUICK_ACTION_COLORS = [
-  { bg: "#DBEAFE", icon: "#2563EB" }, // Tasks - blue
-  { bg: "#FEF3C7", icon: "#D97706" }, // Schedule - amber
-  { bg: "#D1FAE5", icon: "#059669" }, // Timer - green
-  { bg: "#F3E8FF", icon: "#7C3AED" }, // Friends - purple
+  { bg: "#DBEAFE", icon: "#2563EB" },
+  { bg: "#FEF3C7", icon: "#D97706" },
+  { bg: "#D1FAE5", icon: "#059669" },
+  { bg: "#F3E8FF", icon: "#7C3AED" },
+  { bg: "#FCE7F3", icon: "#DB2777" },
 ];
 
-// Feature cards data
 const FEATURE_CARDS = [
-  {
-    key: "tasks",
-    icon: "✅",
-    title: "My Tasks",
-    desc: "Manage your daily tasks and stay organized",
-    route: "Tasks",
-    color: "#DBEAFE",
-  },
-  {
-    key: "schedule",
-    icon: "📅",
-    title: "Schedule",
-    desc: "View calendar and upcoming events",
-    route: "Schedule",
-    color: "#FEF3C7",
-  },
-  {
-    key: "timer",
-    icon: "⏱",
-    title: "Focus Timer",
-    desc: "Start Pomodoro sessions, build streaks",
-    route: "Timer",
-    color: "#D1FAE5",
-  },
-  {
-    key: "friends",
-    icon: "👥",
-    title: "Friends",
-    desc: "Connect with your accountability partners",
-    route: "Friends",
-    color: "#F3E8FF",
-  },
-  {
-    key: "profile",
-    icon: "👤",
-    title: "Profile",
-    desc: "View and edit your personal info",
-    route: "Profile",
-    color: "#FCE7F3",
-  },
-  {
-    key: "settings",
-    icon: "⚙️",
-    title: "Settings",
-    desc: "Customize your PupTime experience",
-    route: "Settings",
-    color: "#E0E7FF",
-  },
+  { key: "tasks", icon: "✅", title: "My Tasks", desc: "Manage your daily tasks and stay organized", route: "Tasks", color: "#DBEAFE" },
+  { key: "templates", icon: "📋", title: "Hobbies", desc: "Browse and manage all hobbies", route: "TemplatesList", color: "#E0F2FE" },
+  { key: "schedule", icon: "📅", title: "Schedule", desc: "View calendar and upcoming events", route: "Schedule", color: "#FEF3C7" },
+  { key: "timer", icon: "⏱", title: "Focus Timer", desc: "Start Pomodoro sessions, build streaks", route: "Timer", color: "#D1FAE5" },
+  { key: "friends", icon: "👥", title: "Friends", desc: "Connect with your accountability partners", route: "Friends", color: "#F3E8FF" },
+  { key: "profile", icon: "👤", title: "Profile", desc: "View and edit your personal info", route: "Profile", color: "#FCE7F3" },
+  { key: "settings", icon: "⚙️", title: "Settings", desc: "Customize your PupTime experience", route: "Settings", color: "#E0E7FF" },
 ];
 
-// Motivational quotes
 const QUOTES = [
   { text: "The secret of getting ahead is getting started.", author: "Mark Twain" },
   { text: "It always seems impossible until it's done.", author: "Nelson Mandela" },
   { text: "Small progress is still progress.", author: "Unknown" },
   { text: "Focus on being productive instead of busy.", author: "Tim Ferriss" },
 ];
+
+/* ═══════════════════════════════════════════════════════════
+   HELPERS
+   ═══════════════════════════════════════════════════════════ */
 
 const getGreeting = (): string => {
   const hour = new Date().getHours();
@@ -98,7 +76,8 @@ const getGreeting = (): string => {
   return "Good evening";
 };
 
-const formatTime = (date: Date): string => {
+const formatTime = (isoString: string): string => {
+  const date = new Date(isoString);
   const hours = date.getHours();
   const minutes = date.getMinutes();
   const ampm = hours >= 12 ? "PM" : "AM";
@@ -107,20 +86,71 @@ const formatTime = (date: Date): string => {
   return `${h}:${m} ${ampm}`;
 };
 
+/* ═══════════════════════════════════════════════════════════
+   COMPONENT
+   ═══════════════════════════════════════════════════════════ */
+
 const HomeScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const { colors } = useTheme();
   const styles = useMemo(() => createHomeStyles(colors), [colors]);
+    const route = useRoute();
 
   const user = useSelector((state: RootState) => state.user.data);
-  const userId = user?.id ?? null;
-  const today = useMemo(() => new Date(), []);
-  const {
-    tasks: todayTasks,
-    pendingTasks,
-    completedTasks,
-    updateTask,
-  } = useTasksForSpecificDay(userId, today);
+  const userId = user?.id;
+
+  // Today's date string in local timezone
+    const dateStr = useMemo(() => floorDateByTimezone(new Date().toISOString()), []);
+  
+    const nextDateStr = useMemo(() => {
+      const next = new Date();
+      next.setDate(next.getDate() + 1);
+      return floorDateByTimezone(next.toISOString());
+    }, []);
+  
+    const current_filter = useMemo(() => {
+      return {
+        start_date: dateStr,
+        end_date: nextDateStr,
+      }
+    }, [dateStr, nextDateStr])
+  
+    const { tasks, loading, applyFilter } = useTasks(userId!, current_filter);
+
+  const refresh = () => {
+    applyFilter({
+      start_date: dateStr,
+      end_date: nextDateStr,
+    });
+  };
+
+  // if any component use navication.goBack(), refresh the tasks
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("focus", () => {
+      if (route.name === "Home") {
+        refresh();
+      }
+    });
+    return unsubscribe;
+  }, []);
+
+  // Flatten overrides for today
+  const todayOverrides = useMemo(
+    () => (userId ? getOverridesForBetweenDate(tasks, dateStr, nextDateStr) : []),
+    [tasks, dateStr, nextDateStr, userId],
+  );
+
+  const pendingOverrides = useMemo(
+    () => todayOverrides.filter((o) => o.override.status === "PENDING"),
+    [todayOverrides],
+  );
+  const completedOverrides = useMemo(
+    () => todayOverrides.filter((o) => o.override.status === "COMPLETED"),
+    [todayOverrides],
+  );
+
+  const pendingCount = pendingOverrides.length;
+  const completedCount = completedOverrides.length;
 
   // Pick a random quote (stable for session)
   const quote = useMemo(() => QUOTES[Math.floor(Math.random() * QUOTES.length)], []);
@@ -134,9 +164,6 @@ const HomeScreen: React.FC = () => {
     }
     return user.username.slice(0, 2).toUpperCase();
   }, [user?.username]);
-
-  const pendingCount = pendingTasks.length;
-  const completedCount = completedTasks.length;
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -171,7 +198,7 @@ const HomeScreen: React.FC = () => {
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               <Text style={styles.statValue}>{pendingCount}</Text>
-              <Text style={styles.statLabel}>Tasks Today</Text>
+              <Text style={styles.statLabel}>Pending</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
@@ -186,6 +213,7 @@ const HomeScreen: React.FC = () => {
           <View style={styles.quickActionsCard}>
             {[
               { icon: "✅", label: "Tasks", route: "Tasks" },
+              { icon: "📋", label: "Hobbies", route: "TemplatesList" },
               { icon: "📅", label: "Schedule", route: "Schedule" },
               { icon: "⏱", label: "Focus", route: "Timer" },
               { icon: "👥", label: "Friends", route: "Friends" },
@@ -218,54 +246,57 @@ const HomeScreen: React.FC = () => {
             </Pressable>
           </View>
 
-          {todayTasks.length > 0 ? (
-            todayTasks.slice(0, 3).map((task) => {
+          {loading ? (
+            <View style={styles.emptyTasksCard}>
+              <ActivityIndicator size="large" color={colors.primary} />
+            </View>
+          ) : todayOverrides.length > 0 ? (
+            todayOverrides.slice(0, 5).map(({ template, override }) => {
               const priorityColor =
-                PRIORITY_COLORS[task.priority as keyof typeof PRIORITY_COLORS] ||
-                PRIORITY_COLORS.none;
-              const isCompleted = isTaskCompletedForDate(task, today);
+                PRIORITY_COLORS[template.priority ?? "none"] ?? PRIORITY_COLORS.none;
+              const isCompleted = override.status === "COMPLETED";
+              const isSkipped = override.status === "SKIPPED";
+              const isDone = isCompleted || isSkipped;
+              const statusColor = STATUS_COLORS[override.status] ?? STATUS_COLORS.PENDING;
 
               return (
                 <Pressable
-                  key={task.id}
+                  key={override.id}
                   style={[
                     styles.taskPreviewCard,
                     { borderLeftColor: priorityColor },
                   ]}
-                  onPress={() => navigation.navigate("EditTask", { task,
-                    onSave: (updatedTask: Task) => updateTask(updatedTask.id, updatedTask) })}
+                  onPress={() =>
+                    navigation.navigate("EditTask", { taskId: template.id })
+                  }
                 >
                   <Text style={styles.taskPreviewEmoji}>
-                    {task.emoji || "📌"}
+                    {template.emoji || "📌"}
                   </Text>
                   <View style={styles.taskPreviewContent}>
                     <Text
                       style={[
                         styles.taskPreviewTitle,
-                        isCompleted && {
+                        isDone && {
                           textDecorationLine: "line-through",
                           color: colors.secondaryText,
                         },
                       ]}
                       numberOfLines={1}
                     >
-                      {task.title}
+                      {template.title}
                     </Text>
                     <Text style={styles.taskPreviewMeta}>
-                      {formatTime(new Date(task.startTime))} •{" "}
-                      {task.priority.charAt(0).toUpperCase() +
-                        task.priority.slice(1)}{" "}
+                      {formatTime(override.instance_datetime)} •{" "}
+                      {(template.priority ?? "none").charAt(0).toUpperCase() +
+                        (template.priority ?? "none").slice(1)}{" "}
                       priority
                     </Text>
                   </View>
                   <View
                     style={[
                       styles.taskPreviewStatus,
-                      {
-                        backgroundColor: isCompleted
-                          ? "#22C55E"
-                          : "#F59E0B",
-                      },
+                      { backgroundColor: statusColor },
                     ]}
                   />
                 </Pressable>

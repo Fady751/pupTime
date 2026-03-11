@@ -4,7 +4,7 @@ import { StyleSheet, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import AuthNavigator from '../navigation/AuthNavigator';
-// import AppNavigator from '../navigation/AppNavigator';
+import AppNavigator from '../navigation/AppNavigator';
 import LoadingScreen from '../screens/Loading/loading';
 import OfflineBar from '../components/OfflineBar/offlineBar';
 import useNetworkListener from '../Hooks/RootHooks/NetworkBootstrap';
@@ -13,25 +13,35 @@ import useAuthBootstrap from '../Hooks/RootHooks/AuthBootstrap';
 // import useFetchTasks from '../Hooks/RootHooks/FetchTasks';
 import { useEffect } from 'react';
 import { getTasks } from '../services/TaskService/tasks';
+import { fullSync, getTemplatesWithOverrides } from '../services/TaskService/syncService';
+import { AppMetaRepository, TaskTemplateRepository } from '../DB';
+import { getExactlyTime } from '../types/task';
 // import { AppMetaRepository } from '../DB';
 
 export default function Root() {
   const { data, loading } = useSelector((s: RootState) => s.user);
   const { isConnected, loading: networkLoading } = useSelector((s: RootState) => s.network);
 
-  useNetworkListener();
-  useAuthBootstrap();
+  // useEffect(() => {
+  //   useNetworkListener();
+  //   useAuthBootstrap();
+  // }, []);
+    useNetworkListener();
+    useAuthBootstrap();
   // useSyncQueue();
   // useFetchTasks();
 
   useEffect(() => {
     const test = async () => {
-      // AppMetaRepository.clear();
-      const tasks = await getTasks({});
-      console.log('Tasks:', tasks);
+      // const task = await getTasks({page: 1, page_size: 1000});
+      // console.log("task: ", task);
+      // const tasksLocal = await TaskTemplateRepository.getTaskOverrides({user_id: data?.id ?? 0, page: 1, page_size: 1000, ordering: 'start_datetime', start_date: '2026-03-01', end_date: '2026-04-11'});
+      // console.log("tasksLocal: ", tasksLocal);
+
+      // console.log(await AppMetaRepository.get("authToken"));
     };
     test();
-  }, [data?.id]);
+  }, [data]);
 
   if (loading || networkLoading) return <LoadingScreen />;
 
@@ -39,7 +49,7 @@ export default function Root() {
     <>
       <NavigationContainer>
         <SafeAreaView style={styles.safeArea}>
-          {data ?<Text>User is authenticated</Text> : <AuthNavigator />}
+          {data ? <AppNavigator /> : <AuthNavigator />}
         </SafeAreaView>
       </NavigationContainer>
       {!isConnected && <OfflineBar />}

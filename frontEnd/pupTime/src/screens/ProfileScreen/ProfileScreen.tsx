@@ -1,20 +1,29 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useEffect } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   ScrollView,
   Image,
+  Pressable,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import createStyles from "./ProfileScreen.styles";
 import { useSelector } from "react-redux";
 import { RootState } from "../../redux/store";
-// import { useLogout } from "../../Hooks/useLogout";
 import { BottomBar } from "../../components/BottomBar/BottomBar";
 import useTheme from "../../Hooks/useTheme";
-import { useTasksForSpecificDay } from "../../Hooks/useTasksForSpecificDay";
-import { isTaskCompletedForDate } from "../../types/task";
+import { useTasks } from "../../Hooks/useTasks";
+import {
+  type TaskTemplate,
+  type TaskOverride,
+  floorDateByTimezone,
+  getOverridesForBetweenDate,
+} from "../../types/task";
+
+/* ═══════════════════════════════════════════════════════════
+   CONSTANTS
+   ═══════════════════════════════════════════════════════════ */
 
 const PRIORITY_COLORS: Record<string, string> = {
   high: "#EF4444",
@@ -23,39 +32,95 @@ const PRIORITY_COLORS: Record<string, string> = {
   none: "#6C8CFF",
 };
 
-const formatTaskTime = (task: any): string => {
-  if (task.repetition && task.repetition.length > 0) {
-    const rep = task.repetition[0];
-    if (rep.time) {
-      const t = new Date(rep.time);
-      const h = t.getHours() % 12 || 12;
-      const ampm = t.getHours() >= 12 ? "PM" : "AM";
-      return `${h} ${ampm}`;
-    }
-  }
-  return "All day";
+/* ═══════════════════════════════════════════════════════════
+   HELPERS
+   ═══════════════════════════════════════════════════════════ */
+
+const formatTime = (isoString: string): string => {
+  const date = new Date(isoString);
+  const hours = date.getHours();
+  const minutes = date.getMinutes();
+  const ampm = hours >= 12 ? "PM" : "AM";
+  const h = hours % 12 || 12;
+  const m = minutes.toString().padStart(2, "0");
+  return `${h}:${m} ${ampm}`;
 };
 
-const ProfileSettingsScreen = ( { navigation }: { navigation: any }) => {
-  // const logout = useLogout();
+/* ═══════════════════════════════════════════════════════════
+   COMPONENT
+   ═══════════════════════════════════════════════════════════ */
+
+const ProfileSettingsScreen = ({ navigation }: { navigation: any }) => {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { data } = useSelector((state: RootState) => state.user);
   const { isConnected } = useSelector((state: RootState) => state.network);
-  const today = useMemo(() => new Date(), []);
-  const { tasks: dayTasks, pendingTasks, completedTasks } = useTasksForSpecificDay(data?.id ?? null, today);
+  const userId = data?.id;
 
-  console.log("user data: ", data);
-  const photo = data?.gender === 'female'? require("../../assets/avatar_Female.png"): require("../../assets/avatar_Male.png");
+  // Today's date string in local timezone
+  const dateStr = useMemo(() => floorDateByTimezone(new Date().toISOString()), []);
+
+  const nextDateStr = useMemo(() => {
+    const next = new Date();
+    next.setDate(next.getDate() + 1);
+    return floorDateByTimezone(next.toISOString());
+  }, []);
+
+  const current_filter = useMemo(() => {
+    return {
+      start_date: dateStr,
+      end_date: nextDateStr,
+    };
+  }, [dateStr, nextDateStr]);
+
+  const { tasks, loading, applyFilter } = useTasks(userId!, current_filter);
+
+  const refresh = () => {
+    applyFilter({
+      start_date: dateStr,
+      end_date: nextDateStr,
+    });
+  };
+
+  // Refresh tasks when screen gains focus
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("focus", () => {
+      refresh();
+    });
+    return unsubscribe;
+  }, [navigation, refresh]);
+
+  // Flatten overrides for today
+  const todayOverrides = useMemo(
+    () => (userId ? getOverridesForBetweenDate(tasks, dateStr, nextDateStr) : []),
+    [tasks, dateStr, nextDateStr, userId],
+  );
+
+  const pendingCount = useMemo(
+    () => todayOverrides.filter((o) => o.override.status === "PENDING").length,
+    [todayOverrides],
+  );
+  const completedCount = useMemo(
+    () => todayOverrides.filter((o) => o.override.status === "COMPLETED").length,
+    [todayOverrides],
+  );
+
+  const photo =
+    data?.gender === "female"
+      ? require("../../assets/avatar_Female.png")
+      : require("../../assets/avatar_Male.png");
 
   return (
     <SafeAreaView style={styles.safe}>
-
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* HEADER */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Profile</Text>
-
+          <View style={styles.headerRow}>
+            <Text style={styles.headerTitle}>Profile</Text>
+            <Pressable style={styles.backBtn} onPress={() => navigation.goBack()}>
+              <Text style={styles.backBtnText}>←</Text>
+            </Pressable>
+          </View>
         </View>
 
         {/* USER CARD */}
@@ -70,29 +135,31 @@ const ProfileSettingsScreen = ( { navigation }: { navigation: any }) => {
           <Text style={styles.name}>{data?.username}</Text>
           <Text style={styles.email}>{data?.email}</Text>
 
-          {isConnected && <TouchableOpacity 
-            style={styles.editBtn}
-            onPress={() => navigation.navigate('EditProfile')}
-          >
-            <Text style={styles.editTxt} onPress={() => navigation.navigate('EditProfile')}>Edit Profile</Text>
-          </TouchableOpacity> }
+          {isConnected && (
+            <TouchableOpacity
+              style={styles.editBtn}
+              onPress={() => navigation.navigate("EditProfile")}
+            >
+              <Text style={styles.editTxt}>Edit Profile</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* STATS */}
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
-            <Text style={styles.statNum}>25</Text>
-            <Text style={styles.statLabel}>Friends</Text>
-          </View>
-
-          <View style={styles.statCard}>
-            <Text style={styles.statNum}>{data?.streak_cnt}🔥</Text>
+            <Text style={styles.statNum}>{data?.streak_cnt ?? 0}🔥</Text>
             <Text style={styles.statLabel}>Streak</Text>
           </View>
 
           <View style={styles.statCard}>
-            <Text style={styles.statNum}>{pendingTasks.length}</Text>
+            <Text style={styles.statNum}>{pendingCount}</Text>
             <Text style={styles.statLabel}>Pending</Text>
+          </View>
+
+          <View style={styles.statCard}>
+            <Text style={styles.statNum}>{completedCount}</Text>
+            <Text style={styles.statLabel}>Done</Text>
           </View>
         </View>
 
@@ -100,40 +167,51 @@ const ProfileSettingsScreen = ( { navigation }: { navigation: any }) => {
         <Text style={styles.sectionTitle}>Today's Schedule</Text>
 
         <View style={styles.scheduleCard}>
-          {dayTasks.length > 0 ? (
-            dayTasks.map((task) => {
-              const color = PRIORITY_COLORS[task.priority] || PRIORITY_COLORS.none;
-              const completed = isTaskCompletedForDate(task, today);
+          {todayOverrides.length > 0 ? (
+            todayOverrides.map(({ template, override }) => {
+              const color =
+                PRIORITY_COLORS[template.priority ?? "none"] ?? PRIORITY_COLORS.none;
+              const isCompleted = override.status === "COMPLETED";
+              const isSkipped = override.status === "SKIPPED";
+              const isDone = isCompleted || isSkipped;
+
               return (
-                <View key={task.id} style={styles.sessionRow}>
-                  <Text style={styles.time}>{formatTaskTime(task)}</Text>
+                <Pressable
+                  key={override.id}
+                  style={styles.sessionRow}
+                  onPress={() => navigation.navigate("Tasks")}
+                >
+                  <Text style={styles.time}>
+                    {formatTime(override.instance_datetime)}
+                  </Text>
                   <View
                     style={[
                       styles.sessionBlock,
-                      { backgroundColor: color, opacity: completed ? 0.5 : 1 },
+                      { backgroundColor: color, opacity: isDone ? 0.55 : 1 },
                     ]}
                   >
                     <Text style={styles.sessionText}>
-                      {task.emoji ? `${task.emoji} ` : ""}{task.title}
-                      {completed ? " ✓" : ""}
+                      {template.emoji ? `${template.emoji} ` : ""}
+                      {template.title}
+                      {isCompleted ? " ✓" : ""}
                     </Text>
                   </View>
-                </View>
+                </Pressable>
               );
             })
           ) : (
-            <Text style={{ color: colors.secondaryText, textAlign: "center", paddingVertical: 12 }}>
-              No tasks for today 🌤️
-            </Text>
+            <View style={styles.emptySchedule}>
+              <Text style={styles.emptyEmoji}>🌤️</Text>
+              <Text style={styles.emptyText}>No tasks for today</Text>
+            </View>
           )}
         </View>
 
-        
-
+        {/* Bottom spacer */}
+        <View style={{ height: 100 }} />
       </ScrollView>
 
-      <BottomBar current="Home" navigation={navigation} />
-
+      <BottomBar current="Profile" navigation={navigation} />
     </SafeAreaView>
   );
 };

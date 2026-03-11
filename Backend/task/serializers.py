@@ -38,7 +38,7 @@ class TaskSerializer(serializers.ModelSerializer):
             'overrides',
             'created_at', 'updated_at',
         ]
-        read_only_fields = ['user', 'created_at', 'updated_at']
+        read_only_fields = ['user', 'created_at']
 
     def validate(self, attrs):
         is_recurring = attrs.get(
@@ -106,16 +106,25 @@ class TaskSerializer(serializers.ModelSerializer):
         if categories:
             task.categories.set(categories)
 
+        to_create = []
         for override_data in initial_overrides:
-            defaults = {'status': override_data['status']}
+            override_attrs = {
+                'task': task,
+                'instance_datetime': override_data['instance_datetime'],
+                'status': override_data['status'],
+            }
             if 'id' in override_data:
-                defaults['id'] = override_data['id']
+                override_attrs['id'] = override_data['id']
             if 'notes' in override_data:
-                defaults['notes'] = override_data['notes']
-            TaskOverride.objects.update_or_create(
-                task=task,
-                instance_datetime=override_data['instance_datetime'],
-                defaults=defaults,
+                override_attrs['notes'] = override_data['notes']
+            to_create.append(TaskOverride(**override_attrs))
+
+        if to_create:
+            TaskOverride.objects.bulk_create(
+                to_create,
+                update_conflicts=True,
+                unique_fields=['task', 'instance_datetime'],
+                update_fields=['status', 'notes']
             )
 
         generate_overrides_for_task(task)

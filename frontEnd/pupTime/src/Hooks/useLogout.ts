@@ -1,18 +1,18 @@
-import { clearData } from '../utils/storage/auth';
 import { useDispatch } from 'react-redux';
 import { AppDispatch } from '../redux/store';
 import { clearUser } from '../redux/slices/userSlice';
-import { clearTasks } from '../redux/slices/tasksSlice';
-import { dropAllTables } from '../DB';
+import { resetTasks } from '../redux/slices/tasksSlice';
+import { clearAllData } from '../DB/drizzleClient';
+import NotificationService from '../services/NotificationService';
 
 export function useLogout() {
     const dispatch = useDispatch<AppDispatch>();
 
     const clearAppData = async () => {
-        await clearData();
+        dispatch(resetTasks());
         dispatch(clearUser());
-        dispatch(clearTasks());
-        await dropAllTables();
+        await clearAllData();
+        await NotificationService.cancelAllScheduled();
     }
     
     return async () => {
