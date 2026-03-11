@@ -48,6 +48,7 @@ class GeminiProvider(BaseAIProvider):
                 yield chunk.content
 
     def stream_with_tools(self, messages: List[ChatMessage], tools: list) -> Generator[str, None, None]:
+        import json
         lc_messages = _to_langchain_messages(messages)
         llm_with_tools = self._llm.bind_tools(tools)
 
@@ -61,18 +62,31 @@ class GeminiProvider(BaseAIProvider):
                 tool_results = []
 
                 for tool_call in response.tool_calls:
+                    if tool_call["name"] == "respond_to_user":
+                        # The AI has decided on its final response and actions
+                        final_response = [tool_call["args"]]
+                        yield json.dumps(final_response)
+                        return
+
                     tool = tool_map.get(tool_call["name"])
                     if tool:
-                        result = tool.invoke(tool_call["args"])
+                        try:
+                            result = tool.invoke(tool_call["args"])
+                        except Exception as e:
+                            result = f"Error executing tool: {e}"
+                            
                         tool_results.append(
                             ToolMessage(content=str(result), tool_call_id=tool_call["id"])
                         )
+                        
                 lc_messages += [response] + tool_results
                 rounds += 1
             else:
-                for chunk in llm_with_tools.stream(lc_messages):
-                    content = chunk.content
-                    if content:
-                        yield content if isinstance(content, str) else str(content)
+                # Fallback: if AI answers without using the respond_to_user tool
+                fallback_response = [{
+                    "message": response.content,
+                    "choices": []
+                }]
+                yield json.dumps(fallback_response)
                 break
 

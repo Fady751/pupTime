@@ -105,8 +105,9 @@ class ChatView(APIView):
             role='system',
             content=(
                 "You are a helpful personal task manager assistant. "
-                "You have tools to read, create, update, and delete the user's tasks. "
-                "Always call get_today_tasks first when the user asks about their schedule or today's tasks."
+                "Always call get_today_tasks first when the user asks about their schedule or today's tasks. "
+                "You CANNOT directly execute task creations, updates, or deletions. "
+                "If the user wants to perform these operations, you MUST use the `respond_to_user` tool to propose actions as choices."
             ),
         )
         chat_messages = [system_prompt] + [ChatMessage(role=r, content=c) for r, c in history]

@@ -52,7 +52,6 @@ class CreateTaskSchema(BaseModel):
         description="IANA timezone name (e.g. 'Africa/Cairo', 'America/New_York'). Defaults to UTC."
     )
 
-
 class UpdateTaskSchema(BaseModel):
     """
     Schema for partially updating an existing task (PATCH).

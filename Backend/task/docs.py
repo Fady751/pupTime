@@ -60,6 +60,7 @@ _RESCHEDULED_RESPONSE = openapi.Schema(
                 'instance_datetime': openapi.Schema(type=openapi.TYPE_STRING, format='date-time'),
                 'status': openapi.Schema(type=openapi.TYPE_STRING, example='RESCHEDULED'),
                 'new_datetime': openapi.Schema(type=openapi.TYPE_STRING, format='date-time'),
+                'notes': openapi.Schema(type=openapi.TYPE_STRING, x_nullable=True),
                 'created_at': openapi.Schema(type=openapi.TYPE_STRING, format='date-time'),
                 'updated_at': openapi.Schema(type=openapi.TYPE_STRING, format='date-time'),
             },
@@ -72,6 +73,7 @@ _RESCHEDULED_RESPONSE = openapi.Schema(
                 'instance_datetime': openapi.Schema(type=openapi.TYPE_STRING, format='date-time'),
                 'status': openapi.Schema(type=openapi.TYPE_STRING, example='PENDING'),
                 'new_datetime': openapi.Schema(type=openapi.TYPE_STRING, format='date-time', x_nullable=True),
+                'notes': openapi.Schema(type=openapi.TYPE_STRING, x_nullable=True),
                 'created_at': openapi.Schema(type=openapi.TYPE_STRING, format='date-time'),
                 'updated_at': openapi.Schema(type=openapi.TYPE_STRING, format='date-time'),
             },
@@ -100,6 +102,10 @@ override_schema = swagger_auto_schema(
                 enum=['PENDING', 'COMPLETED', 'SKIPPED', 'RESCHEDULED', 'FAILED'],
                 description='New status for the current override.',
             ),
+            'notes': openapi.Schema(
+                type=openapi.TYPE_STRING,
+                description='Optional notes for this override.',
+            ),
             'new_instance': openapi.Schema(
                 type=openapi.TYPE_OBJECT,
                 description='Required when status is RESCHEDULED.',
@@ -116,6 +122,10 @@ override_schema = swagger_auto_schema(
                         type=openapi.TYPE_STRING,
                         enum=['PENDING', 'COMPLETED', 'SKIPPED', 'RESCHEDULED', 'FAILED'],
                         description='Optional. Status for the new instance. Defaults to PENDING.',
+                    ),
+                    'notes': openapi.Schema(
+                        type=openapi.TYPE_STRING,
+                        description='Optional notes for the new instance.',
                     ),
                 },
             ),
@@ -187,6 +197,10 @@ create_schema = swagger_auto_schema(
                         'status': openapi.Schema(
                             type=openapi.TYPE_STRING,
                             enum=['PENDING', 'COMPLETED', 'SKIPPED', 'RESCHEDULED', 'FAILED'],
+                        ),
+                        'notes': openapi.Schema(
+                            type=openapi.TYPE_STRING,
+                            description='Optional notes for this override.',
                         ),
                     },
                 ),
