@@ -94,17 +94,21 @@ const TemplateDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
         user_id: user.id,
         template_id: templateId
       }) as TaskTemplate[];
+      if(!data) navigation.goBack();
       setTasks(data);
       setLoading(false);
+    }
+    else {
+      navigation.goBack();
     }
   };
 
   useEffect(() => {
-    // const unsubscribe = navigation.addListener("focus", () => {
-    //   fetchTemplates();
-    // });
+    const unsubscribe = navigation.addListener("focus", () => {
+      fetchTemplates();
+    });
     fetchTemplates();
-    // return unsubscribe;
+    return unsubscribe;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
@@ -124,7 +128,7 @@ const TemplateDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
   const handleDelete = useCallback(() => {
     if (!template) return;
     Alert.alert(
-      "Delete Template",
+      "Delete Hobby",
       `Are you sure you want to delete "${template.title}"? This action cannot be undone.`,
       [
         { text: "Cancel", style: "cancel" },
@@ -161,6 +165,13 @@ const TemplateDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
       setTogglingIds((prev) => [...prev, overrideId]);
       try {
         await changeOverride(tmplId, overrideId, { status: newStatus });
+        setTasks((prev) => {
+          const tmpl = prev.find((t) => t.id === tmplId);
+          if (!tmpl) return prev;
+          return prev.map((t) => (t.id === tmplId ? { ...t, overrides: t.overrides?.map((o) => (o.id === overrideId ? { ...o, status: newStatus } : o)) } : t));
+        });
+        } catch (e) {
+        console.error(e);
       } finally {
         setTogglingIds((prev) => prev.filter((id) => id !== overrideId));
       }
@@ -177,12 +188,12 @@ const TemplateDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
             <Pressable style={styles.backBtn} onPress={() => navigation.goBack()}>
               <Text style={styles.backBtnText}>←</Text>
             </Pressable>
-            <Text style={styles.heroTitle}>Template Details</Text>
+            <Text style={styles.heroTitle}>Hobby Details</Text>
           </View>
         </View>
         <View style={styles.loadingCenter}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading template…</Text>
+          <Text style={styles.loadingText}>Loading hobby…</Text>
         </View>
       </SafeAreaView>
     );
@@ -204,7 +215,7 @@ const TemplateDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
             <Text style={styles.heroTitle} numberOfLines={1}>
               {template.title}
             </Text>
-            <Text style={styles.heroSubtitle}>Template Details</Text>
+            <Text style={styles.heroSubtitle}>Hobby Details</Text>
           </View>
         </View>
       </View>
@@ -321,7 +332,7 @@ const TemplateDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
               activeOpacity={0.85}
             >
               <Text style={styles.viewOverridesBtnText}>
-                📊 View Overrides ({overridesCount})
+                📊 View Tasks ({overridesCount})
               </Text>
             </TouchableOpacity>
           </View>
@@ -352,7 +363,7 @@ const TemplateDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
               }
               activeOpacity={0.85}
             >
-              <Text style={styles.editBtnText}>✏️  Edit Template</Text>
+              <Text style={styles.editBtnText}>✏️  Edit Hobby</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -360,7 +371,7 @@ const TemplateDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
               onPress={handleDelete}
               activeOpacity={0.8}
             >
-              <Text style={styles.deleteBtnText}>🗑️  Delete Template</Text>
+              <Text style={styles.deleteBtnText}>🗑️  Delete Hobby</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -373,7 +384,7 @@ const TemplateDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
             activeOpacity={0.85}
           >
             <Text style={styles.viewOverridesBtnText}>
-              ▲ Hide Overrides ({overridesCount})
+              ▲ Hide Tasks ({overridesCount})
             </Text>
           </TouchableOpacity>
 

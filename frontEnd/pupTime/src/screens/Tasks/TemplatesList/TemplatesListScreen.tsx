@@ -120,8 +120,8 @@ const TemplatesListScreen: React.FC = () => {
   const handleDelete = useCallback(
     (id: string, title?: string | null) => {
       Alert.alert(
-        "Delete Template",
-        `Are you sure you want to delete "${title ?? "this template"}"? This action cannot be undone.`,
+        "Delete Hobby",
+        `Are you sure you want to delete "${title ?? "this hobby"}"? This action cannot be undone.`,
         [
           { text: "Cancel", style: "cancel" },
           {
@@ -188,9 +188,9 @@ const TemplatesListScreen: React.FC = () => {
       <View style={styles.heroContainer}>
         <View style={styles.heroTopRow}>
           <View>
-            <Text style={styles.heroTitle}>Templates</Text>
+            <Text style={styles.heroTitle}>Hobbies</Text>
             <Text style={styles.heroSubtitle}>
-              Manage your task templates
+              Manage your hobbies
             </Text>
           </View>
           <Pressable style={styles.backBtn} onPress={() => navigation.goBack()}>
@@ -227,7 +227,7 @@ const TemplatesListScreen: React.FC = () => {
           <Text style={styles.searchIcon}>🔍</Text>
           <TextInput
             style={styles.searchInput}
-            placeholder="Search templates..."
+            placeholder="Search hobbies..."
             placeholderTextColor={colors.secondaryText}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -278,10 +278,10 @@ const TemplatesListScreen: React.FC = () => {
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>
-            {priorityFilter === "all" ? "All Templates" : `${priorityFilter.charAt(0).toUpperCase() + priorityFilter.slice(1)} Priority`}
+            {priorityFilter === "all" ? "All Hobbies" : `${priorityFilter.charAt(0).toUpperCase() + priorityFilter.slice(1)} Priority`}
           </Text>
           <Text style={styles.sectionCount}>
-            {templates.length} template{templates.length !== 1 ? "s" : ""}
+            {templates.length} hobb{templates.length !== 1 ? "ies" : "y"}
           </Text>
         </View>
       </View>
@@ -309,12 +309,12 @@ const TemplatesListScreen: React.FC = () => {
             <View style={styles.emptyCard}>
               <Text style={styles.emptyEmoji}>📋</Text>
               <Text style={styles.emptyTitle}>
-                {searchQuery ? "No templates found" : "No templates yet"}
+                {searchQuery ? "No hobbies found" : "No hobbies yet"}
               </Text>
               <Text style={styles.emptySubtitle}>
                 {searchQuery
                   ? "Try a different search term."
-                  : "Create your first task template to get started!"}
+                  : "Create your first hobby to get started!"}
               </Text>
             </View>
           }

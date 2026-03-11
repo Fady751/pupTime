@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from "react";
+import React, { useMemo, useState, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -153,7 +153,7 @@ const OverrideDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
     if (selectedStatus === "RESCHEDULED") {
       Alert.alert(
         "Reschedule Task",
-        "Once rescheduled, this override will be locked and cannot be changed again. Are you sure?",
+        "Once rescheduled, this task will be locked and cannot be changed again. Are you sure?",
         [
           { text: "Cancel", style: "cancel" },
           {
@@ -215,12 +215,12 @@ const OverrideDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
             >
               <Text style={styles.backBtnText}>←</Text>
             </Pressable>
-            <Text style={styles.heroTitle}>Override Details</Text>
+            <Text style={styles.heroTitle}>Task Details</Text>
           </View>
         </View>
         <View style={styles.loadingCenter}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading override…</Text>
+          <Text style={styles.loadingText}>Loading task…</Text>
         </View>
       </SafeAreaView>
     );
@@ -243,7 +243,7 @@ const OverrideDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
             <Text style={styles.backBtnText}>←</Text>
           </Pressable>
           <View style={{ flex: 1 }}>
-            <Text style={styles.heroTitle}>Override Details</Text>
+            <Text style={styles.heroTitle}>Task Details</Text>
             <Text style={styles.heroSubtitle}>
               {template.emoji || "📌"} {template.title}
             </Text>
@@ -271,7 +271,7 @@ const OverrideDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
           <View style={styles.lockedBanner}>
             <Text style={styles.lockedBannerIcon}>🔒</Text>
             <Text style={styles.lockedBannerText}>
-              This override has been rescheduled and is now locked. The status
+              This task has been rescheduled and is now locked. The status
               cannot be changed again.
             </Text>
           </View>
@@ -282,7 +282,7 @@ const OverrideDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionIcon}>📋</Text>
-            <Text style={styles.sectionLabel}>Override Information</Text>
+            <Text style={styles.sectionLabel}>Task Information</Text>
           </View>
 
           <View style={styles.detailRow}>
@@ -442,7 +442,7 @@ const OverrideDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
               ) : (
                 <Text style={styles.saveBtnText}>
                   {selectedStatus === "RESCHEDULED"
-                    ? "🔄  Reschedule Override"
+                    ? "🔄  Reschedule Task"
                     : `${STATUS_EMOJIS[selectedStatus]}  Update to ${selectedStatus}`}
                 </Text>
               )}
@@ -458,7 +458,7 @@ const OverrideDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
             activeOpacity={0.85}
           >
             <Text style={[styles.saveBtnText, { color: colors.primary }]}>
-              📌  View Template Details
+              📌  View Hobby Details
             </Text>
           </TouchableOpacity>
         </View>

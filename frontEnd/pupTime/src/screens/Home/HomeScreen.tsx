@@ -50,7 +50,7 @@ const QUICK_ACTION_COLORS = [
 
 const FEATURE_CARDS = [
   { key: "tasks", icon: "✅", title: "My Tasks", desc: "Manage your daily tasks and stay organized", route: "Tasks", color: "#DBEAFE" },
-  { key: "templates", icon: "📋", title: "Templates", desc: "Browse and manage all task templates", route: "TemplatesList", color: "#E0F2FE" },
+  { key: "templates", icon: "📋", title: "Hobbies", desc: "Browse and manage all hobbies", route: "TemplatesList", color: "#E0F2FE" },
   { key: "schedule", icon: "📅", title: "Schedule", desc: "View calendar and upcoming events", route: "Schedule", color: "#FEF3C7" },
   { key: "timer", icon: "⏱", title: "Focus Timer", desc: "Start Pomodoro sessions, build streaks", route: "Timer", color: "#D1FAE5" },
   { key: "friends", icon: "👥", title: "Friends", desc: "Connect with your accountability partners", route: "Friends", color: "#F3E8FF" },
@@ -213,7 +213,7 @@ const HomeScreen: React.FC = () => {
           <View style={styles.quickActionsCard}>
             {[
               { icon: "✅", label: "Tasks", route: "Tasks" },
-              { icon: "📋", label: "Templates", route: "TemplatesList" },
+              { icon: "📋", label: "Hobbies", route: "TemplatesList" },
               { icon: "📅", label: "Schedule", route: "Schedule" },
               { icon: "⏱", label: "Focus", route: "Timer" },
               { icon: "👥", label: "Friends", route: "Friends" },
