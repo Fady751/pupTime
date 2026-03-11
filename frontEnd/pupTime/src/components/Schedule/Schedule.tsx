@@ -36,6 +36,23 @@ const STATUS_COLORS: Record<string, string> = {
   SKIPPED: "#9CA3AF",
   RESCHEDULED: "#8B5CF6",
   PENDING: "#F59E0B",
+  FAILED: "#EF4444",
+};
+
+const STATUS_EMOJIS: Record<string, string> = {
+  PENDING: "⏳",
+  COMPLETED: "✅",
+  SKIPPED: "⏭️",
+  FAILED: "❌",
+  RESCHEDULED: "🔄",
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  PENDING: "Pending",
+  COMPLETED: "Done",
+  SKIPPED: "Skipped",
+  FAILED: "Failed",
+  RESCHEDULED: "Moved",
 };
 
 /* ═══════════════════════════════════════════════════════════
@@ -48,7 +65,7 @@ type ScheduleProps = {
   tasks: TaskTemplate[];
   /** Called on mount AND whenever the visible month changes. */
   onMonthChange?: (startDate: string, endDate: string) => void;
-  onTaskPress?: (template: TaskTemplate) => void;
+  onTaskPress?: (template: TaskTemplate, override: TaskOverride) => void;
   onCompleteToggle?: (
     templateId: string,
     overrideId: string,
@@ -156,7 +173,7 @@ const Schedule: React.FC<ScheduleProps> = ({
   const { colors } = useTheme();
   const styles = useMemo(() => createScheduleStyles(colors), [colors]);
 
-  console.log("tasks: ", tasks);
+  // console.log("tasks: ", tasks);
   const today = useMemo(() => {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
@@ -368,6 +385,20 @@ const Schedule: React.FC<ScheduleProps> = ({
     [selectedDate],
   );
 
+  /* ── Status picker modal ──────────────────────── */
+  const [pickerOverride, setPickerOverride] = useState<{
+    templateId: string;
+    overrideId: string;
+    currentStatus: string;
+  } | null>(null);
+
+  const PICKER_OPTIONS = useMemo(() => [
+    { status: 'PENDING', emoji: '⏳', label: 'Pending', desc: 'Not started yet' },
+    { status: 'COMPLETED', emoji: '✅', label: 'Completed', desc: 'Task is done' },
+    { status: 'SKIPPED', emoji: '⏭️', label: 'Skipped', desc: 'Skip this occurrence' },
+    { status: 'FAILED', emoji: '❌', label: 'Failed', desc: 'Could not complete' },
+  ], []);
+
   /* ── Task list item renderer (for FlatList) ────── */
   const renderTask = useCallback(
     ({ item }: { item: OverrideItem }) => {
@@ -382,13 +413,13 @@ const Schedule: React.FC<ScheduleProps> = ({
       const toggling = isToggling ? isToggling(override.id) : false;
 
       return (
-        <View style={styles.taskRow}>
-          <Pressable
-            style={[styles.taskRowCard, taskItemStyles.card, { borderLeftColor: pColor }]}
-            onPress={() => onTaskPress?.(template)}
-          >
+        <Pressable
+          style={[taskItemStyles.card, { borderLeftColor: pColor, backgroundColor: colors.surface }]}
+          onPress={() => onTaskPress?.(template, override)}
+        >
+          {/* Top row: emoji + title + time */}
+          <View style={taskItemStyles.topRow}>
             <Text style={taskItemStyles.emoji}>{template.emoji || "📌"}</Text>
-
             <View style={taskItemStyles.middle}>
               <Text
                 numberOfLines={1}
@@ -402,39 +433,52 @@ const Schedule: React.FC<ScheduleProps> = ({
                 {template.title}
               </Text>
               <Text style={[taskItemStyles.meta, { color: colors.secondaryText }]}>
-                {fmtTime(override.instance_datetime)} •{" "}
-                {(template.priority ?? "none").charAt(0).toUpperCase() +
-                  (template.priority ?? "none").slice(1)}{" "}
-                priority
+                {fmtTime(override.instance_datetime)}
+                {template.priority && template.priority !== "none"
+                  ? ` • ${template.priority.charAt(0).toUpperCase() + template.priority.slice(1)}`
+                  : ""}
               </Text>
             </View>
+          </View>
 
-            <View
-              style={[taskItemStyles.statusDot, { backgroundColor: sColor }]}
-            />
-          </Pressable>
-
-          {onCompleteToggle && (
-            <Pressable
-              style={[
-                styles.completeToggle,
-                done && styles.completeToggleDone,
-                skipped && styles.completeToggleDisabled,
-              ]}
-              onPress={() =>
-                onCompleteToggle(template.id, override.id, override?.status ?? "PENDING")
-              }
-              disabled={toggling || skipped}
-            >
-              <Text style={styles.completeToggleText}>
-                {toggling ? "…" : done ? "✓" : skipped ? "—" : "○"}
-              </Text>
-            </Pressable>
-          )}
-        </View>
+          {/* Bottom row: status badge (tappable) */}
+          <View style={[taskItemStyles.bottomRow, { borderTopColor: colors.border }]}>
+            {onCompleteToggle ? (
+              <Pressable
+                style={[taskItemStyles.statusBadge, { backgroundColor: sColor + '12', borderColor: sColor + '25' }]}
+                onPress={(e) => {
+                  e.stopPropagation?.();
+                  setPickerOverride({
+                    templateId: template.id,
+                    overrideId: override.id,
+                    currentStatus: override.status ?? 'PENDING',
+                  });
+                }}
+                disabled={toggling}
+              >
+                <Text style={taskItemStyles.statusBadgeEmoji}>
+                  {toggling ? '⟳' : STATUS_EMOJIS[override.status ?? 'PENDING']}
+                </Text>
+                <Text style={[taskItemStyles.statusBadgeLabel, { color: sColor }]}>
+                  {toggling ? 'Updating...' : STATUS_LABELS[override.status ?? 'PENDING']}
+                </Text>
+                <Text style={[taskItemStyles.statusBadgeArrow, { color: sColor + '80' }]}>▾</Text>
+              </Pressable>
+            ) : (
+              <View style={[taskItemStyles.statusBadge, { backgroundColor: sColor + '12', borderColor: sColor + '25' }]}>
+                <Text style={taskItemStyles.statusBadgeEmoji}>
+                  {STATUS_EMOJIS[override.status ?? 'PENDING']}
+                </Text>
+                <Text style={[taskItemStyles.statusBadgeLabel, { color: sColor }]}>
+                  {STATUS_LABELS[override.status ?? 'PENDING']}
+                </Text>
+              </View>
+            )}
+          </View>
+        </Pressable>
       );
     },
-    [colors, styles, isToggling, onTaskPress, onCompleteToggle],
+    [colors, isToggling, onTaskPress, onCompleteToggle],
   );
 
   const taskKeyExtractor = useCallback((item: OverrideItem) => item.override.id, []);
@@ -632,6 +676,75 @@ const Schedule: React.FC<ScheduleProps> = ({
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* ========= STATUS PICKER MODAL ========= */}
+      <Modal
+        visible={!!pickerOverride}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setPickerOverride(null)}
+      >
+        <Pressable
+          style={taskItemStyles.pickerOverlay}
+          onPress={() => setPickerOverride(null)}
+        >
+          <Pressable
+            style={[taskItemStyles.pickerSheet, { backgroundColor: colors.surface }]}
+            onPress={(e) => e.stopPropagation?.()}
+          >
+            <View style={[taskItemStyles.pickerHandle, { backgroundColor: colors.border }]} />
+            <Text style={[taskItemStyles.pickerTitle, { color: colors.text }]}>Change Status</Text>
+
+            {PICKER_OPTIONS.map((opt) => {
+              const optColor = STATUS_COLORS[opt.status] ?? STATUS_COLORS.PENDING;
+              const isCurrent = pickerOverride?.currentStatus === opt.status;
+              return (
+                <Pressable
+                  key={opt.status}
+                  style={[
+                    taskItemStyles.pickerOption,
+                    isCurrent && { backgroundColor: optColor + '12' },
+                  ]}
+                  onPress={() => {
+                    if (!isCurrent && pickerOverride && onCompleteToggle) {
+                      onCompleteToggle(
+                        pickerOverride.templateId,
+                        pickerOverride.overrideId,
+                        opt.status,
+                      );
+                    }
+                    setPickerOverride(null);
+                  }}
+                >
+                  <Text style={taskItemStyles.pickerOptionEmoji}>{opt.emoji}</Text>
+                  <View style={taskItemStyles.pickerOptionTexts}>
+                    <Text style={[
+                      taskItemStyles.pickerOptionLabel,
+                      { color: colors.text },
+                      isCurrent && { color: optColor, fontWeight: '800' },
+                    ]}>
+                      {opt.label}
+                    </Text>
+                    <Text style={[taskItemStyles.pickerOptionDesc, { color: colors.secondaryText }]}>
+                      {opt.desc}
+                    </Text>
+                  </View>
+                  {isCurrent && (
+                    <Text style={[taskItemStyles.pickerOptionCheck, { color: optColor }]}>✓</Text>
+                  )}
+                </Pressable>
+              );
+            })}
+
+            <Pressable
+              style={[taskItemStyles.pickerCancel, { backgroundColor: colors.background }]}
+              onPress={() => setPickerOverride(null)}
+            >
+              <Text style={[taskItemStyles.pickerCancelText, { color: colors.secondaryText }]}>Cancel</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -673,8 +786,6 @@ const loadingOverlay: View["props"]["style"] = {
 
 const taskItemStyles = StyleSheet.create({
   card: {
-    flexDirection: "row",
-    alignItems: "center",
     paddingVertical: 12,
     paddingHorizontal: 14,
     borderLeftWidth: 4,
@@ -685,6 +796,10 @@ const taskItemStyles = StyleSheet.create({
     shadowOpacity: 0.04,
     shadowRadius: 4,
     elevation: 1,
+  },
+  topRow: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   emoji: {
     fontSize: 24,
@@ -704,11 +819,102 @@ const taskItemStyles = StyleSheet.create({
     fontSize: 12,
     marginTop: 3,
   },
-  statusDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginLeft: 10,
+  bottomRow: {
+    flexDirection: "row",
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "#E5E7EB",
+  },
+  statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    gap: 6,
+  },
+  statusBadgeEmoji: {
+    fontSize: 13,
+  },
+  statusBadgeLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  statusBadgeArrow: {
+    fontSize: 10,
+    marginLeft: 2,
+  },
+  /* ── Modal picker styles ── */
+  pickerOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "flex-end",
+  },
+  pickerSheet: {
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 12,
+    paddingBottom: 40,
+    paddingHorizontal: 20,
+  },
+  pickerHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#D1D5DB",
+    alignSelf: "center",
+    marginBottom: 20,
+  },
+  pickerTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: 16,
+    color: "#111827",
+  },
+  pickerOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    marginBottom: 8,
+    gap: 14,
+  },
+  pickerOptionEmoji: {
+    fontSize: 22,
+  },
+  pickerOptionTexts: {
+    flex: 1,
+  },
+  pickerOptionLabel: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#111827",
+  },
+  pickerOptionDesc: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginTop: 1,
+  },
+  pickerOptionCheck: {
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  pickerCancel: {
+    marginTop: 8,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: "#F3F4F6",
+    alignItems: "center",
+  },
+  pickerCancelText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#6B7280",
   },
 });
 

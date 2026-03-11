@@ -40,6 +40,9 @@ export const useTasks = (userId: number, currentFilter?: TaskFilter) => {
     if(currentFilter) {
       dispatch(setFilter(currentFilter));
     }
+    else {
+      dispatch(setFilter({}));
+    }
     dispatch(fetchTasks(userId));
     dispatch(startBackgroundSync(userId));
 

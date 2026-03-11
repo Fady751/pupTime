@@ -9,6 +9,9 @@ import AiButton from '../components/AiBottom/AiButtom';
 import TasksScreen from '../screens/Tasks/TasksScreen';
 import AddTaskScreen from '../screens/Tasks/AddTaskScreen';
 import EditTaskScreen from '../screens/Tasks/EditTaskScreen';
+import TemplatesListScreen from '../screens/Tasks/TemplatesList/TemplatesListScreen';
+import TemplateDetailsScreen from '../screens/Tasks/TemplateDetails/TemplateDetailsScreen';
+import OverrideDetailsScreen from '../screens/Tasks/OverrideDetails/OverrideDetailsScreen';
 import SettingsScreen from '../screens/Settings/SettingsScreen';
 // import FriendsListScreen from '../screens/Friends/FriendsListScreen';
 // import AddFriendScreen from '../screens/Friends/AddFriendScreen';
@@ -25,6 +28,9 @@ export type AppStackParamList = {
   Tasks: undefined;
   AddTask: undefined;
   EditTask: { task: any };
+  TemplatesList: undefined;
+  TemplateDetails: { templateId: string };
+  OverrideDetails: { templateId: string; overrideId: string };
   AddFriend: undefined;
   BlockedFriends: undefined;
   Settings: undefined;
@@ -46,6 +52,9 @@ const AppNavigator: React.FC = () => {
         <Stack.Screen name="Tasks" component={TasksScreen} />
         <Stack.Screen name="AddTask" component={AddTaskScreen} />
         <Stack.Screen name="EditTask" component={EditTaskScreen} />
+        <Stack.Screen name="TemplatesList" component={TemplatesListScreen} />
+        <Stack.Screen name="TemplateDetails" component={TemplateDetailsScreen} />
+        <Stack.Screen name="OverrideDetails" component={OverrideDetailsScreen} />
         {/* <Stack.Screen name="AddFriend" component={AddFriendScreen} /> */}
         {/* <Stack.Screen name="BlockedFriends" component={BlockedListScreen} /> */}
         <Stack.Screen name="Settings" component={SettingsScreen} />

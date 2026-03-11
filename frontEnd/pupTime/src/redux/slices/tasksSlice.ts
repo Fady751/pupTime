@@ -25,6 +25,7 @@ import {
 export type TaskFilter = {
     priority?: string | null;
     category_ids?: number[];
+    template_id?: string | null;
     start_date?: string;
     end_date?: string;
     ordering?: GetOverridesParams[ 'ordering' ];
@@ -63,6 +64,7 @@ const buildParams = (
     priority: filter.priority ?? undefined,
     // Repository currently accepts a single category; pass the first id.
     category: filter.category_ids?.[ 0 ] ?? undefined,
+    template_id: filter.template_id ?? undefined,
     start_date: filter.start_date,
     end_date: filter.end_date,
     ordering: filter.ordering ?? 'start_datetime',
@@ -81,7 +83,7 @@ export const fetchTasks = createAsyncThunk<
 >('tasks/fetchTasks', async (userId, { getState }) => {
     const { filter } = getState().tasks;
     const params = buildParams(userId, filter, 1, PAGE_SIZE);
-    if(isFetching) {
+    if (isFetching) {
         return {
             data: getState().tasks.items,
             total: getState().tasks.total,

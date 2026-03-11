@@ -17,6 +17,7 @@ export interface GetOverridesParams {
   page_size?: number;
   priority?: string | null;
   category?: number | string | null;
+  template_id?: string;
   start_date?: string;
   end_date?: string;
   ordering?:
@@ -176,6 +177,7 @@ export const TaskTemplateRepository = {
       page_size = 20,
       priority,
       category,
+      template_id,
       start_date,
       end_date,
       ordering,
@@ -204,6 +206,10 @@ export const TaskTemplateRepository = {
 
     if (category) {
       conditions.push(eq(taskTemplateCategories.category_id, Number(category)));
+    }
+
+    if (template_id) {
+      conditions.push(eq(taskTemplates.id, template_id));
     }
 
     const whereExpr = and(...conditions);

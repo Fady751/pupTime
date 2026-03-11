@@ -2,7 +2,7 @@ import React, { useMemo, useState, useCallback, useEffect } from "react";
 import { View, TouchableOpacity, Text, StyleSheet } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { Schedule } from "../../components/Schedule";
-import { type TaskTemplate, floorDateByTimezone } from "../../types/task";
+import { type TaskTemplate, type TaskOverride, floorDateByTimezone } from "../../types/task";
 import useTheme from "../../Hooks/useTheme";
 import { useTasks } from "../../Hooks/useTasks";
 import { useSelector } from "react-redux";
@@ -30,10 +30,18 @@ const ScheduleScreen: React.FC = () => {
     };
   }, [dateStr, nextDateStr]);
 
-  const { tasks, loading, filter, changeOverride, applyFilter } = useTasks(
+  const { tasks, loading, filter, changeOverride, applyFilter, refresh } = useTasks(
     data?.id as number,
     current_filter,
   );
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("focus", async () => {
+      if (route.name === "Schedule") {
+        await refresh();
+      }
+    });
+    return unsubscribe;
+  }, [navigation, route.name, refresh]);
 
   const [togglingIds, setTogglingIds] = useState<string[]>([]);
 
@@ -73,25 +81,27 @@ const ScheduleScreen: React.FC = () => {
         end_date: endDate,
       });
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
+    [filter, applyFilter],
   );
 
-  const handleTaskPress = (template: TaskTemplate) => {
-    navigation.navigate("EditTask", { taskId: template.id });
+  const handleTaskPress = (template: TaskTemplate, override: TaskOverride) => {
+    navigation.navigate("OverrideDetails", {
+      templateId: template.id,
+      overrideId: override.id,
+    });
   };
 
   const handleCompleteToggle = async (
     templateId: string,
     overrideId: string,
-    currentStatus: string,
+    newStatus: string,
   ) => {
     if (togglingIds.includes(overrideId)) return;
 
     setTogglingIds((prev) => [...prev, overrideId]);
     try {
       await changeOverride(templateId, overrideId, {
-        status: currentStatus === "COMPLETED" ? "PENDING" : "COMPLETED",
+        status: newStatus,
       });
     } finally {
       setTogglingIds((prev) => prev.filter((id) => id !== overrideId));
