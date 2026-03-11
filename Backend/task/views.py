@@ -254,6 +254,9 @@ class TaskViewSet(ModelViewSet):
                 )
             task_override.new_datetime = parsed
 
+        if 'notes' in request.data:
+            task_override.notes = request.data.get('notes')
+
         task_override.status = new_status
         task_override.save()
 
@@ -270,6 +273,8 @@ class TaskViewSet(ModelViewSet):
             new_id = new_instance_data.get('id')
             if new_id:
                 defaults['id'] = new_id
+            if 'notes' in new_instance_data:
+                defaults['notes'] = new_instance_data.get('notes')
 
             new_override, _ = TaskOverride.objects.get_or_create(
                 task=task,

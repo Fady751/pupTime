@@ -64,6 +64,7 @@ class TaskOverride(models.Model):
     instance_datetime = models.DateTimeField(help_text="The exact timestamp this specific instance was originally scheduled for.")
     status = models.CharField(max_length=15, choices=STATUS_CHOICES, default=STATUS_PENDING)
     new_datetime = models.DateTimeField(null=True, blank=True, help_text="Used only if status is 'RESCHEDULED'.")
+    notes = models.TextField(blank=True, null=True, help_text="Optional notes for this task override")
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True, db_index=True)
