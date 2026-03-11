@@ -44,6 +44,7 @@ import {
 	taskTemplateCategories,
 	categories,
 	syncQueue,
+	TaskOverrideRepository,
 } from '../../DB';
 import type {
 	NewTaskTemplate,
@@ -306,8 +307,11 @@ export const deleteTemplate = async (id: string): Promise<void> => {
 	if (isOnline() && !count) {
 		try {
 			await apiDeleteTask(id);
+			console.log(id);
+			await saveCategoriesToLocal(id, []);
 			await TaskService.deleteByTemplateId(id);
 			await TaskTemplateRepository.deleteByTemplateId(id);
+			console.log('Deleted successfully');
 			return;
 		} catch (error) {
 			console.warn('[sync] delete online failed, falling back to offline', error);
@@ -445,6 +449,20 @@ export const getTemplatesWithOverrides = async (
 	fullSync().catch(() => { });
 
 	return TaskTemplateRepository.getTaskOverrides(params);
+};
+/**
+ * Get a single template with its overrides
+ */
+export const getTemplateWithOverrides = async (
+	params: GetOverridesParams & {template_id: string},
+) => {
+	// Fire-and-forget background sync
+	fullSync().catch(() => { });
+
+	const { data: template } = await TaskTemplateRepository.filter(params);
+	if(!template) return [];
+	const overrides = await TaskOverrideRepository.listByTemplate(params.template_id);
+	return [{ ...template[0], overrides, categories: [] }];
 };
 
 /* ═══════════════════════════════════════════════════════════

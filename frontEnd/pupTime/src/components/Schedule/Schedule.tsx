@@ -73,6 +73,8 @@ type ScheduleProps = {
   ) => void;
   isToggling?: (overrideId: string) => boolean;
   loading?: boolean;
+  /** Use View instead of SafeAreaView when embedded inside another SafeAreaView. */
+  embedded?: boolean;
 };
 
 type DayData = {
@@ -169,9 +171,10 @@ const Schedule: React.FC<ScheduleProps> = ({
   onCompleteToggle,
   isToggling,
   loading,
+  embedded,
 }) => {
   const { colors } = useTheme();
-  const styles = useMemo(() => createScheduleStyles(colors), [colors]);
+  const styles = useMemo(() => createScheduleStyles(colors, embedded), [colors, embedded]);
 
   // console.log("tasks: ", tasks);
   const today = useMemo(() => {
@@ -486,8 +489,10 @@ const Schedule: React.FC<ScheduleProps> = ({
   /* ═══════════════════════════════════════════════════
      RENDER
      ═══════════════════════════════════════════════════ */
+  const Container = embedded ? View : SafeAreaView;
+
   return (
-    <SafeAreaView style={styles.container}>
+    <Container style={styles.container}>
       {/* ========= CALENDAR HEADER ========= */}
       <View style={styles.header}>
         {/* Title row + Today pill */}
@@ -593,6 +598,7 @@ const Schedule: React.FC<ScheduleProps> = ({
             },
           ]}
           showsVerticalScrollIndicator={false}
+          nestedScrollEnabled
           ListEmptyComponent={
             <View style={styles.emptyState}>
               <Text style={styles.emptyEmoji}>🌤️</Text>
@@ -745,7 +751,7 @@ const Schedule: React.FC<ScheduleProps> = ({
           </Pressable>
         </Pressable>
       </Modal>
-    </SafeAreaView>
+    </Container>
   );
 };
 

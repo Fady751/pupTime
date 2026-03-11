@@ -66,6 +66,80 @@ const scheduleNotificationForOverride = async (
 	);
 };
 
+export const scheduleNotificationsForOverrides = async (
+	overrides: TaskOverride[],
+	template: TaskTemplate
+): Promise<void> => {
+	const activeOverrides = overrides.filter((override) => {
+		const isDeleted = override.is_deleted === true;
+		const active = override.status === 'PENDING';
+
+		return !isDeleted && active;
+	});
+
+	console.log(`activeOverrides: (${activeOverrides.length})`);
+
+	if (activeOverrides.length === 0) {
+		// console.log(`Successfully processed scheduling for template: ${template.title}`);
+		return;
+	}
+
+	// Prepare permission + channel ONCE before the batch
+	try {
+		await NotificationService.prepare('tasks', 'Task Notifications');
+	} catch (error) {
+		console.error('Failed to prepare notification channel:', error);
+		return;
+	}
+
+	// Schedule all triggers concurrently (permission + channel already prepared)
+	await Promise.all(
+		activeOverrides.map(async (override) => {
+			try {
+				const taskTimeString = override.new_datetime || override.instance_datetime;
+
+				if (!taskTimeString) {
+					console.warn(`Override ${override.id} has no valid datetime string.`);
+					return;
+				}
+
+				const taskTimeMs = new Date(taskTimeString).getTime();
+
+				if (isNaN(taskTimeMs)) {
+					console.error(`Invalid date format for override ${override.id}: ${taskTimeString}`);
+					return;
+				}
+
+				const reminderMinutes = template.reminder_time ?? 0;
+				const reminderOffsetMs = reminderMinutes * 60 * 1000;
+				const notificationTimestamp = taskTimeMs - reminderOffsetMs;
+
+				if (notificationTimestamp <= Date.now()) return;
+
+				const title = template.title || 'Task Reminder';
+				const formattedTime = new Date(taskTimeMs).toLocaleTimeString([], {
+					hour: '2-digit',
+					minute: '2-digit',
+				});
+
+				const emojiPrefix = template.emoji ? `${template.emoji} ` : '';
+				const body = `${emojiPrefix}You have a task coming up at ${formattedTime}`;
+
+				await NotificationService.scheduleAtTimePrepared(
+					override.id,
+					title,
+					body,
+					notificationTimestamp,
+					'tasks'
+				);
+			} catch (error) {
+				console.error(`Failed to schedule notification for override ${override.id}:`, error);
+			}
+		})
+	);
+
+	// console.log(`Successfully processed scheduling for template: ${template.title}`);
+};
 export const TaskService = {
 	/**
 	 * Create a new override instance and schedule its notification.
@@ -91,9 +165,11 @@ export const TaskService = {
 			await NotificationService.cancel(id);
 		}
 
-		for (const ov of inserted) {
-			await scheduleNotificationForOverride(ov, template);
-		}
+		// for (const ov of inserted) {
+		// 	await scheduleNotificationForOverride(ov, template);
+		// }
+		await scheduleNotificationsForOverrides(inserted, template);
+
 		return { inserted, deleted };
 	},
 

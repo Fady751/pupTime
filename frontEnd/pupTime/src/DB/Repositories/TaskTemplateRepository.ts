@@ -92,14 +92,14 @@ export const TaskTemplateRepository = {
   async deleteByTemplateId(id: string): Promise<void> {
     const db = await getDrizzleDb();
     await db
-      .delete(taskOverrides)
-      .where(eq(taskOverrides.template_id, id));
+      .delete(taskTemplates)
+      .where(eq(taskTemplates.id, id));
   },
 
   async filter(options: GetOverridesParams): Promise<PaginatedResult<TaskTemplate>> {
     const db = await getDrizzleDb();
     const page = Math.max(1, options.page ?? 1);
-    const pageSize = Math.max(1, Math.min(options.page_size ?? 20, 100));
+    const pageSize = Math.max(1, options.page_size ?? 100);
     const offset = (page - 1) * pageSize;
 
     const conditions = [
@@ -117,6 +117,9 @@ export const TaskTemplateRepository = {
 
     if (options.end_date) {
       conditions.push(lte(taskTemplates.start_datetime, options.end_date));
+    }
+    if(options.template_id) {
+      conditions.push(eq(taskTemplates.id, options.template_id));
     }
 
     const whereExpr = and(...conditions);

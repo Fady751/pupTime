@@ -18,7 +18,8 @@ import { useTasks } from "../../../Hooks/useTasks";
 import { useSelector } from "react-redux";
 import { RootState } from "../../../redux/store";
 import { BottomBar } from "../../../components/BottomBar/BottomBar";
-import type { TaskTemplate } from "../../../types/task";
+import { getTemplates } from "../../../services/TaskService/syncService";
+import { TaskTemplate } from "../../../DB";
 
 /* ═══════════════════════════════════════════════════════════
    CONSTANTS
@@ -61,15 +62,30 @@ const TemplatesListScreen: React.FC = () => {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const user = useSelector((state: RootState) => state.user.data);
   const userId = user?.id;
+  const { remove } = useTasks(userId as number);
 
-  const { tasks, loading, remove, refresh } = useTasks(userId!);
+  const [tasks, setTasks] = useState<TaskTemplate[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const fetchTemplates = async () => {
+    if(userId) {
+      setLoading(true);
+      const { data } = await getTemplates({
+        user_id: userId,
+        ordering: '-created_at'
+      });
+      setTasks(data);
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     const unsubscribe = navigation.addListener("focus", () => {
-      refresh();
+      fetchTemplates();
     });
+    fetchTemplates();
     return unsubscribe;
-  }, [navigation, refresh]);
+  }, [userId]);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("all");
@@ -113,6 +129,7 @@ const TemplatesListScreen: React.FC = () => {
             style: "destructive",
             onPress: async () => {
               await remove(id);
+              setTasks((prv) => prv.filter((t) => t.id !== id));
             },
           },
         ]

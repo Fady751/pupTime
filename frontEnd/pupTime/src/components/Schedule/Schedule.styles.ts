@@ -3,20 +3,22 @@ import type { AppColors } from "../../constants/colors";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const DAY_SIZE = (SCREEN_WIDTH - 48 - 24) / 7; // 48 padding, 24 gap
+const DAY_SIZE_COMPACT = (SCREEN_WIDTH - 32 - 16) / 7;
 
-export const createScheduleStyles = (colors: AppColors) =>
-  StyleSheet.create({
+export const createScheduleStyles = (colors: AppColors, compact = false) => {
+  const ds = compact ? DAY_SIZE_COMPACT : DAY_SIZE;
+  return StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: colors.background,
     },
     header: {
-      paddingHorizontal: 24,
-      paddingTop: 16,
-      paddingBottom: 20,
+      paddingHorizontal: compact ? 14 : 24,
+      paddingTop: compact ? 8 : 16,
+      paddingBottom: compact ? 10 : 20,
       backgroundColor: colors.surface,
-      borderBottomLeftRadius: 28,
-      borderBottomRightRadius: 28,
+      borderBottomLeftRadius: compact ? 18 : 28,
+      borderBottomRightRadius: compact ? 18 : 28,
       shadowColor: "#000",
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.06,
@@ -24,39 +26,39 @@ export const createScheduleStyles = (colors: AppColors) =>
       elevation: 4,
     },
     headerTitle: {
-      fontSize: 28,
+      fontSize: compact ? 18 : 28,
       fontWeight: "800",
       color: colors.text,
-      marginBottom: 20,
+      marginBottom: compact ? 10 : 20,
     },
     monthNav: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
-      marginBottom: 20,
+      marginBottom: compact ? 10 : 20,
     },
     navButton: {
-      width: 44,
-      height: 44,
-      borderRadius: 14,
+      width: compact ? 32 : 44,
+      height: compact ? 32 : 44,
+      borderRadius: compact ? 10 : 14,
       backgroundColor: colors.background,
       alignItems: "center",
       justifyContent: "center",
     },
     navButtonText: {
-      fontSize: 20,
+      fontSize: compact ? 16 : 20,
       color: colors.text,
     },
     monthYearContainer: {
       alignItems: "center",
     },
     monthText: {
-      fontSize: 22,
+      fontSize: compact ? 16 : 22,
       fontWeight: "700",
       color: colors.text,
     },
     yearText: {
-      fontSize: 14,
+      fontSize: compact ? 11 : 14,
       fontWeight: "500",
       color: colors.secondaryText,
       marginTop: 2,
@@ -64,31 +66,31 @@ export const createScheduleStyles = (colors: AppColors) =>
     weekDays: {
       flexDirection: "row",
       justifyContent: "space-between",
-      paddingHorizontal: 12,
-      marginBottom: 8,
+      paddingHorizontal: compact ? 6 : 12,
+      marginBottom: compact ? 4 : 8,
     },
     weekDayText: {
-      width: DAY_SIZE,
+      width: ds,
       textAlign: "center",
-      fontSize: 12,
+      fontSize: compact ? 10 : 12,
       fontWeight: "600",
       color: colors.secondaryText,
       textTransform: "uppercase",
     },
     calendarGrid: {
-      paddingHorizontal: 12,
+      paddingHorizontal: compact ? 6 : 12,
     },
     weekRow: {
       flexDirection: "row",
       justifyContent: "space-between",
-      marginBottom: 8,
+      marginBottom: compact ? 4 : 8,
     },
     dayCell: {
-      width: DAY_SIZE,
-      height: DAY_SIZE + 8,
+      width: ds,
+      height: ds + (compact ? 4 : 8),
       alignItems: "center",
       justifyContent: "center",
-      borderRadius: 14,
+      borderRadius: compact ? 10 : 14,
     },
     dayCellToday: {
       backgroundColor: "#E0E7FF",
@@ -100,7 +102,7 @@ export const createScheduleStyles = (colors: AppColors) =>
       opacity: 0.3,
     },
     dayNumber: {
-      fontSize: 15,
+      fontSize: compact ? 12 : 15,
       fontWeight: "600",
       color: colors.text,
     },
@@ -114,33 +116,33 @@ export const createScheduleStyles = (colors: AppColors) =>
     },
     taskIndicators: {
       flexDirection: "row",
-      marginTop: 4,
-      height: 6,
+      marginTop: compact ? 2 : 4,
+      height: compact ? 4 : 6,
       gap: 2,
     },
     taskDot: {
-      width: 5,
-      height: 5,
-      borderRadius: 2.5,
+      width: compact ? 4 : 5,
+      height: compact ? 4 : 5,
+      borderRadius: compact ? 2 : 2.5,
     },
     content: {
       flex: 1,
-      paddingTop: 20,
+      paddingTop: compact ? 10 : 20,
     },
     sectionHeader: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
-      paddingHorizontal: 24,
-      marginBottom: 16,
+      paddingHorizontal: compact ? 14 : 24,
+      marginBottom: compact ? 8 : 16,
     },
     sectionTitle: {
-      fontSize: 18,
+      fontSize: compact ? 14 : 18,
       fontWeight: "700",
       color: colors.text,
     },
     sectionSubtitle: {
-      fontSize: 13,
+      fontSize: compact ? 11 : 13,
       color: colors.secondaryText,
     },
     taskCount: {
@@ -372,6 +374,7 @@ export const createScheduleStyles = (colors: AppColors) =>
       color: colors.secondaryText,
     },
   });
+};
 
 export const PRIORITY_COLORS = {
   high: "#EF4444",

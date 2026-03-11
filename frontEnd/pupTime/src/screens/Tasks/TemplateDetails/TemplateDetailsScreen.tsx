@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from "react";
+import React, { useMemo, useState, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -14,7 +14,9 @@ import useTheme from "../../../Hooks/useTheme";
 import { useTasks } from "../../../Hooks/useTasks";
 import { useSelector } from "react-redux";
 import { RootState } from "../../../redux/store";
-import type { TaskTemplate } from "../../../types/task";
+import type { TaskTemplate, TaskOverride } from "../../../types/task";
+import { getTemplatesWithOverrides, getTemplateWithOverrides } from "../../../services/TaskService/syncService";
+import { Schedule } from "../../../components/Schedule";
 
 /* ═══════════════════════════════════════════════════════════
    CONSTANTS
@@ -78,13 +80,33 @@ const TemplateDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const templateId: string | undefined = route?.params?.templateId;
 
-  /* ── Fetch tasks filtered by this template ──── */
-  const templateFilter = useMemo(
-    () => (templateId ? { template_id: templateId } : undefined),
-    [templateId]
-  );
+  const { remove, changeOverride } = useTasks(user?.id!);
 
-  const { tasks, loading, remove } = useTasks(user?.id!, templateFilter);
+  const [tasks, setTasks] = useState<TaskTemplate[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [showSchedule, setShowSchedule] = useState(false);
+  const [togglingIds, setTogglingIds] = useState<string[]>([]);
+
+  const fetchTemplates = async () => {
+    if(user?.id && templateId) {
+      setLoading(true);
+      const data = await getTemplateWithOverrides({
+        user_id: user.id,
+        template_id: templateId
+      }) as TaskTemplate[];
+      setTasks(data);
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // const unsubscribe = navigation.addListener("focus", () => {
+    //   fetchTemplates();
+    // });
+    fetchTemplates();
+    // return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   /* ── Find the template from filtered results ── */
   const template = useMemo(
@@ -118,11 +140,33 @@ const TemplateDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
     );
   }, [template, remove, navigation]);
 
-  /* ── View Overrides → navigate to Schedule ─── */
+  /* ── View Overrides → toggle inline Schedule ─── */
   const handleViewOverrides = useCallback(() => {
-    if (!templateId) return;
-    navigation.navigate("Schedule", { templateId });
-  }, [templateId, navigation]);
+    setShowSchedule((prev) => !prev);
+  }, []);
+
+  const handleScheduleTaskPress = useCallback(
+    (tmpl: TaskTemplate, override: TaskOverride) => {
+      navigation.navigate("OverrideDetails", {
+        templateId: tmpl.id,
+        overrideId: override.id,
+      });
+    },
+    [navigation]
+  );
+
+  const handleCompleteToggle = useCallback(
+    async (tmplId: string, overrideId: string, newStatus: string) => {
+      if (togglingIds.includes(overrideId)) return;
+      setTogglingIds((prev) => [...prev, overrideId]);
+      try {
+        await changeOverride(tmplId, overrideId, { status: newStatus });
+      } finally {
+        setTogglingIds((prev) => prev.filter((id) => id !== overrideId));
+      }
+    },
+    [togglingIds, changeOverride]
+  );
 
   /* ── Loading state ──────────────────────────── */
   if (loading || !template) {
@@ -165,160 +209,185 @@ const TemplateDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
         </View>
       </View>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {/* ══════ BASIC INFO ══════ */}
-        <View style={styles.sectionCard}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionIcon}>📋</Text>
-            <Text style={styles.sectionLabel}>Basic Information</Text>
-          </View>
-
-          <View style={styles.detailRow}>
-            <Text style={styles.detailIcon}>✏️</Text>
-            <Text style={styles.detailLabel}>Title</Text>
-            <Text style={styles.detailValue}>{template.title}</Text>
-          </View>
-
-          <View style={styles.detailRow}>
-            <Text style={styles.detailIcon}>🎨</Text>
-            <Text style={styles.detailLabel}>Emoji</Text>
-            <Text style={[styles.detailValue, { fontSize: 24 }]}>
-              {template.emoji || "—"}
-            </Text>
-          </View>
-
-          <View style={styles.detailRow}>
-            <Text style={styles.detailIcon}>🚦</Text>
-            <Text style={styles.detailLabel}>Priority</Text>
-            <View
-              style={[
-                styles.priorityBadge,
-                { backgroundColor: priorityColor },
-              ]}
-            >
-              <Text style={styles.priorityBadgeText}>
-                {(template.priority ?? "none").toUpperCase()}
-              </Text>
+      {!showSchedule ? (
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          {/* ══════ BASIC INFO ══════ */}
+          <View style={styles.sectionCard}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionIcon}>📋</Text>
+              <Text style={styles.sectionLabel}>Basic Information</Text>
             </View>
-          </View>
 
-          <View style={[styles.detailRow, styles.detailRowLast]}>
-            <Text style={styles.detailIcon}>⏱️</Text>
-            <Text style={styles.detailLabel}>Duration</Text>
-            <Text style={styles.detailValue}>
-              {template.duration_minutes
-                ? `${template.duration_minutes} minutes`
-                : "—"}
-            </Text>
-          </View>
-        </View>
-
-        {/* ══════ SCHEDULE ══════ */}
-        <View style={styles.scheduleCard}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionIcon}>📅</Text>
-            <Text style={styles.sectionLabel}>Schedule</Text>
-          </View>
-
-          <View style={styles.detailRow}>
-            <Text style={styles.detailIcon}>📅</Text>
-            <Text style={styles.detailLabel}>Start</Text>
-            <Text style={styles.detailValue}>
-              {formatDateTime(template.start_datetime)}
-            </Text>
-          </View>
-
-          <View style={styles.detailRow}>
-            <Text style={styles.detailIcon}>🔁</Text>
-            <Text style={styles.detailLabel}>Frequency</Text>
-            <Text style={styles.detailValue}>
-              {template.is_recurring
-                ? parseFrequency(template.rrule)
-                : "Once (not recurring)"}
-            </Text>
-          </View>
-
-          {template.is_recurring && parseWeekdays(template.rrule) ? (
             <View style={styles.detailRow}>
-              <Text style={styles.detailIcon}>📆</Text>
-              <Text style={styles.detailLabel}>Days</Text>
-              <Text style={styles.detailValue}>
-                {parseWeekdays(template.rrule)}
+              <Text style={styles.detailIcon}>✏️</Text>
+              <Text style={styles.detailLabel}>Title</Text>
+              <Text style={styles.detailValue}>{template.title}</Text>
+            </View>
+
+            <View style={styles.detailRow}>
+              <Text style={styles.detailIcon}>🎨</Text>
+              <Text style={styles.detailLabel}>Emoji</Text>
+              <Text style={[styles.detailValue, { fontSize: 24 }]}>
+                {template.emoji || "—"}
               </Text>
             </View>
-          ) : null}
 
-          <View style={styles.detailRow}>
-            <Text style={styles.detailIcon}>🔔</Text>
-            <Text style={styles.detailLabel}>Reminder</Text>
-            <Text style={styles.detailValue}>
-              {template.reminder_time
-                ? `${template.reminder_time} min before`
-                : "None"}
-            </Text>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailIcon}>🚦</Text>
+              <Text style={styles.detailLabel}>Priority</Text>
+              <View
+                style={[
+                  styles.priorityBadge,
+                  { backgroundColor: priorityColor },
+                ]}
+              >
+                <Text style={styles.priorityBadgeText}>
+                  {(template.priority ?? "none").toUpperCase()}
+                </Text>
+              </View>
+            </View>
+
+            <View style={[styles.detailRow, styles.detailRowLast]}>
+              <Text style={styles.detailIcon}>⏱️</Text>
+              <Text style={styles.detailLabel}>Duration</Text>
+              <Text style={styles.detailValue}>
+                {template.duration_minutes
+                  ? `${template.duration_minutes} minutes`
+                  : "—"}
+              </Text>
+            </View>
           </View>
 
-          <View style={[styles.detailRow, styles.detailRowLast]}>
-            <Text style={styles.detailIcon}>🌍</Text>
-            <Text style={styles.detailLabel}>Timezone</Text>
-            <Text style={styles.detailValue}>
-              {template.timezone ?? "UTC"}
-            </Text>
+          {/* ══════ SCHEDULE ══════ */}
+          <View style={styles.scheduleCard}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionIcon}>📅</Text>
+              <Text style={styles.sectionLabel}>Schedule</Text>
+            </View>
+
+            <View style={styles.detailRow}>
+              <Text style={styles.detailIcon}>📅</Text>
+              <Text style={styles.detailLabel}>Start</Text>
+              <Text style={styles.detailValue}>
+                {formatDateTime(template.start_datetime)}
+              </Text>
+            </View>
+
+            <View style={styles.detailRow}>
+              <Text style={styles.detailIcon}>🔁</Text>
+              <Text style={styles.detailLabel}>Frequency</Text>
+              <Text style={styles.detailValue}>
+                {template.is_recurring
+                  ? parseFrequency(template.rrule)
+                  : "Once (not recurring)"}
+              </Text>
+            </View>
+
+            {template.is_recurring && parseWeekdays(template.rrule) ? (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailIcon}>📆</Text>
+                <Text style={styles.detailLabel}>Days</Text>
+                <Text style={styles.detailValue}>
+                  {parseWeekdays(template.rrule)}
+                </Text>
+              </View>
+            ) : null}
+
+            <View style={styles.detailRow}>
+              <Text style={styles.detailIcon}>🔔</Text>
+              <Text style={styles.detailLabel}>Reminder</Text>
+              <Text style={styles.detailValue}>
+                {template.reminder_time
+                  ? `${template.reminder_time} min before`
+                  : "None"}
+              </Text>
+            </View>
+
+            <View style={[styles.detailRow, styles.detailRowLast]}>
+              <Text style={styles.detailIcon}>🌍</Text>
+              <Text style={styles.detailLabel}>Timezone</Text>
+              <Text style={styles.detailValue}>
+                {template.timezone ?? "UTC"}
+              </Text>
+            </View>
+
+            {/* ── View Overrides Button ── */}
+            <TouchableOpacity
+              style={styles.viewOverridesBtn}
+              onPress={handleViewOverrides}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.viewOverridesBtnText}>
+                📊 View Overrides ({overridesCount})
+              </Text>
+            </TouchableOpacity>
           </View>
 
-          {/* ── View Overrides Button → Schedule ── */}
+          {/* ══════ CATEGORIES ══════ */}
+          {(template.categories?.length ?? 0) > 0 && (
+            <View style={styles.sectionCard}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionIcon}>🏷️</Text>
+                <Text style={styles.sectionLabel}>Categories</Text>
+              </View>
+              <View style={styles.categoriesRow}>
+                {template.categories!.map((cat) => (
+                  <View key={cat.id} style={styles.categoryChip}>
+                    <Text style={styles.categoryChipText}>{cat.name}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {/* ══════ ACTIONS ══════ */}
+          <View style={styles.actionsContainer}>
+            <TouchableOpacity
+              style={styles.editBtn}
+              onPress={() =>
+                navigation.navigate("EditTask", { taskId: template.id })
+              }
+              activeOpacity={0.85}
+            >
+              <Text style={styles.editBtnText}>✏️  Edit Template</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.deleteBtn}
+              onPress={handleDelete}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.deleteBtnText}>🗑️  Delete Template</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      ) : (
+        <View style={{ flex: 1 }}>
+          {/* ── Hide Overrides Button ── */}
           <TouchableOpacity
             style={styles.viewOverridesBtn}
             onPress={handleViewOverrides}
             activeOpacity={0.85}
           >
             <Text style={styles.viewOverridesBtnText}>
-              📊 View Overrides ({overridesCount})
+              ▲ Hide Overrides ({overridesCount})
             </Text>
           </TouchableOpacity>
+
+          {/* ══════ INLINE SCHEDULE (outside ScrollView) ══════ */}
+          <Schedule
+            tasks={[template]}
+            loading={loading}
+            onTaskPress={handleScheduleTaskPress}
+            onCompleteToggle={handleCompleteToggle}
+            isToggling={(overrideId) => togglingIds.includes(overrideId)}
+            embedded
+          />
         </View>
-
-        {/* ══════ CATEGORIES ══════ */}
-        {(template.categories?.length ?? 0) > 0 && (
-          <View style={styles.sectionCard}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionIcon}>🏷️</Text>
-              <Text style={styles.sectionLabel}>Categories</Text>
-            </View>
-            <View style={styles.categoriesRow}>
-              {template.categories!.map((cat) => (
-                <View key={cat.id} style={styles.categoryChip}>
-                  <Text style={styles.categoryChipText}>{cat.name}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
-
-        {/* ══════ ACTIONS ══════ */}
-        <View style={styles.actionsContainer}>
-          <TouchableOpacity
-            style={styles.editBtn}
-            onPress={() =>
-              navigation.navigate("EditTask", { taskId: template.id })
-            }
-            activeOpacity={0.85}
-          >
-            <Text style={styles.editBtnText}>✏️  Edit Template</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.deleteBtn}
-            onPress={handleDelete}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.deleteBtnText}>🗑️  Delete Template</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+      )}
     </SafeAreaView>
   );
 };
