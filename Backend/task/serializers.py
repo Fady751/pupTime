@@ -9,7 +9,7 @@ class TaskOverrideSerializer(serializers.ModelSerializer):
         model = TaskOverride
         fields = [
             'id', 'instance_datetime', 'status',
-            'new_datetime', 'created_at', 'updated_at',
+            'new_datetime', 'notes', 'created_at', 'updated_at',
         ]
         read_only_fields = ['created_at', 'updated_at']
 
@@ -18,6 +18,7 @@ class InitialOverrideSerializer(serializers.Serializer):
     id = serializers.UUIDField(required=False)
     instance_datetime = serializers.DateTimeField()
     status = serializers.ChoiceField(choices=TaskOverride.STATUS_CHOICES)
+    notes = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
 
 class TaskSerializer(serializers.ModelSerializer):
@@ -114,6 +115,8 @@ class TaskSerializer(serializers.ModelSerializer):
             }
             if 'id' in override_data:
                 override_attrs['id'] = override_data['id']
+            if 'notes' in override_data:
+                override_attrs['notes'] = override_data['notes']
             to_create.append(TaskOverride(**override_attrs))
 
         if to_create:
@@ -121,7 +124,7 @@ class TaskSerializer(serializers.ModelSerializer):
                 to_create,
                 update_conflicts=True,
                 unique_fields=['task', 'instance_datetime'],
-                update_fields=['status']
+                update_fields=['status', 'notes']
             )
 
         generate_overrides_for_task(task)
