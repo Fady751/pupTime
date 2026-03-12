@@ -123,3 +123,39 @@ class GetTasksSchema(BaseModel):
         default=None,
         description="Filter tasks by priority. Omit to return all priorities."
     )
+
+
+class CheckScheduleConflictSchema(BaseModel):
+    """Schema for checking if a new task time conflicts with existing tasks."""
+
+    start_datetime: str = Field(
+        description="ISO 8601 start date and time of the proposed task."
+    )
+    duration_minutes: int = Field(
+        description="Duration of the proposed task in minutes."
+    )
+
+
+class FindFreeTimeSchema(BaseModel):
+    """Schema for finding free time slots in the user's schedule."""
+
+    date_range_start: str = Field(
+        description="ISO 8601 start of the date range to search for free time."
+    )
+    date_range_end: str = Field(
+        description="ISO 8601 end of the date range to search for free time."
+    )
+    required_duration_minutes: int = Field(
+        description="How much consecutive free time (in minutes) is needed."
+    )
+
+
+class GetDailyLoadSummarySchema(BaseModel):
+    """Schema for getting a summary of the user's task load over a date range."""
+
+    start_date: str = Field(
+        description="ISO 8601 start date of the summary range."
+    )
+    end_date: str = Field(
+        description="ISO 8601 end date of the summary range."
+    )

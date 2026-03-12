@@ -44,3 +44,25 @@ class Message(models.Model):
 
     def __str__(self):
         return f"[{self.role}] {self.content[:50]}"
+
+
+class AIChoice(models.Model):
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    message = models.ForeignKey(
+        Message,
+        on_delete=models.CASCADE,
+        related_name='choices',
+        help_text="The AI message that proposed this choice."
+    )
+    choice_id_string = models.CharField(max_length=50, help_text="e.g., 'choice_1'")
+    actions_payload = models.JSONField(help_text="The raw actions array proposed by the AI.")
+    is_executed = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"Choice {self.choice_id_string} for Message {self.message.id} (Executed: {self.is_executed})"
+
