@@ -1,8 +1,14 @@
 import json
 import logging
 
+from django.db import transaction
+from django.db.models import Prefetch
 from django.http import StreamingHttpResponse
+from django.utils.decorators import method_decorator
+from drf_yasg import openapi
+from drf_yasg.utils import swagger_auto_schema
 from rest_framework import status
+from rest_framework.exceptions import ValidationError
 from rest_framework.generics import ListAPIView, RetrieveDestroyAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -10,15 +16,28 @@ from rest_framework.views import APIView
 
 from .ai_provider import AIProviderRateLimitError, ChatMessage, get_ai_provider
 from .Tools.task_tools import get_task_tools
-from .models import Conversation, Message
+from .models import AIChoice, Conversation, Message
 from .serializers import (
+    AIChoiceSerializer,
+    ApproveAIChoiceSerializer,
     ConversationListSerializer,
     ConversationSerializer,
     SendMessageSerializer,
 )
+from task.models import TaskTemplate
+from task.serializers import TaskSerializer
 
 logger = logging.getLogger(__name__)
 
+@method_decorator(
+    name='list',
+    decorator=swagger_auto_schema(
+        tags=['AI Chat'],
+        operation_summary='List conversations',
+        operation_description='Returns all conversations for the authenticated user, newest first.',
+        responses={200: ConversationListSerializer(many=True)},
+    ),
+)
 class ConversationListView(ListAPIView):
     """
     GET /ai/conversations/
@@ -31,6 +50,26 @@ class ConversationListView(ListAPIView):
         return Conversation.objects.filter(user=self.request.user)
 
 
+@method_decorator(
+    name='retrieve',
+    decorator=swagger_auto_schema(
+        tags=['AI Chat'],
+        operation_summary='Get conversation',
+        operation_description=(
+            'Returns a conversation with all its messages. Each assistant message includes '
+            'a `choices` array containing **pending** (not yet executed) AI-proposed action choices.'
+        ),
+        responses={200: ConversationSerializer()},
+    ),
+)
+@method_decorator(
+    name='destroy',
+    decorator=swagger_auto_schema(
+        tags=['AI Chat'],
+        operation_summary='Delete conversation',
+        responses={204: 'Conversation deleted.'},
+    ),
+)
 class ConversationDetailView(RetrieveDestroyAPIView):
     """
     GET    /ai/conversations/<id>/   |retrieve conversation with messages
@@ -42,7 +81,172 @@ class ConversationDetailView(RetrieveDestroyAPIView):
     lookup_field = 'pk'
 
     def get_queryset(self):
-        return Conversation.objects.filter(user=self.request.user)
+        return Conversation.objects.filter(user=self.request.user).prefetch_related(
+            'messages',
+            Prefetch('messages__choices', queryset=AIChoice.objects.filter(is_executed=False)),
+        )
+
+
+_EXECUTED_ACTION_SCHEMA = openapi.Schema(
+    type=openapi.TYPE_OBJECT,
+    properties={
+        'action_name': openapi.Schema(
+            type=openapi.TYPE_STRING,
+            enum=['create_task', 'update_task', 'delete_task'],
+        ),
+        'task_id': openapi.Schema(type=openapi.TYPE_STRING, format='uuid'),
+    },
+)
+
+
+class ApproveAIChoiceView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        tags=['AI Chat'],
+        operation_summary='Approve an AI-proposed choice',
+        operation_description=(
+            'Executes all actions inside the chosen `AIChoice` (create / update / delete tasks) '
+            'inside a single atomic transaction, then marks the choice as executed so it cannot '
+            'be re-run. The choice UUID comes from the `choices` array in the final '
+            '`done` SSE event returned by `POST /ai/chat/`.'
+        ),
+        request_body=ApproveAIChoiceSerializer,
+        responses={
+            200: openapi.Response(
+                description='Choice executed successfully.',
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'detail': openapi.Schema(type=openapi.TYPE_STRING, example='Choice executed successfully.'),
+                        'choice_id': openapi.Schema(type=openapi.TYPE_STRING, format='uuid'),
+                        'executed_actions': openapi.Schema(
+                            type=openapi.TYPE_ARRAY,
+                            items=_EXECUTED_ACTION_SCHEMA,
+                        ),
+                    },
+                ),
+            ),
+            400: openapi.Response(description='Choice already executed or malformed payload.'),
+            404: openapi.Response(description='Choice not found or belongs to another user.'),
+        },
+    )
+    def post(self, request):
+        serializer = ApproveAIChoiceSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        with transaction.atomic():
+            try:
+                choice = (
+                    AIChoice.objects
+                    .select_for_update()
+                    .select_related('message__conversation')
+                    .get(
+                        pk=serializer.validated_data['choice_id'],
+                        message__conversation__user=request.user,
+                    )
+                )
+            except AIChoice.DoesNotExist:
+                return Response(
+                    {'detail': 'Choice not found.'},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            if choice.is_executed:
+                return Response(
+                    {'detail': 'Choice has already been executed.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            actions = choice.actions_payload
+            if not isinstance(actions, list):
+                return Response(
+                    {'detail': 'Choice actions payload must be a list.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            executed_actions = []
+            try:
+                for action in actions:
+                    executed_actions.append(self._execute_action(request.user, action))
+            except ValidationError as error:
+                return Response(error.detail, status=status.HTTP_400_BAD_REQUEST)
+
+            choice.is_executed = True
+            choice.save(update_fields=['is_executed'])
+
+        return Response(
+            {
+                'detail': 'Choice executed successfully.',
+                'choice_id': str(choice.id),
+                'executed_actions': executed_actions,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    def _execute_action(self, user, action):
+        if not isinstance(action, dict):
+            raise ValidationError({'actions': 'Each action must be an object.'})
+
+        action_name = action.get('action_name')
+        params = action.get('params') or {}
+
+        # Gemini sometimes serialises params as a JSON string instead of an object
+        if isinstance(params, str):
+            try:
+                params = json.loads(params)
+            except (json.JSONDecodeError, TypeError):
+                raise ValidationError({'params': 'Action params is not valid JSON.'})
+
+        if not isinstance(params, dict):
+            raise ValidationError({'actions': 'Each action params value must be an object.'})
+
+        if action_name == 'create_task':
+            serializer = TaskSerializer(data=params)
+            serializer.is_valid(raise_exception=True)
+            task = serializer.save(user=user)
+            return {
+                'action_name': action_name,
+                'task_id': str(task.id),
+            }
+
+        if action_name == 'update_task':
+            task_id = params.get('task_id')
+            if not task_id:
+                raise ValidationError({'task_id': 'task_id is required for update_task.'})
+
+            try:
+                task = TaskTemplate.objects.get(pk=task_id, user=user, is_deleted=False)
+            except TaskTemplate.DoesNotExist:
+                raise ValidationError({'task_id': 'Task not found.'})
+
+            update_data = {key: value for key, value in params.items() if key != 'task_id'}
+            serializer = TaskSerializer(task, data=update_data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            updated_task = serializer.save()
+            return {
+                'action_name': action_name,
+                'task_id': str(updated_task.id),
+            }
+
+        if action_name == 'delete_task':
+            task_id = params.get('task_id')
+            if not task_id:
+                raise ValidationError({'task_id': 'task_id is required for delete_task.'})
+
+            try:
+                task = TaskTemplate.objects.get(pk=task_id, user=user, is_deleted=False)
+            except TaskTemplate.DoesNotExist:
+                raise ValidationError({'task_id': 'Task not found.'})
+
+            task.is_deleted = True
+            task.save(update_fields=['is_deleted'])
+            return {
+                'action_name': action_name,
+                'task_id': str(task.id),
+            }
+
+        raise ValidationError({'action_name': f'Unsupported action: {action_name}'})
 
 
 class ChatView(APIView):
@@ -68,6 +272,45 @@ class ChatView(APIView):
 
     permission_classes = [IsAuthenticated]
 
+    _CHOICE_REF_SCHEMA = openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'id': openapi.Schema(
+                type=openapi.TYPE_STRING, format='uuid',
+                description='UUID to pass to POST /ai/chat/approve-choice/.',
+            ),
+            'choice_id_string': openapi.Schema(
+                type=openapi.TYPE_STRING,
+                description="Human-readable label assigned by the AI (e.g. 'choice_1').",
+            ),
+        },
+    )
+
+    @swagger_auto_schema(
+        tags=['AI Chat'],
+        operation_summary='Send a message and stream the AI response',
+        operation_description=(
+            'Streams the AI response as **Server-Sent Events** (`text/event-stream`).\n\n'
+            'While the AI is working, each SSE event has the shape:\n'
+            '```\ndata: {"conversation_id": "...", "chunk": "partial text"}\n\n```\n\n'
+            'The final event has the shape:\n'
+            '```json\n'
+            '{"conversation_id": "...", "done": true, '
+            '"choices": [{"id": "<uuid>", "choice_id_string": "choice_1"}]}\n'
+            '```\n\n'
+            'If the AI proposed task actions, `choices` will be non-empty. '
+            'Pass the `id` (UUID) to `POST /ai/chat/approve-choice/` to execute the chosen actions.'
+        ),
+        request_body=SendMessageSerializer,
+        responses={
+            200: openapi.Response(
+                description='text/event-stream SSE response.',
+                schema=openapi.Schema(type=openapi.TYPE_STRING),
+            ),
+            400: openapi.Response(description='Invalid request body.'),
+            404: openapi.Response(description='Conversation not found.'),
+        },
+    )
     def post(self, request):
         serializer = SendMessageSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -145,20 +388,43 @@ class ChatView(APIView):
                     yield f"data: {payload}\n\n"
 
                 full_response = ''.join(full_response_parts)
+                parsed = None
                 try:
                     parsed = json.loads(full_response)
                     saved_content = parsed.get('message', full_response) if isinstance(parsed, dict) else full_response
                 except (json.JSONDecodeError, TypeError):
                     saved_content = full_response
-                Message.objects.create(
+                assistant_message = Message.objects.create(
                     conversation=conversation,
                     role=Message.Role.ASSISTANT,
                     content=saved_content,
                 )
 
+                created_choices: list[AIChoice] = []
+                if isinstance(parsed, dict):
+                    raw_choices = [
+                        c for c in (parsed.get('choices') or [])
+                        if isinstance(c, dict)
+                    ]
+                    if raw_choices:
+                        choice_objects = [
+                            AIChoice(
+                                message=assistant_message,
+                                choice_id_string=str(c.get('id', '')),
+                                actions_payload=c.get('actions', []),
+                            )
+                            for c in raw_choices
+                        ]
+                        AIChoice.objects.bulk_create(choice_objects)
+                        created_choices = choice_objects
+
                 done_payload = json.dumps({
                     'conversation_id': str(conversation.id),
                     'done': True,
+                    'choices': [
+                        {'id': str(c.id), 'choice_id_string': c.choice_id_string}
+                        for c in created_choices
+                    ],
                 })
                 yield f"data: {done_payload}\n\n"
 

@@ -1,13 +1,32 @@
 from rest_framework import serializers
 
-from .models import Conversation, Message
+from .models import AIChoice, Conversation, Message
+
+
+class AIChoiceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AIChoice
+        fields = [
+            'id',
+            'choice_id_string',
+            'actions_payload',
+            'is_executed',
+            'created_at',
+        ]
+        read_only_fields = fields
 
 
 class MessageSerializer(serializers.ModelSerializer):
+    choices = serializers.SerializerMethodField()
+
+    def get_choices(self, obj):
+        pending_choices = obj.choices.filter(is_executed=False)
+        return AIChoiceSerializer(pending_choices, many=True).data
+
     class Meta:
         model = Message
-        fields = ['id', 'role', 'content', 'created_at']
-        read_only_fields = ['id', 'role', 'created_at']
+        fields = ['id', 'role', 'content', 'created_at', 'choices']
+        read_only_fields = ['id', 'role', 'created_at', 'choices']
 
 
 class ConversationSerializer(serializers.ModelSerializer):
@@ -37,3 +56,7 @@ class SendMessageSerializer(serializers.Serializer):
     message = serializers.CharField(
         help_text="The user's message text.",
     )
+
+
+class ApproveAIChoiceSerializer(serializers.Serializer):
+    choice_id = serializers.UUIDField(help_text="The UUID of the saved AI choice to approve.")
