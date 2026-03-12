@@ -11,7 +11,16 @@ from pydantic import BaseModel, Field
 
 class Action(BaseModel):
     action_name: str = Field(description="Action name. Must be 'create_task', 'update_task', or 'delete_task'")
-    params: dict = Field(description="A JSON object containing the parameters for the action. DO NOT stringify this object.")
+    params: dict = Field(
+        description="A JSON object containing the parameters for the action. MUST be a valid JSON object, NOT a string.",
+        json_schema_extra={
+            "example": {
+                "title": "Example Task",
+                "start_datetime": "2026-03-12T15:00:00Z",
+                "priority": "high"
+            }
+        }
+    )
 
 class Choice(BaseModel):
     id: str = Field(description="Unique ID for this choice, e.g., 'choice_1'")
@@ -47,7 +56,10 @@ def get_task_tools(user):
         for task in tasks:
             lines.append(
                 f"- ID: {task.id} | Title: '{task.title}' | "
-                f"Priority: {task.priority} | Recurring: {task.is_recurring}"
+                f"Start: {task.start_datetime.isoformat()} | "
+                f"Priority: {task.priority} | Emoji: {task.emoji or '(none)'} | "
+                f"Duration: {task.duration_minutes or 'N/A'} min | "
+                f"Recurring: {task.is_recurring} | Timezone: {task.timezone}"
             )
 
         return "Today's tasks:\n" + "\n".join(lines)
@@ -106,7 +118,9 @@ def get_task_tools(user):
             lines.append(
                 f"- ID: {task.id} | Title: '{task.title}' | "
                 f"Start: {task.start_datetime.isoformat()} | "
-                f"Priority: {task.priority} | Recurring: {task.is_recurring}"
+                f"Priority: {task.priority} | Emoji: {task.emoji or '(none)'} | "
+                f"Duration: {task.duration_minutes or 'N/A'} min | "
+                f"Recurring: {task.is_recurring} | Timezone: {task.timezone}"
             )
 
         return "Tasks:\n" + "\n".join(lines)

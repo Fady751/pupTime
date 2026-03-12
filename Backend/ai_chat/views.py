@@ -8,7 +8,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .ai_provider import ChatMessage, get_ai_provider
+from .ai_provider import AIProviderRateLimitError, ChatMessage, get_ai_provider
 from .Tools.task_tools import get_task_tools
 from .models import Conversation, Message
 from .serializers import (
@@ -101,13 +101,24 @@ class ChatView(APIView):
         history = list(
             conversation.messages.order_by('created_at').values_list('role', 'content')
         )
+        from django.utils import timezone
+        current_time = timezone.now().isoformat()
+        
         system_prompt = ChatMessage(
             role='system',
             content=(
-                "You are a helpful personal task manager assistant. "
-                "Always call get_today_tasks first when the user asks about their schedule or today's tasks. "
-                "You CANNOT directly execute task creations, updates, or deletions. "
-                "If the user wants to perform these operations, you MUST use the `respond_to_user` tool to propose actions as choices."
+                f"You are a helpful personal task manager assistant. "
+                f"The current date and time is {current_time}. "
+                f"Always call get_today_tasks first when the user asks about their schedule or today's tasks. "
+                f"You CANNOT directly execute task creations, updates, or deletions. "
+                f"If the user wants to perform these operations, you MUST use the `respond_to_user` tool to propose actions as choices. "
+                f"You can provide MULTIPLE choices in the `choices` array to give the user options. "
+                f"Inside each choice, you can include MULTIPLE actions in the `actions` array (e.g., delete a task AND create a new one in the same choice). "
+                f"IMPORTANT FOR PARAMS: The `params` object inside an action MUST EXACTLY match our schema: "
+                f"For create_task use: title, start_datetime (ISO 8601), priority (none|low|medium|high), emoji, reminder_time, duration_minutes, is_recurring, rrule, timezone. "
+                f"For update_task use: task_id (UUID), and optionally any of the create_task fields. "
+                f"For delete_task use: task_id (UUID). "
+                f"NEVER invent field names like 'due_date'. Use 'start_datetime'."
             ),
         )
         chat_messages = [system_prompt] + [ChatMessage(role=r, content=c) for r, c in history]
@@ -127,10 +138,15 @@ class ChatView(APIView):
                     yield f"data: {payload}\n\n"
 
                 full_response = ''.join(full_response_parts)
+                try:
+                    parsed = json.loads(full_response)
+                    saved_content = parsed.get('message', full_response) if isinstance(parsed, dict) else full_response
+                except (json.JSONDecodeError, TypeError):
+                    saved_content = full_response
                 Message.objects.create(
                     conversation=conversation,
                     role=Message.Role.ASSISTANT,
-                    content=full_response,
+                    content=saved_content,
                 )
 
                 done_payload = json.dumps({
@@ -139,6 +155,16 @@ class ChatView(APIView):
                 })
                 yield f"data: {done_payload}\n\n"
 
+            except AIProviderRateLimitError as error:
+                logger.warning("AI provider quota exhausted: %s", error)
+                error_payload = {
+                    'conversation_id': str(conversation.id),
+                    'error': str(error),
+                    'error_code': 'rate_limited',
+                }
+                if error.retry_after_seconds is not None:
+                    error_payload['retry_after_seconds'] = error.retry_after_seconds
+                yield f"data: {json.dumps(error_payload)}\n\n"
             except Exception:
                 logger.exception("Error while streaming AI response")
                 error_payload = json.dumps({

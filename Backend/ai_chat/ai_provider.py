@@ -19,6 +19,18 @@ class ChatMessage:
     content: str
 
 
+class AIProviderError(Exception):
+    """Base exception for AI provider failures."""
+
+
+class AIProviderRateLimitError(AIProviderError):
+    """Raised when the AI provider rejects a request due to quota or rate limits."""
+
+    def __init__(self, message: str, retry_after_seconds: int | None = None) -> None:
+        super().__init__(message)
+        self.retry_after_seconds = retry_after_seconds
+
+
 class BaseAIProvider(abc.ABC):
 
     @abc.abstractmethod
@@ -31,6 +43,10 @@ class BaseAIProvider(abc.ABC):
         """Yield incremental text chunks for a streaming response"""
         ...
 
+    @abc.abstractmethod
+    def stream_with_tools(self, messages: List[ChatMessage], tools: list) -> Generator[str, None, None]:
+        """Yield the final AI response after resolving any tool calls"""
+        ...
 
 
 _provider_instance: BaseAIProvider | None = None
