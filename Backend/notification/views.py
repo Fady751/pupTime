@@ -11,7 +11,7 @@ class NotificationPagination(PageNumberPagination):
     page_size = 10 
 
  
-class NotificationView(APIView):
+class NotificationsView(APIView):
     @swagger_auto_schema(
         responses={
             200: NotificationSerializer(many=True),

@@ -175,5 +175,5 @@ AUTHENTICATION_BACKENDS = [
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 #firebase_fcm_settings
-cred = credentials.Certificate(BASE_DIR / "firebase/firebase_adminsdk.json")
+cred = credentials.Certificate("./firebase_adminsdk.json")
 firebase_admin.initialize_app(cred)

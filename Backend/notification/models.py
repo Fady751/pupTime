@@ -1,5 +1,5 @@
 from django.db import models
-from .models import User , Friendship , Task
+from user.models import User 
 
 class NotificationType(models.TextChoices):
     FRIEND_REQUEST = 'FR', 'Friend_Request'

@@ -19,7 +19,6 @@ class FriendshipRequestSerializer(serializers.ModelSerializer):
             'blocked_by',
             'sent_at',
             'accepted_at',
-            'fcm_token'
         ]
         read_only_fields = ['blocked_by', 'sent_at', 'accepted_at']
 
@@ -38,7 +37,7 @@ class FriendshipRequestSerializer(serializers.ModelSerializer):
 class FriendshipAcceptSerializer(serializers.ModelSerializer):
     class Meta:
         model = Friendship
-        fields = ['id', 'status', 'accepted_at' , 'sender', 'receiver' , 'fcm_token']
+        fields = ['id', 'status', 'accepted_at' , 'sender', 'receiver']
         read_only_fields = ['id', 'accepted_at', 'sender', 'receiver']
 
     def update(self, instance, validated_data):

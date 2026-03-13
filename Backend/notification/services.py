@@ -1,7 +1,7 @@
 from time import timezone
 import firebase_admin
 from firebase_admin import messaging 
-from .notification.models import Notification
+from .models import Notification
 from django.utils.timezone import timezone
 
 

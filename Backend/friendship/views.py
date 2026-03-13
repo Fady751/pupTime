@@ -53,13 +53,18 @@ class FriendshipRequestView(APIView):
     
         if existing_friendship:
             return Response({"error": "relation request already exists" , "status": existing_friendship.status}, status=400)
+        
+        fcm_token = request.data.get('fcm_token')
+
+        if not fcm_token:
+            return Response({"error": "FCM token is required for sending notification"}, status=400)
 
         serializer = FriendshipRequestSerializer(data={'sender': sender.id, 'receiver': receiver.id, 'status': Status.PENDING} , context={'request': request})
         
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        notification = push_request_notification(receiver , sender , 'FR' , receiver.fcm_token ,existing_friendship.sent_at) 
+        notification = push_request_notification(receiver , sender , 'FR' , fcm_token ,existing_friendship.sent_at) 
 
         if notification == '500':
             return Response({"error": "Failed to send notification"}, status=500)
@@ -88,6 +93,9 @@ class FriendshipAcceptView(APIView):
 
         fcm_token = request.data.get('fcm_token')
 
+        if not fcm_token:
+            return Response({"error": "FCM token is required for sending notification"}, status=400)
+
         friendship = get_object_or_404(Friendship, id=friendship_id)
 
         serializer = FriendshipAcceptSerializer(friendship, data=request.data, partial=True, context={'request': request})
@@ -102,6 +110,7 @@ class FriendshipAcceptView(APIView):
         elif notification == '400':
             return Response({"error": "Invalid data for notification"}, status=400)
         
+        serializer['fcm_token'] = fcm_token
         return Response(serializer.data , status=200)
     
 
