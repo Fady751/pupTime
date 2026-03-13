@@ -3,14 +3,16 @@ AI Provider abstraction layer
 
 To switch providers:
   1. Create a new class that inherits from ``BaseAIProvider``.
-  2. Update ``get_ai_provider()`` to return an instance of your new class.
+    2. Register it in ``get_ai_provider()`` and choose it via ``AI_PROVIDER``.
 """
 
 from __future__ import annotations
 
 import abc
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Generator, List
+
+from decouple import config
 
 
 @dataclass
@@ -56,7 +58,22 @@ def get_ai_provider() -> BaseAIProvider:
     """Return the active AI provider (singleton)"""
     global _provider_instance
     if _provider_instance is None:
-        from .providers.gemini import GeminiProvider
+        provider_name = config("AI_PROVIDER", default="gemini").strip().lower()
 
-        _provider_instance = GeminiProvider()
+        if provider_name == "gemini":
+            from .providers.gemini import GeminiProvider
+
+            _provider_instance = GeminiProvider()
+        elif provider_name == "ollama":
+            from .providers.ollama import OllamaProvider
+
+            _provider_instance = OllamaProvider()
+        elif provider_name == "lmstudio":
+            from .providers.lmstudio import LMStudioProvider
+
+            _provider_instance = LMStudioProvider()
+        else:
+            raise AIProviderError(
+                "Unsupported AI_PROVIDER value. Use 'gemini', 'ollama', or 'lmstudio'."
+            )
     return _provider_instance

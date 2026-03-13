@@ -66,4 +66,6 @@ frontEnd/pupTime/ios/build/
 #securty
 .env
 *.pyc
+
+firebase_adminsdk.json
 Backend/firebase_adminsdk.json
