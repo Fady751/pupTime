@@ -4,7 +4,7 @@ from django.db.models import Q
 from django.utils import timezone
 from .models import Friendship, Status
 from user.models import User
-from .Backend import delete_cancelled_friendship
+from .services import delete_cancelled_friendship
 
 
 class FriendshipRequestSerializer(serializers.ModelSerializer):
@@ -18,7 +18,7 @@ class FriendshipRequestSerializer(serializers.ModelSerializer):
             'status',
             'blocked_by',
             'sent_at',
-            'accepted_at'
+            'accepted_at',
         ]
         read_only_fields = ['blocked_by', 'sent_at', 'accepted_at']
 
