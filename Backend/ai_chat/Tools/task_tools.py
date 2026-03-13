@@ -40,32 +40,46 @@ def get_task_tools(user):
     """
     @tool
     def get_today_tasks():
-        """Returns the user's tasks for today, including recurring tasks. Always call this first when the user asks about their day."""
-        from django.db.models import Q
+        """Returns the user's task overrides for today with full task template info. Always call this first when the user asks about their day."""
+        from task.models import TaskOverride
+
         today = timezone.now().date()
 
-        tasks = TaskTemplate.objects.filter(
-            user=user,
-            is_deleted=False,
-        ).filter(
-            Q(start_datetime__date=today)  
-            | Q(is_recurring=True)          
+        overrides = (
+            TaskOverride.objects.filter(
+                task__user=user,
+                task__is_deleted=False,
+                is_deleted=False,
+            )
+            .filter(
+                instance_datetime__date=today,
+            )
+            .exclude(status__in=[TaskOverride.STATUS_SKIPPED, TaskOverride.STATUS_FAILED])
+            .select_related("task")
+            .order_by("instance_datetime")
         )
 
-        if not tasks.exists():
-            return "The user has no tasks for today."
+        if not overrides.exists():
+            return "The user has no tasks scheduled for today."
 
         lines = []
-        for task in tasks:
+        for ov in overrides:
+            t = ov.task
+            effective_dt = (
+                ov.new_datetime
+                if ov.status == TaskOverride.STATUS_RESCHEDULED and ov.new_datetime
+                else ov.instance_datetime
+            )
             lines.append(
-                f"- ID: {task.id} | Title: '{task.title}' | "
-                f"Start: {task.start_datetime.isoformat()} | "
-                f"Priority: {task.priority} | Emoji: {task.emoji or '(none)'} | "
-                f"Duration: {task.duration_minutes or 'N/A'} min | "
-                f"Recurring: {task.is_recurring} | Timezone: {task.timezone}"
+                f"- OverrideID: {ov.id} | TaskID: {t.id} | Title: '{t.title}' | "
+                f"Scheduled: {effective_dt.isoformat()} | Status: {ov.status} | "
+                f"Priority: {t.priority} | Emoji: {t.emoji or '(none)'} | "
+                f"Duration: {t.duration_minutes or 'N/A'} min | "
+                f"Recurring: {t.is_recurring} | Timezone: {t.timezone}"
+                + (f" | Notes: {ov.notes}" if ov.notes else "")
             )
 
-        return "Today's tasks:\n" + "\n".join(lines)
+        return "Today's task overrides:\n" + "\n".join(lines)
     
     @tool
     def get_task_by_id(task_id: str ):
