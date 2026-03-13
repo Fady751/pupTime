@@ -9,11 +9,13 @@ https://docs.djangoproject.com/en/6.0/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
-
+import firebase_admin
+from firebase_admin import credentials
 from pathlib import Path
 from decouple import config, Csv
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
 
 
 # Quick-start development settings - unsuitable for production
@@ -51,6 +53,7 @@ INSTALLED_APPS = [
     'friendship',
     'task',
     'ai_chat',
+    'notification',
     'rest_framework',
     'rest_framework.authtoken',
     'drf_yasg',
@@ -170,3 +173,7 @@ AUTHENTICATION_BACKENDS = [
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+#firebase_fcm_settings
+cred = credentials.Certificate(BASE_DIR / "firebase/firebase_adminsdk.json")
+firebase_admin.initialize_app(cred)

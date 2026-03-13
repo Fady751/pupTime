@@ -24,4 +24,4 @@ class Friendship(models.Model):
 
     class Meta:
         unique_together = ('sender', 'receiver')
-        ordering = ['sent_at']
+        ordering = ['-sent_at']

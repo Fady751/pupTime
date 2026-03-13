@@ -1,3 +1,5 @@
+from unittest import result
+
 from rest_framework import status, generics
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -9,7 +11,7 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from django.db.models import Q
 
-from .Backend import (
+from .services import (
     check_existing_friendship , 
     get_user_by_id ,
     get_friendship_by_id
@@ -26,6 +28,8 @@ from .serializers import (
     ,UnblockFriendshipSerializer
 )
 
+from notification.services import push_accept_notification , push_request_notification
+
 
 class FriendshipRequestView(APIView):
     permission_classes = [IsAuthenticated]
@@ -35,6 +39,9 @@ class FriendshipRequestView(APIView):
         responses={
             201: openapi.Response('Friendship request created successfully', FriendshipRequestSerializer),
             400: openapi.Response('Bad request - validation errors or friendship already exists'),
+        },
+        required= {
+            "fcm_token": openapi.Schema(type=openapi.TYPE_STRING, description='FCM token of the receiver for push notification')
         }
     )
     def post(self, request, user_id):
@@ -48,11 +55,20 @@ class FriendshipRequestView(APIView):
             return Response({"error": "relation request already exists" , "status": existing_friendship.status}, status=400)
 
         serializer = FriendshipRequestSerializer(data={'sender': sender.id, 'receiver': receiver.id, 'status': Status.PENDING} , context={'request': request})
-        print(serializer.initial_data , "------------------------------------------------------")
+        
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
+        notification = push_request_notification(receiver , sender , 'FR' , receiver.fcm_token ,existing_friendship.sent_at) 
+
+        if notification == '500':
+            return Response({"error": "Failed to send notification"}, status=500)
+        elif notification == '400':
+            return Response({"error": "Invalid data for notification"}, status=400)
+
         return Response(serializer.data, status=201)
+    
+
     
 class FriendshipAcceptView(APIView):
     permission_classes = [IsAuthenticated]
@@ -62,15 +78,35 @@ class FriendshipAcceptView(APIView):
         responses={
             200: openapi.Response('Friendship request accepted successfully', FriendshipAcceptSerializer),
             400: openapi.Response('Bad request - validation errors or not authorized to accept this request'),
+        },
+        required= {
+            'fcm_token': openapi.Schema(type=openapi.TYPE_STRING, description='FCM token of the receiver for push notification')
         }
     )
+
     def post(self, request, friendship_id):
-        sender = request.user
+
+        fcm_token = request.data.get('fcm_token')
+
         friendship = get_object_or_404(Friendship, id=friendship_id)
+
         serializer = FriendshipAcceptSerializer(friendship, data=request.data, partial=True, context={'request': request})
+
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        return Response(serializer.data)
+
+        notification = push_accept_notification(friendship.sender , request.user , 'FA', fcm_token , friendship.accepted_at)
+
+        if notification == '500':
+            return Response({"error": "Failed to send notification"}, status=500)
+        elif notification == '400':
+            return Response({"error": "Invalid data for notification"}, status=400)
+        
+        return Response(serializer.data , status=200)
+    
+
+
+
 
 class FriendshipCancelRequestView(APIView):
 
@@ -89,6 +125,10 @@ class FriendshipCancelRequestView(APIView):
         serializer.is_valid(raise_exception=True)
         self.perform_destroy(instance)
         return Response(status=status.HTTP_204_NO_CONTENT)  
+
+
+
+
 
 class BlockFriendshipView(APIView):
     permission_classes = [IsAuthenticated]
