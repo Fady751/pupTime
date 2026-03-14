@@ -33,6 +33,7 @@ class Interest(models.Model):
 
 class User(AbstractUser):
     google_auth_id = models.CharField(max_length=255, unique=True, null=True, blank=True)
+    fcm_token = models.CharField(max_length=255, unique=True, null=True, blank=True)
     gender = models.CharField(max_length=20, null=True, blank=True)
     birth_day = models.DateField(null=True, blank=True)
     streak_cnt = models.IntegerField(default=0)

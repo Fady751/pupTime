@@ -55,6 +55,7 @@ class LoginView(APIView):
                     'user_id': openapi.Schema(type=openapi.TYPE_INTEGER),
                     'username': openapi.Schema(type=openapi.TYPE_STRING),
                     'email': openapi.Schema(type=openapi.TYPE_STRING),
+                    'fcm_token': openapi.Schema(type=openapi.TYPE_STRING),
                 }
             )),
             401: openapi.Response('Invalid credentials'),

@@ -57,10 +57,11 @@ class UserSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(required=True)
     google_auth_id = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     has_interests = serializers.SerializerMethodField()
+    fcm_token = serializers.CharField(required=True)
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'password', 'google_auth_id', 'gender', 'birth_day', 'streak_cnt', 'joined_on', 'has_interests']
+        fields = ['id', 'username', 'email', 'password', 'google_auth_id', 'gender', 'birth_day', 'streak_cnt', 'joined_on', 'has_interests', 'fcm_token']
         read_only_fields = ['id', 'joined_on', 'streak_cnt', 'has_interests']
 
     def get_has_interests(self, obj):
@@ -92,6 +93,7 @@ class UserSerializer(serializers.ModelSerializer):
 class LoginSerializer(serializers.Serializer):
     email = serializers.CharField()
     password = serializers.CharField(write_only=True)
+    fcm_token = serializers.CharField(required=True)
 
 
 class UserUpdateSerializer(serializers.ModelSerializer):
@@ -152,7 +154,6 @@ class UserFriendsSerializer(serializers.ModelSerializer):
                  'gender': friend.gender , 'birth_day': friend.birth_day , 'streak_cnt': friend.streak_cnt ,
                    'joined_on': friend.joined_on} for friend in obj.friends.all()]
     
-
 class SenderSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
