@@ -93,7 +93,7 @@ class UserSerializer(serializers.ModelSerializer):
 class LoginSerializer(serializers.Serializer):
     email = serializers.CharField()
     password = serializers.CharField(write_only=True)
-    fcm_token = serializers.CharField(required=True)
+    fcm_token = serializers.CharField()
 
 
 class UserUpdateSerializer(serializers.ModelSerializer):
