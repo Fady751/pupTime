@@ -69,4 +69,7 @@ frontEnd/pupTime/ios/build/
 
 firebase_adminsdk.json
 Backend/firebase_adminsdk.json
-Backend/service-account.json
+
+Backend/monthly-credits-acc.json
+Backend/monthly-credits-acc.json
+Backend/free-tier-acc.json
