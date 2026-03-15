@@ -5,8 +5,7 @@ import re
 from typing import Generator, List
 
 from decouple import config
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_google_genai.chat_models import ChatGoogleGenerativeAIError
+from langchain_google_vertexai import ChatVertexAI
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 
 from ..ai_provider import AIProviderError, AIProviderRateLimitError, BaseAIProvider, ChatMessage
@@ -40,9 +39,7 @@ def _extract_retry_after_seconds(error_message: str) -> int | None:
 
 def _raise_provider_error(error: Exception) -> None:
     error_message = str(error)
-    if isinstance(error, ChatGoogleGenerativeAIError) and (
-        "RESOURCE_EXHAUSTED" in error_message or "429" in error_message or "quota" in error_message.lower()
-    ):
+    if "RESOURCE_EXHAUSTED" in error_message or "429" in error_message or "quota" in error_message.lower():
         retry_after_seconds = _extract_retry_after_seconds(error_message)
         user_message = "Gemini quota exceeded. Please try again shortly or check your Gemini plan and billing details."
         if retry_after_seconds is not None:
@@ -54,13 +51,14 @@ def _raise_provider_error(error: Exception) -> None:
 class GeminiProvider(BaseAIProvider):
 
     def __init__(self) -> None:
-        api_key = config("GEMINI_API_KEY")
+        project = config("GOOGLE_CLOUD_PROJECT")
+        location = config("GOOGLE_CLOUD_REGION")
         model_name = config("GEMINI_MODEL", default="gemini-2.0-flash")
 
-        self._llm = ChatGoogleGenerativeAI(
-            model=model_name,
-            google_api_key=api_key,
-            convert_system_message_to_human=True,
+        self._llm = ChatVertexAI(
+            model_name=model_name,
+            project=project,
+            location=location,
         )
 
     def generate(self, messages: List[ChatMessage]) -> str:
