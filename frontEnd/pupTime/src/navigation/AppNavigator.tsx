@@ -13,9 +13,10 @@ import TemplatesListScreen from '../screens/Tasks/TemplatesList/TemplatesListScr
 import TemplateDetailsScreen from '../screens/Tasks/TemplateDetails/TemplateDetailsScreen';
 import OverrideDetailsScreen from '../screens/Tasks/OverrideDetails/OverrideDetailsScreen';
 import SettingsScreen from '../screens/Settings/SettingsScreen';
-// import FriendsListScreen from '../screens/Friends/FriendsListScreen';
-// import AddFriendScreen from '../screens/Friends/AddFriendScreen';
-// import BlockedListScreen from '../screens/Friends/BlockedListScreen';
+import FriendsListScreen from '../screens/Friends/FriendsListScreen';
+import AddFriendScreen from '../screens/Friends/AddFriendScreen';
+import BlockedListScreen from '../screens/Friends/BlockedListScreen';
+import NotificationsScreen from '../screens/Notifications/NotificationsScreen';
 // import TimerScreen from '../screens/Timer/TimerScreen';
 export type AppStackParamList = {
   Home: undefined;
@@ -34,6 +35,7 @@ export type AppStackParamList = {
   AddFriend: undefined;
   BlockedFriends: undefined;
   Settings: undefined;
+  Notifications: undefined;
 };
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
@@ -48,16 +50,17 @@ const AppNavigator: React.FC = () => {
         <Stack.Screen name="EditProfile" component={EditProfileScreen} />
         <Stack.Screen name="Schedule" component={ScheduleScreen} />
         {/* <Stack.Screen name="Timer" component={TimerScreen} /> */}
-        {/* <Stack.Screen name="Friends" component={FriendsListScreen} /> */}
+        <Stack.Screen name="Friends" component={FriendsListScreen} />
         <Stack.Screen name="Tasks" component={TasksScreen} />
         <Stack.Screen name="AddTask" component={AddTaskScreen} />
         <Stack.Screen name="EditTask" component={EditTaskScreen} />
         <Stack.Screen name="TemplatesList" component={TemplatesListScreen} />
         <Stack.Screen name="TemplateDetails" component={TemplateDetailsScreen} />
         <Stack.Screen name="OverrideDetails" component={OverrideDetailsScreen} />
-        {/* <Stack.Screen name="AddFriend" component={AddFriendScreen} /> */}
-        {/* <Stack.Screen name="BlockedFriends" component={BlockedListScreen} /> */}
+        <Stack.Screen name="AddFriend" component={AddFriendScreen} />
+        <Stack.Screen name="BlockedFriends" component={BlockedListScreen} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
+        <Stack.Screen name="Notifications" component={NotificationsScreen} />
       </Stack.Navigator>
       
       <AiButton onPress={() => console.log('AI assistant pressed')} />

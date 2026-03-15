@@ -54,6 +54,7 @@ const FEATURE_CARDS = [
   { key: "schedule", icon: "📅", title: "Schedule", desc: "View calendar and upcoming events", route: "Schedule", color: "#FEF3C7" },
   { key: "timer", icon: "⏱", title: "Focus Timer", desc: "Start Pomodoro sessions, build streaks", route: "Timer", color: "#D1FAE5" },
   { key: "friends", icon: "👥", title: "Friends", desc: "Connect with your accountability partners", route: "Friends", color: "#F3E8FF" },
+  { key: "notifications", icon: "🔔", title: "Notifications", desc: "Review activity and friend updates", route: "Notifications", color: "#DDEAFE" },
   { key: "profile", icon: "👤", title: "Profile", desc: "View and edit your personal info", route: "Profile", color: "#FCE7F3" },
   { key: "settings", icon: "⚙️", title: "Settings", desc: "Customize your PupTime experience", route: "Settings", color: "#E0E7FF" },
 ];
