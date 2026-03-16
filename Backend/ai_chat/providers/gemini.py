@@ -1,6 +1,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 from typing import Generator, List
 
@@ -51,9 +52,13 @@ def _raise_provider_error(error: Exception) -> None:
 class GeminiProvider(BaseAIProvider):
 
     def __init__(self) -> None:
-        project = config("GOOGLE_CLOUD_PROJECT")
-        location = config("GOOGLE_CLOUD_REGION")
-        model_name = config("GEMINI_MODEL", default="gemini-2.0-flash")
+        project = config("LLM_GCP_PROJECT")
+        location = config("LLM_GCP_REGION")
+        model_name = config("GEMINI_MODEL", default="gemini-2.5-flash")
+        credentials_path = config("LLM_GCP_CREDENTIALS", default=None)
+
+        if credentials_path:
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_path
 
         self._llm = ChatVertexAI(
             model_name=model_name,
