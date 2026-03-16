@@ -3,7 +3,7 @@ import logging
 
 from django.db import transaction
 from django.db.models import Prefetch
-from django.http import StreamingHttpResponse
+from django.http import HttpResponse # Keep if needed elsewhere, but ChatView won't use StreamingHttpResponse
 from django.utils.decorators import method_decorator
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
@@ -288,24 +288,27 @@ class ChatView(APIView):
 
     @swagger_auto_schema(
         tags=['AI Chat'],
-        operation_summary='Send a message and stream the AI response',
+        operation_summary='Send a message and get the AI response',
         operation_description=(
-            'Streams the AI response as **Server-Sent Events** (`text/event-stream`).\n\n'
-            'While the AI is working, each SSE event has the shape:\n'
-            '```\ndata: {"conversation_id": "...", "chunk": "partial text"}\n\n```\n\n'
-            'The final event has the shape:\n'
-            '```json\n'
-            '{"conversation_id": "...", "done": true, '
-            '"choices": [{"id": "<uuid>", "choice_id_string": "choice_1"}]}\n'
-            '```\n\n'
+            'Sends a user message and returns the full AI response as JSON.\n\n'
             'If the AI proposed task actions, `choices` will be non-empty. '
             'Pass the `id` (UUID) to `POST /ai/chat/approve-choice/` to execute the chosen actions.'
         ),
         request_body=SendMessageSerializer,
         responses={
             200: openapi.Response(
-                description='text/event-stream SSE response.',
-                schema=openapi.Schema(type=openapi.TYPE_STRING),
+                description='Successful AI response.',
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'conversation_id': openapi.Schema(type=openapi.TYPE_STRING, format='uuid'),
+                        'message': openapi.Schema(type=openapi.TYPE_STRING),
+                        'choices': openapi.Schema(
+                            type=openapi.TYPE_ARRAY,
+                            items=_CHOICE_REF_SCHEMA,
+                        ),
+                    },
+                ),
             ),
             400: openapi.Response(description='Invalid request body.'),
             404: openapi.Response(description='Conversation not found.'),
@@ -373,81 +376,67 @@ class ChatView(APIView):
         )
         chat_messages = [system_prompt] + [ChatMessage(role=r, content=c) for r, c in history]
 
-        def event_stream():
-            provider = get_ai_provider()
+        provider = get_ai_provider()
+        tools = get_task_tools(request.user)
+
+        try:
             full_response_parts: list[str] = []
-            tools = get_task_tools(request.user)
+            for chunk in provider.stream_with_tools(chat_messages, tools):
+                full_response_parts.append(chunk)
 
+            full_response = ''.join(full_response_parts)
+            parsed = None
             try:
-                for chunk in provider.stream_with_tools(chat_messages, tools):
-                    full_response_parts.append(chunk)
-                    payload = json.dumps({
-                        'conversation_id': str(conversation.id),
-                        'chunk': chunk,
-                    })
-                    yield f"data: {payload}\n\n"
+                parsed = json.loads(full_response)
+                saved_content = parsed.get('message', full_response) if isinstance(parsed, dict) else full_response
+            except (json.JSONDecodeError, TypeError):
+                saved_content = full_response
 
-                full_response = ''.join(full_response_parts)
-                parsed = None
-                try:
-                    parsed = json.loads(full_response)
-                    saved_content = parsed.get('message', full_response) if isinstance(parsed, dict) else full_response
-                except (json.JSONDecodeError, TypeError):
-                    saved_content = full_response
-                assistant_message = Message.objects.create(
-                    conversation=conversation,
-                    role=Message.Role.ASSISTANT,
-                    content=saved_content,
-                )
+            assistant_message = Message.objects.create(
+                conversation=conversation,
+                role=Message.Role.ASSISTANT,
+                content=saved_content,
+            )
 
-                created_choices: list[AIChoice] = []
-                if isinstance(parsed, dict):
-                    raw_choices = [
-                        c for c in (parsed.get('choices') or [])
-                        if isinstance(c, dict)
+            created_choices: list[AIChoice] = []
+            if isinstance(parsed, dict):
+                raw_choices = [
+                    c for c in (parsed.get('choices') or [])
+                    if isinstance(c, dict)
+                ]
+                if raw_choices:
+                    choice_objects = [
+                        AIChoice(
+                            message=assistant_message,
+                            choice_id_string=str(c.get('id', '')),
+                            actions_payload=c.get('actions', []),
+                        )
+                        for c in raw_choices
                     ]
-                    if raw_choices:
-                        choice_objects = [
-                            AIChoice(
-                                message=assistant_message,
-                                choice_id_string=str(c.get('id', '')),
-                                actions_payload=c.get('actions', []),
-                            )
-                            for c in raw_choices
-                        ]
-                        AIChoice.objects.bulk_create(choice_objects)
-                        created_choices = choice_objects
+                    AIChoice.objects.bulk_create(choice_objects)
+                    created_choices = choice_objects
 
-                done_payload = json.dumps({
-                    'conversation_id': str(conversation.id),
-                    'done': True,
-                    'choices': [
-                        {'id': str(c.id), 'choice_id_string': c.choice_id_string}
-                        for c in created_choices
-                    ],
-                })
-                yield f"data: {done_payload}\n\n"
+            return Response({
+                'conversation_id': str(conversation.id),
+                'message': saved_content,
+                'choices': [
+                    {'id': str(c.id), 'choice_id_string': c.choice_id_string}
+                    for c in created_choices
+                ],
+            }, status=status.HTTP_200_OK)
 
-            except AIProviderRateLimitError as error:
-                logger.warning("AI provider quota exhausted: %s", error)
-                error_payload = {
-                    'conversation_id': str(conversation.id),
-                    'error': str(error),
-                    'error_code': 'rate_limited',
-                }
-                if error.retry_after_seconds is not None:
-                    error_payload['retry_after_seconds'] = error.retry_after_seconds
-                yield f"data: {json.dumps(error_payload)}\n\n"
-            except Exception:
-                logger.exception("Error while streaming AI response")
-                error_payload = json.dumps({
-                    'conversation_id': str(conversation.id),
-                    'error': 'An error occurred while generating the response.',
-                })
-                yield f"data: {error_payload}\n\n"
+        except AIProviderRateLimitError as error:
+            logger.warning("AI provider quota exhausted: %s", error)
+            error_data = {
+                'error': str(error),
+                'error_code': 'rate_limited',
+            }
+            if error.retry_after_seconds is not None:
+                error_data['retry_after_seconds'] = error.retry_after_seconds
+            return Response(error_data, status=status.HTTP_429_TOO_MANY_REQUESTS)
 
-        response = StreamingHttpResponse(
-            event_stream(),
-            content_type='text/event-stream',
-        )
-        return response
+        except Exception:
+            logger.exception("Error while generating AI response")
+            return Response({
+                'error': 'An error occurred while generating the response.',
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
