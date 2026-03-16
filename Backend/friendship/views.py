@@ -59,7 +59,7 @@ class FriendshipRequestView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        notification = push_request_notification(receiver , sender , 'FR' , receiver.fcm_token ,existing_friendship.sent_at) 
+        notification = push_request_notification(receiver , sender , 'FR' , receiver.fcm_token ,serializer.sent_at) 
 
         if notification == '500':
             return Response({"error": "Failed to send notification"}, status=500)
@@ -98,7 +98,7 @@ class FriendshipAcceptView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        notification = push_accept_notification(friendship.sender , request.user , 'FA', friendship.sender.fcm_token , friendship.accepted_at)
+        notification = push_accept_notification(friendship.sender , request.user , 'FA', friendship.sender.fcm_token , serializer.accepted_at)
 
         if notification == '500':
             return Response({"error": "Failed to send notification"}, status=500)
@@ -223,3 +223,12 @@ class check(APIView):
     def get(self, request,):
         data = Friendship.objects.all()
         return Response(data.values())
+    
+
+class delete_that (APIView):
+
+    def delete(self, request , friendship_id):
+        friendship = get_object_or_404(Friendship, id=friendship_id)
+        friendship.delete()
+        return Response({"message": "Friendship deleted successfully"}, status=200)
+        

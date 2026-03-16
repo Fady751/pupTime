@@ -160,13 +160,19 @@ class SenderSerializer(serializers.ModelSerializer):
         fields = ['id', 'username', 'streak_cnt' , 'gender']
 
 
-class UserReqeustSerializer(serializers.ModelSerializer):
+class UserReqeustsSerializer(serializers.ModelSerializer):
         
     sender = SenderSerializer(read_only=True)
 
     class Meta:
         model = Friendship
         fields = [
+            'id',
             'sender',
             'sent_at'
         ]
+
+class SearchUserByUsernameSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email', 'gender', 'birth_day', 'streak_cnt', 'joined_on']
