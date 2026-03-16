@@ -12,9 +12,9 @@ from django.db.models import Q
 from friendship.models import Friendship, Status
 
 from .serializers import (
-    UserFriendsSerializer, UserReqeustSerializer, UserSerializer, LoginSerializer, UserUpdateSerializer,
+    UserFriendsSerializer, UserReqeustsSerializer, UserSerializer, LoginSerializer, UserUpdateSerializer,
     InterestSerializer, InterestCategorySerializer, UserInterestSerializer,
-    GoogleAuthSerializer, UserFriendsSerializer
+    GoogleAuthSerializer, UserFriendsSerializer, SearchUserByUsernameSerializer
 )
 from .models import User, Interest, InterestCategory, UserInterest
 import uuid
@@ -373,6 +373,31 @@ class UserReqeustsView(APIView):
         if not friend_requests.exists():
             return Response({'error': 'User does not have friend requests yet'}, status=status.HTTP_404_NOT_FOUND)
         
-        serializer = UserReqeustSerializer(friend_requests, many=True)
+        serializer = UserReqeustsSerializer(friend_requests, many=True)
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+class SearchUserByUsernameView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        responses={
+            200: openapi.Response('Search results', SearchUserByUsernameSerializer()),
+            400: openapi.Response('Bad request - missing query parameter'),
+        }
+    )
+    
+    def get(self, request , username):
+        UserName = username
+        if not username:
+            return Response({'error': 'Username parameter is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = User.objects.filter(username = UserName)
+
+        if not user:
+            return Response({'error': 'No users found with the given username.'}, status=status.HTTP_404_NOT_FOUND) 
+
+        serializer = SearchUserByUsernameSerializer(user.first())
+        serializer.is_valid(raise_exception=True)
 
         return Response(serializer.data, status=status.HTTP_200_OK)
