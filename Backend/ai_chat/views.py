@@ -19,6 +19,7 @@ from .models import AIChoice, Conversation, Message
 from .serializers import (
     AIChoiceSerializer,
     ApproveAIChoiceSerializer,
+    ChatResponseSerializer,
     ConversationListSerializer,
     ConversationSerializer,
     MessageSerializer,
@@ -48,6 +49,10 @@ class ConversationListView(ListAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return Conversation.objects.none()
+        if not self.request.user.is_authenticated:
+            return Conversation.objects.none()
         return Conversation.objects.filter(user=self.request.user)
 
 
@@ -82,6 +87,10 @@ class ConversationDetailView(RetrieveDestroyAPIView):
     lookup_field = 'pk'
 
     def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return Conversation.objects.none()
+        if not self.request.user.is_authenticated:
+            return Conversation.objects.none()
         return Conversation.objects.filter(user=self.request.user).prefetch_related(
             'messages',
             Prefetch('messages__choices', queryset=AIChoice.objects.filter(is_executed=False)),
@@ -289,16 +298,7 @@ class ChatView(APIView):
         ),
         request_body=SendMessageSerializer,
         responses={
-            200: openapi.Response(
-                description='AI response.',
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'conversation_id': openapi.Schema(type=openapi.TYPE_STRING, format='uuid'),
-                        'message': MessageSerializer(),
-                    },
-                ),
-            ),
+            200: openapi.Response(description='AI response.', schema=ChatResponseSerializer),
             400: openapi.Response(description='Invalid request body.'),
             404: openapi.Response(description='Conversation not found.'),
         },
