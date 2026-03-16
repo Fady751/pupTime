@@ -1,5 +1,6 @@
 import json
 import logging
+import uuid
 
 from django.db import transaction
 from django.db.models import Prefetch
@@ -212,6 +213,10 @@ class ApproveAIChoiceView(APIView):
             raise ValidationError({'actions': 'Each action params value must be an object.'})
 
         if action_name == 'create_task':
+            requested_task_id = params.get('task_id')
+            if requested_task_id:
+                params = {**params, 'id': requested_task_id}
+                params.pop('task_id', None)
             serializer = TaskSerializer(data=params)
             serializer.is_valid(raise_exception=True)
             task = serializer.save(user=user)
@@ -394,14 +399,38 @@ class ChatView(APIView):
                         if isinstance(c, dict)
                     ]
                     if raw_choices:
-                        choice_objects = [
-                            AIChoice(
-                                message=assistant_message,
-                                choice_id_string=str(c.get('id', '')),
-                                actions_payload=c.get('actions', []),
-                            )
-                            for c in raw_choices
-                        ]
+                        choice_objects = []
+                        for c in raw_choices:
+                            actions_payload = c.get('actions', [])
+                            choice_id = None
+                            if isinstance(actions_payload, list):
+                                for action in actions_payload:
+                                    if not isinstance(action, dict):
+                                        continue
+                                    if action.get('action_name') != 'create_task':
+                                        continue
+                                    params = action.get('params') or {}
+                                    if isinstance(params, str):
+                                        try:
+                                            params = json.loads(params)
+                                        except (json.JSONDecodeError, TypeError):
+                                            params = {}
+                                    if isinstance(params, dict) and params.get('task_id'):
+                                        try:
+                                            choice_id = uuid.UUID(str(params['task_id']))
+                                        except (TypeError, ValueError):
+                                            choice_id = None
+                                        break
+
+                            choice_kwargs = {
+                                'message': assistant_message,
+                                'choice_id_string': str(c.get('id', '')),
+                                'actions_payload': actions_payload,
+                            }
+                            if choice_id is not None:
+                                choice_kwargs['id'] = choice_id
+
+                            choice_objects.append(AIChoice(**choice_kwargs))
                         AIChoice.objects.bulk_create(choice_objects)
 
             message_data = MessageSerializer(assistant_message).data
