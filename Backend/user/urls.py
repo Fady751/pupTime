@@ -3,7 +3,7 @@ from django.urls import path
 from .views import (
     RegisterView, LoginView, UserDetailView,
     InterestListView, InterestCategoryListView, UserInterestsView,
-    GoogleAuthView, UserFreindsView, UserReqeustsView
+    GoogleAuthView, UserFreindsView, UserReqeustsView, SearchUserByUsernameView
 )
 
 urlpatterns = [
@@ -23,4 +23,5 @@ urlpatterns = [
     path('<int:user_id>/interests', UserInterestsView.as_view(), name='user-interests_no_slash'),
     path('<int:user_id>/friends/', UserFreindsView.as_view(), name='user-friends'),
     path('requests/', UserReqeustsView.as_view(), name='user-requests'),
+    path('<str:username>/', SearchUserByUsernameView.as_view(), name='user-detail-By-username'),
 ]

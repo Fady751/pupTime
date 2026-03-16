@@ -6,12 +6,16 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from .serializers import NotificationSerializer
 from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
 
 class NotificationPagination(PageNumberPagination):
     page_size = 10 
 
  
 class NotificationsView(APIView):
+
+    permission_classes = [IsAuthenticated]
+
     @swagger_auto_schema(
         responses={
             200: NotificationSerializer(many=True),
@@ -32,6 +36,8 @@ class NotificationsView(APIView):
 
 
 class MarkAsReadView(APIView):
+    permission_classes = [IsAuthenticated]
+
     @swagger_auto_schema(
         responses={
             200: 'Notification marked as read successfully',
@@ -55,6 +61,7 @@ class MarkAsReadView(APIView):
 
 
 class CountUnreadNotificationsView(APIView):
+    permission_classes = [IsAuthenticated]
     @swagger_auto_schema(
         responses={
             200: openapi.Schema(
@@ -73,6 +80,8 @@ class CountUnreadNotificationsView(APIView):
 
 
 class GetUnreadNotificationsView(APIView):
+    permission_classes = [IsAuthenticated]
+
     @swagger_auto_schema(
          responses={
             200: openapi.Response('Friendship request accepted successfully', NotificationSerializer(many=True)),
@@ -94,6 +103,8 @@ class GetUnreadNotificationsView(APIView):
     
 
 class MarkAllAsReadView(APIView):
+    permission_classes = [IsAuthenticated]
+
     @swagger_auto_schema(
         responses={
             200: 'All notifications marked as read successfully',

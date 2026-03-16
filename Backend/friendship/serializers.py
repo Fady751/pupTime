@@ -20,7 +20,6 @@ class FriendshipRequestSerializer(serializers.ModelSerializer):
             'sent_at',
             'accepted_at',
         ]
-        read_only_fields = ['blocked_by', 'sent_at', 'accepted_at']
 
     def validate(self, data):
         sender = self.context['request'].user

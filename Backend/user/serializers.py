@@ -57,7 +57,7 @@ class UserSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(required=True)
     google_auth_id = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     has_interests = serializers.SerializerMethodField()
-    fcm_token = serializers.CharField(required=True)
+    fcm_token = serializers.CharField(required=False, allow_null=True, allow_blank=True)
 
     class Meta:
         model = User
@@ -82,7 +82,7 @@ class UserSerializer(serializers.ModelSerializer):
             username=validated_data['username'],
             email=validated_data.get('email', ''),
             password=validated_data['password'],
-
+            fcm_token=validated_data.get('fcm_token'),
             google_auth_id=validated_data.get('google_auth_id'),
             gender=validated_data.get('gender'),
             birth_day=validated_data.get('birth_day')
@@ -93,7 +93,7 @@ class UserSerializer(serializers.ModelSerializer):
 class LoginSerializer(serializers.Serializer):
     email = serializers.CharField()
     password = serializers.CharField(write_only=True)
-    fcm_token = serializers.CharField()
+    fcm_token = serializers.CharField(required=False, allow_null=True, allow_blank=True)
 
 
 class UserUpdateSerializer(serializers.ModelSerializer):
@@ -160,13 +160,19 @@ class SenderSerializer(serializers.ModelSerializer):
         fields = ['id', 'username', 'streak_cnt' , 'gender']
 
 
-class UserReqeustSerializer(serializers.ModelSerializer):
+class UserReqeustsSerializer(serializers.ModelSerializer):
         
     sender = SenderSerializer(read_only=True)
 
     class Meta:
         model = Friendship
         fields = [
+            'id',
             'sender',
             'sent_at'
         ]
+
+class SearchUserByUsernameSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email', 'gender', 'birth_day', 'streak_cnt', 'joined_on']
