@@ -259,11 +259,16 @@ const SettingsScreen = ({ navigation }: { navigation: any }) => {
 
           {/* 5. Notifications */}
           <SettingsSection title="Notifications">
+            <SettingsNavItem
+              label="Notification Inbox"
+              icon="🔔"
+              onPress={() => navigation.navigate("Notifications")}
+              isFirst
+            />
             <SettingsSwitchItem
               label="Enable Notifications"
               value={settings.notifications.enabled}
               onToggle={value => handleToggleNotification("enabled", value)}
-              isFirst
             />
             <SettingsSelectItem
               label="Reminder Time"

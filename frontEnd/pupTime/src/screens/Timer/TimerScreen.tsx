@@ -203,7 +203,7 @@ const TimerScreen: React.FC = () => {
             </Pressable>
             <Pressable
               style={styles.topIconButton}
-              onPress={() => console.log("Notifications pressed")}
+              onPress={() => navigation.navigate("Notifications")}
             >
               <Text style={styles.topIconText}>🔔</Text>
             </Pressable>

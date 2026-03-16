@@ -2,11 +2,11 @@ import React, { useMemo } from "react";
 import { View, Text, Pressable } from "react-native";
 import useTheme from "../../Hooks/useTheme";
 import createFriendsStyles from "./Friends.styles";
-import type { Friend } from "../../types/friend";
+import type { BlockedFriend } from "../../types/friend";
 
 interface BlockedItemProps {
-  user: Friend;
-  onUnblock: (user: Friend) => void;
+  user: BlockedFriend;
+  onUnblock: (user: BlockedFriend) => void;
 }
 
 export const BlockedItem: React.FC<BlockedItemProps> = ({ user, onUnblock }) => {
