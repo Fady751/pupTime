@@ -65,24 +65,26 @@ class LoginView(APIView):
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        
-        fcm_token = serializer.validated_data['fcm_token']
+        fcm_token = serializer.validated_data.get('fcm_token')
         email = serializer.validated_data['email'].lower()
         password = serializer.validated_data['password']
-
-        if not fcm_token:
-            return Response({'error': 'FCM token is required.'}, status=status.HTTP_400_BAD_REQUEST)
         
         user = authenticate(email=email, password=password)
 
         if user:
+            if fcm_token:
+                User.objects.filter(fcm_token=fcm_token).exclude(pk=user.pk).update(fcm_token=None)
+                if user.fcm_token != fcm_token:
+                    user.fcm_token = fcm_token
+                    user.save(update_fields=['fcm_token'])
+
             token, created = Token.objects.get_or_create(user=user)
             return Response({
                 'token': token.key,
                 'user_id': user.id,
                 'username': user.username,
                 'email': user.email,
-                'fcm_token': fcm_token,
+                'fcm_token': user.fcm_token,
             }, status=status.HTTP_200_OK)
 
         return Response({'error': 'Invalid credentials. Please check your email and password.'}, status=status.HTTP_401_UNAUTHORIZED)

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1033600451099",
+    "project_id": "puptime-d4a07",
+    "storage_bucket": "puptime-d4a07.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1033600451099:android:d5ba282126bab98aeeeebe",
+        "android_client_info": {
+          "package_name": "com.puptime"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDfsOiIsIBhOUDxZk24dzRm8j-sNpJ0P9M"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
