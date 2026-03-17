@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - name: SSH into VM, Pull Code, and Reload PM2
+      - name: SSH into VM, Pull Code, Migrate, and Reload PM2
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.GCP_VM_IP }}
@@ -28,6 +28,9 @@ jobs:
             echo "Activating virtual environment and installing dependencies..."
             source ./venv/bin/activate
             pip install -r requirements.txt
+            
+            echo "Applying database migrations..."
+            python manage.py migrate
             
             echo "Reloading the PM2 background process..."
             pm2 reload puptime-backend
