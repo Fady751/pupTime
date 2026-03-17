@@ -5,6 +5,7 @@ import { PermissionsAndroid, Platform } from 'react-native';
 export type LoginPayload = {
   email: string;
   password: string;
+    fcmToken: string;
 };
 
 export type LoginResponse = {
@@ -66,6 +67,7 @@ export const loginUser = async (
     } = {
       email: payload.email,
       password: payload.password,
+      fcm_token : payload.fcmToken,
     };
 
     if (fcmToken) {

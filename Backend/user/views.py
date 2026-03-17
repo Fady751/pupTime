@@ -389,17 +389,16 @@ class SearchUserByUsernameView(APIView):
         }
     )
     
-    def get(self, request , username):
-        UserName = username
-        if not username:
+    def get(self, request, name):
+
+        if not name :
             return Response({'error': 'Username parameter is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        user = User.objects.filter(username = UserName)
+        user = User.objects.filter(username = name).first()
 
         if not user:
             return Response({'error': 'No users found with the given username.'}, status=status.HTTP_404_NOT_FOUND) 
 
-        serializer = SearchUserByUsernameSerializer(user.first())
-        serializer.is_valid(raise_exception=True)
+        serializer = SearchUserByUsernameSerializer(user)
 
         return Response(serializer.data, status=status.HTTP_200_OK)
