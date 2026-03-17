@@ -4,6 +4,7 @@ import uuid
 
 from django.db import transaction
 from django.db.models import Prefetch
+from django.utils import timezone
 from django.utils.decorators import method_decorator
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
@@ -26,8 +27,10 @@ from .serializers import (
     MessageSerializer,
     SendMessageSerializer,
 )
-from task.models import TaskTemplate
-from task.serializers import TaskSerializer
+from task.models import TaskTemplate, TaskOverride
+from task.serializers import TaskSerializer, TaskOverrideSerializer
+from task.views import _parse_iso
+from task.utils import generate_overrides_for_task
 
 logger = logging.getLogger(__name__)
 
@@ -93,8 +96,7 @@ class ConversationDetailView(RetrieveDestroyAPIView):
         if not self.request.user.is_authenticated:
             return Conversation.objects.none()
         return Conversation.objects.filter(user=self.request.user).prefetch_related(
-            'messages',
-            Prefetch('messages__choices', queryset=AIChoice.objects.filter(is_executed=False)),
+            'messages', 'messages__choices'
         )
 
 
@@ -183,8 +185,9 @@ class ApproveAIChoiceView(APIView):
             except ValidationError as error:
                 return Response(error.detail, status=status.HTTP_400_BAD_REQUEST)
 
+            choice.results_payload = executed_actions
             choice.is_executed = True
-            choice.save(update_fields=['is_executed'])
+            choice.save(update_fields=['is_executed', 'results_payload'])
 
         return Response(
             {
@@ -202,7 +205,6 @@ class ApproveAIChoiceView(APIView):
         action_name = action.get('action_name')
         params = action.get('params') or {}
 
-        # Gemini sometimes serialises params as a JSON string instead of an object
         if isinstance(params, str):
             try:
                 params = json.loads(params)
@@ -223,6 +225,7 @@ class ApproveAIChoiceView(APIView):
             return {
                 'action_name': action_name,
                 'task_id': str(task.id),
+                'task_data': serializer.data
             }
 
         if action_name == 'update_task':
@@ -236,12 +239,69 @@ class ApproveAIChoiceView(APIView):
                 raise ValidationError({'task_id': 'Task not found.'})
 
             update_data = {key: value for key, value in params.items() if key != 'task_id'}
+            
+            deleted_overrides_ids = []
+            if 'rrule' in update_data:
+                overrides_to_delete = TaskOverride.objects.filter(
+                    task=task,
+                    instance_datetime__gt=timezone.now(),
+                    status=TaskOverride.STATUS_PENDING,
+                    is_deleted=False
+                )
+                deleted_overrides_ids = list(overrides_to_delete.values_list('id', flat=True))
+                overrides_to_delete.update(is_deleted=True)
+
             serializer = TaskSerializer(task, data=update_data, partial=True)
             serializer.is_valid(raise_exception=True)
             updated_task = serializer.save()
+            
+            if 'rrule' in update_data:
+                generate_overrides_for_task(updated_task)
+
             return {
                 'action_name': action_name,
                 'task_id': str(updated_task.id),
+                'task_data': TaskSerializer(updated_task).data,
+            }
+
+        if action_name == 'update_instance':
+            instance_id = params.get('instance_id')
+            new_status = params.get('status', TaskOverride.STATUS_RESCHEDULED)
+            new_dt_str = params.get('new_datetime')
+            notes = params.get('notes')
+
+            if not instance_id:
+                raise ValidationError({'instance_id': 'instance_id is required.'})
+
+            try:
+                override = TaskOverride.objects.get(pk=instance_id, task__user=user, is_deleted=False)
+            except TaskOverride.DoesNotExist:
+                raise ValidationError({'instance_id': 'Instance not found.'})
+
+            if new_status == TaskOverride.STATUS_RESCHEDULED:
+                if not new_dt_str:
+                    raise ValidationError({'new_datetime': 'Required for rescheduling.'})
+                parsed_dt = _parse_iso(new_dt_str)
+                if not parsed_dt:
+                    raise ValidationError({'new_datetime': 'Invalid format.'})
+                override.new_datetime = parsed_dt
+                
+                TaskOverride.objects.get_or_create(
+                    task=override.task,
+                    instance_datetime=parsed_dt,
+                    defaults={'status': TaskOverride.STATUS_PENDING}
+                )
+
+            if notes:
+                override.notes = notes
+            
+            override.status = new_status
+            override.save()
+            return {
+                'action_name': action_name,
+                'instance_id': str(override.id),
+                'status': override.status,
+                'instance_data': TaskOverrideSerializer(override).data
             }
 
         if action_name == 'delete_task':
@@ -347,25 +407,23 @@ class ChatView(APIView):
         system_prompt = ChatMessage(
             role='system',
             content=(
-                f"You are a helpful personal task manager assistant. "
+                f"You are 'Gemi', a helpful personal task manager assistant. "
                 f"The current date and time is {current_time}. "
-                f"Always call get_today_tasks first when the user asks about their schedule or today's tasks. "
-                f"When scheduling a new task, use check_schedule_conflict to avoid double-booking. "
-                f"When the user asks when they have time for something, use find_free_time. "
-                f"When assessing how busy they are over a period, use get_daily_load_summary. "
-                f"To proactively remind users of missed items, use get_overdue_tasks. "
-                f"Fetch their interests and timezone with get_user_preferences to tailor your suggestions. "
-                f"If check_schedule_conflict returns conflicts, DO NOT just ask if they still want to schedule it. "
-                f"Instead, you MUST proactively use find_free_time to suggest alternative times for the NEW task, AND propose a choice to reschedule the EXISTING conflicting task(s) to a different time. "
-                f"You CANNOT directly execute task creations, updates, or deletions. "
-                f"If the user wants to perform these operations, you MUST use the `respond_to_user` tool to propose actions as choices. "
-                f"You can provide MULTIPLE choices in the `choices` array to give the user options. "
-                f"Inside each choice, you can include MULTIPLE actions in the `actions` array (e.g., delete a task AND create a new one in the same choice). "
-                f"IMPORTANT FOR PARAMS: The `params` object inside an action MUST EXACTLY match our schema: "
-                f"For create_task use: title, start_datetime (ISO 8601), priority (none|low|medium|high), emoji, reminder_time, duration_minutes, is_recurring, rrule, timezone. "
-                f"For update_task use: task_id (UUID), and optionally any of the create_task fields. "
-                f"For delete_task use: task_id (UUID). "
-                f"NEVER invent field names like 'due_date'. Use 'start_datetime'."
+                f"Use `get_today_tasks` to see today's specific instances. "
+                f"Use `find_free_time` to check for gaps or resolve scheduling conflicts. "
+                f"Use `get_tasks` for broader range lookups. "
+                f"Fetch user interests and timezone with `get_user_preferences`. "
+                f"When proposing task changes, YOU MUST use the `respond_to_user` tool with `choices`. "
+                f"Distinguish between PERMANENT changes and SINGLE-DAY changes: \n"
+                f"1. FOR PERMANENT CHANGES (e.g., 'Change my gym time for all future days'): Use `update_task` with the `Master Task ID`. \n"
+                f"2. FOR SINGLE-DAY CHANGES (e.g., 'I'm doing my walk late today only'): Use `update_instance` with the `Occurrence ID`. \n"
+                f"IMPORTANT FOR IDS: \n"
+                f"- `Master Task ID` (from tools) is for `update_task` and `delete_task`. \n"
+                f"- `Occurrence ID` (from tools like get_today_tasks or get_tasks) is ONLY for `update_instance`. \n"
+                f"- NEVER swap these. NEVER invent an ID. If you don't have an `Occurrence ID`, use a tool to find it first. \n"
+                f"IMPORTANT FOR PARAMS: \n"
+                f"- For `update_instance`: instance_id (MUST be an `Occurrence ID`), status, new_datetime, notes. \n"
+                f"- For `update_task`: task_id (MUST be a `Master Task ID`), title, rrule, etc."
             ),
         )
         chat_messages = [system_prompt] + [ChatMessage(role=r, content=c) for r, c in history]
