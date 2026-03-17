@@ -1,0 +1,34 @@
+name: Deploy Backend to GCP
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'Backend/**' # Triggers only when files inside the Backend folder change
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: SSH into VM, Pull Code, and Restart PM2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.GCP_VM_IP }}
+          username: ${{ secrets.GCP_VM_USERNAME }}
+          key: ${{ secrets.GCP_SSH_PRIVATE_KEY }}
+          passphrase: ${{ secrets.GCP_SSH_PASSPHRASE }}
+          script: |
+            echo "Navigating to the Backend directory..."
+            cd ~/puptime/pupTime/Backend
+            
+            echo "Pulling latest code from main..."
+            git pull origin main
+            
+            echo "Activating virtual environment and installing dependencies..."
+            source ./venv/bin/activate
+            pip install -r requirements.txt
+            
+            echo "Restarting the PM2 background process..."
+            pm2 restart puptime-backend

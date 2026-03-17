@@ -1,9 +1,9 @@
 import json
 import logging
+import uuid
 
 from django.db import transaction
 from django.db.models import Prefetch
-from django.http import HttpResponse # Keep if needed elsewhere, but ChatView won't use StreamingHttpResponse
 from django.utils.decorators import method_decorator
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
@@ -20,14 +20,17 @@ from .models import AIChoice, Conversation, Message
 from .serializers import (
     AIChoiceSerializer,
     ApproveAIChoiceSerializer,
+    ChatResponseSerializer,
     ConversationListSerializer,
     ConversationSerializer,
+    MessageSerializer,
     SendMessageSerializer,
 )
 from task.models import TaskTemplate
 from task.serializers import TaskSerializer
 
 logger = logging.getLogger(__name__)
+
 
 @method_decorator(
     name='list',
@@ -47,6 +50,10 @@ class ConversationListView(ListAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return Conversation.objects.none()
+        if not self.request.user.is_authenticated:
+            return Conversation.objects.none()
         return Conversation.objects.filter(user=self.request.user)
 
 
@@ -81,6 +88,10 @@ class ConversationDetailView(RetrieveDestroyAPIView):
     lookup_field = 'pk'
 
     def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return Conversation.objects.none()
+        if not self.request.user.is_authenticated:
+            return Conversation.objects.none()
         return Conversation.objects.filter(user=self.request.user).prefetch_related(
             'messages',
             Prefetch('messages__choices', queryset=AIChoice.objects.filter(is_executed=False)),
@@ -202,6 +213,10 @@ class ApproveAIChoiceView(APIView):
             raise ValidationError({'actions': 'Each action params value must be an object.'})
 
         if action_name == 'create_task':
+            requested_task_id = params.get('task_id')
+            if requested_task_id:
+                params = {**params, 'id': requested_task_id}
+                params.pop('task_id', None)
             serializer = TaskSerializer(data=params)
             serializer.is_valid(raise_exception=True)
             task = serializer.save(user=user)
@@ -253,7 +268,7 @@ class ChatView(APIView):
     """
     POST /ai/chat/
 
-    Send a user message and stream the AI response back.
+    Send a user message and get the AI response back.
 
     Request body
     ------------
@@ -264,52 +279,31 @@ class ChatView(APIView):
 
     Response
     --------
-    ``text/event-stream`` with Server-Sent Events:
-        data: {"conversation_id": "...", "chunk": "partial text"}
-        ...
-        data: {"conversation_id": "...", "done": true}
+    {
+        "conversation_id": "...",
+        "message": {
+            "id": "...",
+            "role": "assistant",
+            "content": "...",
+            "created_at": "...",
+            "choices": [...]
+        }
+    }
     """
 
     permission_classes = [IsAuthenticated]
-
-    _CHOICE_REF_SCHEMA = openapi.Schema(
-        type=openapi.TYPE_OBJECT,
-        properties={
-            'id': openapi.Schema(
-                type=openapi.TYPE_STRING, format='uuid',
-                description='UUID to pass to POST /ai/chat/approve-choice/.',
-            ),
-            'choice_id_string': openapi.Schema(
-                type=openapi.TYPE_STRING,
-                description="Human-readable label assigned by the AI (e.g. 'choice_1').",
-            ),
-        },
-    )
 
     @swagger_auto_schema(
         tags=['AI Chat'],
         operation_summary='Send a message and get the AI response',
         operation_description=(
-            'Sends a user message and returns the full AI response as JSON.\n\n'
-            'If the AI proposed task actions, `choices` will be non-empty. '
-            'Pass the `id` (UUID) to `POST /ai/chat/approve-choice/` to execute the chosen actions.'
+            'Sends a message to the AI and returns the complete response.',
+            'If the AI proposed task actions, the `choices` array in the response message will be non-empty. '
+            'Pass the `id` (UUID) of a choice to `POST /ai/chat/approve-choice/` to execute the chosen actions.'
         ),
         request_body=SendMessageSerializer,
         responses={
-            200: openapi.Response(
-                description='Successful AI response.',
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'conversation_id': openapi.Schema(type=openapi.TYPE_STRING, format='uuid'),
-                        'message': openapi.Schema(type=openapi.TYPE_STRING),
-                        'choices': openapi.Schema(
-                            type=openapi.TYPE_ARRAY,
-                            items=_CHOICE_REF_SCHEMA,
-                        ),
-                    },
-                ),
-            ),
+            200: openapi.Response(description='AI response.', schema=ChatResponseSerializer),
             400: openapi.Response(description='Invalid request body.'),
             404: openapi.Response(description='Conversation not found.'),
         },
@@ -376,11 +370,11 @@ class ChatView(APIView):
         )
         chat_messages = [system_prompt] + [ChatMessage(role=r, content=c) for r, c in history]
 
-        provider = get_ai_provider()
-        tools = get_task_tools(request.user)
-
         try:
+            provider = get_ai_provider()
             full_response_parts: list[str] = []
+            tools = get_task_tools(request.user)
+
             for chunk in provider.stream_with_tools(chat_messages, tools):
                 full_response_parts.append(chunk)
 
@@ -392,51 +386,77 @@ class ChatView(APIView):
             except (json.JSONDecodeError, TypeError):
                 saved_content = full_response
 
-            assistant_message = Message.objects.create(
-                conversation=conversation,
-                role=Message.Role.ASSISTANT,
-                content=saved_content,
-            )
+            with transaction.atomic():
+                assistant_message = Message.objects.create(
+                    conversation=conversation,
+                    role=Message.Role.ASSISTANT,
+                    content=saved_content,
+                )
 
-            created_choices: list[AIChoice] = []
-            if isinstance(parsed, dict):
-                raw_choices = [
-                    c for c in (parsed.get('choices') or [])
-                    if isinstance(c, dict)
-                ]
-                if raw_choices:
-                    choice_objects = [
-                        AIChoice(
-                            message=assistant_message,
-                            choice_id_string=str(c.get('id', '')),
-                            actions_payload=c.get('actions', []),
-                        )
-                        for c in raw_choices
+                if isinstance(parsed, dict):
+                    raw_choices = [
+                        c for c in (parsed.get('choices') or [])
+                        if isinstance(c, dict)
                     ]
-                    AIChoice.objects.bulk_create(choice_objects)
-                    created_choices = choice_objects
+                    if raw_choices:
+                        choice_objects = []
+                        for c in raw_choices:
+                            actions_payload = c.get('actions', [])
+                            choice_id = None
+                            if isinstance(actions_payload, list):
+                                for action in actions_payload:
+                                    if not isinstance(action, dict):
+                                        continue
+                                    if action.get('action_name') != 'create_task':
+                                        continue
+                                    params = action.get('params') or {}
+                                    if isinstance(params, str):
+                                        try:
+                                            params = json.loads(params)
+                                        except (json.JSONDecodeError, TypeError):
+                                            params = {}
+                                    if isinstance(params, dict) and params.get('task_id'):
+                                        try:
+                                            choice_id = uuid.UUID(str(params['task_id']))
+                                        except (TypeError, ValueError):
+                                            choice_id = None
+                                        break
 
-            return Response({
-                'conversation_id': str(conversation.id),
-                'message': saved_content,
-                'choices': [
-                    {'id': str(c.id), 'choice_id_string': c.choice_id_string}
-                    for c in created_choices
-                ],
-            }, status=status.HTTP_200_OK)
+                            choice_kwargs = {
+                                'message': assistant_message,
+                                'choice_id_string': str(c.get('id', '')),
+                                'actions_payload': actions_payload,
+                            }
+                            if choice_id is not None:
+                                choice_kwargs['id'] = choice_id
+
+                            choice_objects.append(AIChoice(**choice_kwargs))
+                        AIChoice.objects.bulk_create(choice_objects)
+
+            message_data = MessageSerializer(assistant_message).data
+
+            return Response(
+                {
+                    'conversation_id': str(conversation.id),
+                    'message': message_data,
+                },
+                status=status.HTTP_200_OK
+            )
 
         except AIProviderRateLimitError as error:
             logger.warning("AI provider quota exhausted: %s", error)
-            error_data = {
+            error_payload = {
+                'conversation_id': str(conversation.id),
                 'error': str(error),
                 'error_code': 'rate_limited',
             }
             if error.retry_after_seconds is not None:
-                error_data['retry_after_seconds'] = error.retry_after_seconds
-            return Response(error_data, status=status.HTTP_429_TOO_MANY_REQUESTS)
-
+                error_payload['retry_after_seconds'] = error.retry_after_seconds
+            return Response(error_payload, status=status.HTTP_429_TOO_MANY_REQUESTS)
         except Exception:
             logger.exception("Error while generating AI response")
-            return Response({
+            error_payload = {
+                'conversation_id': str(conversation.id),
                 'error': 'An error occurred while generating the response.',
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            }
+            return Response(error_payload, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

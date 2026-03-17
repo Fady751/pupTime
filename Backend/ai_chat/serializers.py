@@ -60,3 +60,8 @@ class SendMessageSerializer(serializers.Serializer):
 
 class ApproveAIChoiceSerializer(serializers.Serializer):
     choice_id = serializers.UUIDField(help_text="The UUID of the saved AI choice to approve.")
+
+
+class ChatResponseSerializer(serializers.Serializer):
+    conversation_id = serializers.UUIDField()
+    message = MessageSerializer()
