@@ -6,6 +6,7 @@ PriorityType = Literal["none", "low", "medium", "high"]
 
 
 class CreateTaskSchema(BaseModel):
+    model_config = {"extra": "ignore"}
     """
     Schema for creating a new task.
     Maps to the writable fields in TaskSerializer (excluding user, id, overrides).
@@ -53,10 +54,12 @@ class CreateTaskSchema(BaseModel):
     )
 
 class UpdateTaskSchema(BaseModel):
+    model_config = {"extra": "ignore"}
     """
     Schema for partially updating an existing task (PATCH).
     All fields are optional — only pass the ones the user wants to change.
     task_id is required to identify which task to update.
+    make 
     """
 
     task_id: str = Field(
@@ -101,6 +104,7 @@ class UpdateTaskSchema(BaseModel):
 
 
 class DeleteTaskSchema(BaseModel):
+    model_config = {"extra": "ignore"}
     """Schema for soft-deleting a task."""
 
     task_id: str = Field(
@@ -109,6 +113,7 @@ class DeleteTaskSchema(BaseModel):
 
 
 class GetTasksSchema(BaseModel):
+    model_config = {"extra": "ignore"}
     """Schema for retrieving the user's tasks within a date range."""
 
     start_date: Optional[str] = Field(
@@ -124,19 +129,23 @@ class GetTasksSchema(BaseModel):
         description="Filter tasks by priority. Omit to return all priorities."
     )
 
+class UpdateInstanceSchema(BaseModel):
+    model_config = {"extra": "ignore"}
+    """Schema for rescheduling or updating a specific task occurrence (instance)."""
 
-class CheckScheduleConflictSchema(BaseModel):
-    """Schema for checking if a new task time conflicts with existing tasks."""
-
-    start_datetime: str = Field(
-        description="ISO 8601 start date and time of the proposed task."
+    instance_id: str = Field(description="The UUID of the specific task instance (INSTANCE_ID).")
+    status: Optional[str] = Field(
+        default="RESCHEDULED",
+        description="New status: PENDING, COMPLETED, SKIPPED, RESCHEDULED, FAILED."
     )
-    duration_minutes: int = Field(
-        description="Duration of the proposed task in minutes."
+    new_datetime: Optional[str] = Field(
+        description="The new ISO 8601 timestamp (required if status is 'RESCHEDULED')."
     )
+    notes: Optional[str] = Field(description="Optional notes for this specific instance.")
 
 
 class FindFreeTimeSchema(BaseModel):
+    model_config = {"extra": "ignore"}
     """Schema for finding free time slots in the user's schedule."""
 
     date_range_start: str = Field(
@@ -151,6 +160,7 @@ class FindFreeTimeSchema(BaseModel):
 
 
 class GetDailyLoadSummarySchema(BaseModel):
+    model_config = {"extra": "ignore"}
     """Schema for getting a summary of the user's task load over a date range."""
 
     start_date: str = Field(

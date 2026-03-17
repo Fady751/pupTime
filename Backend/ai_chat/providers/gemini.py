@@ -97,7 +97,32 @@ class GeminiProvider(BaseAIProvider):
         }
 
         lc_messages = _to_langchain_messages(messages)
-        llm_with_tools = self._llm.bind_tools(tools)
+        tool_defs = []
+        for t in tools:
+            if hasattr(t, "args_schema") and t.args_schema:
+                params_schema = t.args_schema.model_json_schema()
+            else:
+                params_schema = {"type": "object", "properties": {}}
+            
+            def strip_additional_properties(schema):
+                if isinstance(schema, dict):
+                    schema.pop("additionalProperties", None)
+                    schema.pop("title", None)
+                    for value in schema.values():
+                        strip_additional_properties(value)
+                elif isinstance(schema, list):
+                    for item in schema:
+                        strip_additional_properties(item)
+
+            strip_additional_properties(params_schema)
+
+            tool_defs.append({
+                "name": t.name,
+                "description": t.description,
+                "parameters": params_schema
+            })
+
+        llm_with_tools = self._llm.bind_tools(tool_defs)
 
         MAX_TOOL_ROUNDS = 5
         rounds = 0
@@ -107,16 +132,15 @@ class GeminiProvider(BaseAIProvider):
                 response = llm_with_tools.invoke(lc_messages)
             except Exception as error:
                 _raise_provider_error(error)
+            
             if response.tool_calls:
                 tool_map = {t.name: t for t in tools}
                 tool_results = []
                 respond_to_user_args = None
 
-                # Process all tool calls; defer respond_to_user until the end
                 for tool_call in response.tool_calls:
                     if tool_call["name"] == "respond_to_user":
                         args = tool_call["args"]
-                        # Gemini sometimes wraps the message in a complex array
                         if "message" in args:
                             msg_val = args["message"]
                             if isinstance(msg_val, list) and len(msg_val) > 0:
@@ -155,11 +179,16 @@ class GeminiProvider(BaseAIProvider):
                     lc_messages += [response] + tool_results
                 rounds += 1
             else:
-                # Fallback: if AI answers without using the respond_to_user tool
-                fallback_response = {
-                    "message": response.content,
-                    "choices": []
-                }
-                yield json.dumps(fallback_response)
+                content = response.content
+                if isinstance(content, list):
+                    text_parts = []
+                    for part in content:
+                        if isinstance(part, str):
+                            text_parts.append(part)
+                        elif isinstance(part, dict) and "text" in part:
+                            text_parts.append(part["text"])
+                    yield "".join(text_parts)
+                else:
+                    yield str(content)
                 break
 

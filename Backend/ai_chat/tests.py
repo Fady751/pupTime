@@ -48,6 +48,11 @@ class _ChoiceProvider:
 		)
 
 
+class _PlainTextProvider:
+	def stream_with_tools(self, messages, tools):
+		yield "Hello! I am your assistant. How can I help you today?"
+
+
 class ChatViewTests(APITestCase):
 	def setUp(self):
 		self.user = User.objects.create_user(
@@ -62,12 +67,9 @@ class ChatViewTests(APITestCase):
 	def test_chat_stream_returns_rate_limit_payload(self, _mock_provider, _mock_tools):
 		response = self.client.post(reverse("ai-chat"), {"message": "Hello"}, format="json")
 
-		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response.status_code, 429)
 
-		body = b"".join(response.streaming_content).decode("utf-8")
-		self.assertTrue(body.startswith("data: "))
-
-		payload = json.loads(body.removeprefix("data: ").strip())
+		payload = response.data
 		self.assertEqual(payload["error_code"], "rate_limited")
 		self.assertEqual(payload["retry_after_seconds"], 46)
 		self.assertIn("Gemini quota exceeded", payload["error"])
@@ -84,8 +86,7 @@ class ChatViewTests(APITestCase):
 		response = self.client.post(reverse("ai-chat"), {"message": "Schedule a game session"}, format="json")
 
 		self.assertEqual(response.status_code, 200)
-		body = b"".join(response.streaming_content).decode("utf-8")
-		self.assertIn('"done": true', body)
+		# No longer using streaming content
 
 		conversation = Conversation.objects.get(user=self.user)
 		assistant_message = conversation.messages.get(role=Message.Role.ASSISTANT)
@@ -104,6 +105,24 @@ class ChatViewTests(APITestCase):
 		assistant_payload = next(item for item in messages if item["role"] == Message.Role.ASSISTANT)
 		self.assertEqual(len(assistant_payload["choices"]), 1)
 		self.assertEqual(assistant_payload["choices"][0]["id"], str(choice.id))
+
+	@patch("ai_chat.views.get_task_tools", return_value=[])
+	@patch("ai_chat.views.get_ai_provider", return_value=_PlainTextProvider())
+	def test_chat_stream_handles_plain_text_response(self, _mock_provider, _mock_tools):
+		response = self.client.post(reverse("ai-chat"), {"message": "Hi"}, format="json")
+
+		self.assertEqual(response.status_code, 200)
+		
+		conversation = Conversation.objects.get(user=self.user)
+		assistant_message = conversation.messages.get(role=Message.Role.ASSISTANT)
+		
+		# Ensure the content is exactly the plain text, not JSON
+		self.assertEqual(assistant_message.content, "Hello! I am your assistant. How can I help you today?")
+		
+		# Verify serialized response
+		response_data = response.data
+		self.assertEqual(response_data["message"]["content"], "Hello! I am your assistant. How can I help you today?")
+		self.assertEqual(len(response_data["message"]["choices"]), 0)
 
 	def test_approve_choice_executes_actions_once(self):
 		conversation = Conversation.objects.create(user=self.user, title="Approval")

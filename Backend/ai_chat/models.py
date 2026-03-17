@@ -57,6 +57,7 @@ class AIChoice(models.Model):
     )
     choice_id_string = models.CharField(max_length=50, help_text="e.g., 'choice_1'")
     actions_payload = models.JSONField(help_text="The raw actions array proposed by the AI.")
+    results_payload = models.JSONField(null=True, blank=True, help_text="The results of the executed actions.")
     is_executed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 

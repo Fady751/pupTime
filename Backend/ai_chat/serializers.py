@@ -10,6 +10,7 @@ class AIChoiceSerializer(serializers.ModelSerializer):
             'id',
             'choice_id_string',
             'actions_payload',
+            'results_payload',
             'is_executed',
             'created_at',
         ]
@@ -20,8 +21,9 @@ class MessageSerializer(serializers.ModelSerializer):
     choices = serializers.SerializerMethodField()
 
     def get_choices(self, obj):
-        pending_choices = obj.choices.filter(is_executed=False)
-        return AIChoiceSerializer(pending_choices, many=True).data
+        from django.db.models import Q
+        choices = obj.choices.filter(Q(is_executed=False) | Q(is_executed=True, results_payload__isnull=False))
+        return AIChoiceSerializer(choices, many=True).data
 
     class Meta:
         model = Message
