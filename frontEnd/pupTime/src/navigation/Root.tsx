@@ -1,6 +1,7 @@
+import { StyleSheet } from 'react-native';
+import { useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '../redux/store';
-import { StyleSheet, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import AuthNavigator from '../navigation/AuthNavigator';
@@ -9,39 +10,44 @@ import LoadingScreen from '../screens/Loading/loading';
 import OfflineBar from '../components/OfflineBar/offlineBar';
 import useNetworkListener from '../Hooks/RootHooks/NetworkBootstrap';
 import useAuthBootstrap from '../Hooks/RootHooks/AuthBootstrap';
-// import useSyncQueue from '../Hooks/RootHooks/SyncBootstrap';
-// import useFetchTasks from '../Hooks/RootHooks/FetchTasks';
-import { useEffect } from 'react';
+
+// for testing only, will remove later
 import { getTasks } from '../services/TaskService/tasks';
 import { fullSync, getTemplatesWithOverrides } from '../services/TaskService/syncService';
 import { AppMetaRepository, TaskTemplateRepository } from '../DB';
 import { getExactlyTime } from '../types/task';
-// import { AppMetaRepository } from '../DB';
+import { getConversation, getConversations, sendMessage } from '../services/aiConversationService/aiConversationService';
 
 export default function Root() {
   const { data, loading } = useSelector((s: RootState) => s.user);
   const { isConnected, loading: networkLoading } = useSelector((s: RootState) => s.network);
 
-  // useEffect(() => {
-  //   useNetworkListener();
-  //   useAuthBootstrap();
-  // }, []);
-    useNetworkListener();
-    useAuthBootstrap();
-  // useSyncQueue();
-  // useFetchTasks();
+  useNetworkListener();
+  useAuthBootstrap();
 
   useEffect(() => {
     const test = async () => {
+      // console.log("token: ", await AppMetaRepository.get("authToken"));
+
       // const task = await getTasks({page: 1, page_size: 1000});
       // console.log("task: ", task);
       // const tasksLocal = await TaskTemplateRepository.getTaskOverrides({user_id: data?.id ?? 0, page: 1, page_size: 1000, ordering: 'start_datetime', start_date: '2026-03-01', end_date: '2026-04-11'});
       // console.log("tasksLocal: ", tasksLocal);
 
-      // console.log(await AppMetaRepository.get("authToken"));
+      // const conv = await getConversations();
+      // console.log("conv: ", conv);
+
+      // for(const c of conv) {
+      //   getConversation(c.id).then((conversation) => {
+      //     console.log("conversation: ", conversation);
+      //   });
+      // }
+
+      // const res = await sendMessage({ message: "Hello, AI!" });
+      // console.log("res: ", res);
     };
     test();
-  }, [data]);
+  }, []);
 
   if (loading || networkLoading) return <LoadingScreen />;
 

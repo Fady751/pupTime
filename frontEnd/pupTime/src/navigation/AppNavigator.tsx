@@ -1,5 +1,7 @@
 import React from 'react';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createNativeStackNavigator, NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useNavigation } from '@react-navigation/native';
+
 import HomeScreen from '../screens/Home/HomeScreen';
 // import IntroNavigator from '../screens/PermissionsIntro/IntroNavigator';
 import ProfileScreen from '../screens/ProfileScreen/ProfileScreen';
@@ -17,7 +19,10 @@ import FriendsListScreen from '../screens/Friends/FriendsListScreen';
 import AddFriendScreen from '../screens/Friends/AddFriendScreen';
 import BlockedListScreen from '../screens/Friends/BlockedListScreen';
 import NotificationsScreen from '../screens/Notifications/NotificationsScreen';
+import AiConversationListScreen from '../screens/AiChat/AiConversationListScreen';
+import AiChatScreen from '../screens/AiChat/AiChatScreen';
 // import TimerScreen from '../screens/Timer/TimerScreen';
+
 export type AppStackParamList = {
   Home: undefined;
   Intro: undefined;
@@ -36,9 +41,16 @@ export type AppStackParamList = {
   BlockedFriends: undefined;
   Settings: undefined;
   Notifications: undefined;
+  AiConversations: undefined;
+  AiChat: { conversationId?: string } | undefined;
 };
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
+
+const AiButtonWithNavigation = () => {
+  const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
+  return <AiButton onPress={() => navigation.navigate('AiConversations')} />;
+};
 
 const AppNavigator: React.FC = () => {
   return (
@@ -61,9 +73,11 @@ const AppNavigator: React.FC = () => {
         <Stack.Screen name="BlockedFriends" component={BlockedListScreen} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
         <Stack.Screen name="Notifications" component={NotificationsScreen} />
+        <Stack.Screen name="AiConversations" component={AiConversationListScreen} />
+        <Stack.Screen name="AiChat" component={AiChatScreen} />
       </Stack.Navigator>
       
-      <AiButton onPress={() => console.log('AI assistant pressed')} />
+      <AiButtonWithNavigation />
     </>
   );
 };
