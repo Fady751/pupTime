@@ -33,6 +33,7 @@ export const deleteConversation = async (conversation_id: string): Promise<void>
 // If conversation_id is undefined, it will create a new conversation
 export const sendMessage = async ( request: { conversation_id?: string, message: string } ): Promise<{id: string, message: Message}> => {
     try {
+        console.log("request: ", request);
         const response = await api.post(`/ai/chat/`, request);
         console.log("response: ", response);
         return {
