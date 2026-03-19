@@ -557,8 +557,6 @@ class ChatView(APIView):
                                             start_dt = _pi(params.get('start_datetime'))
                                             if start_dt:
                                                 from django.utils import timezone
-                                                if timezone.is_naive(start_dt):
-                                                    start_dt = timezone.make_aware(start_dt, timezone.utc)
                                                 now = timezone.now()
                                                 end_preview = now + timedelta(days=30)
                                                 rrule_str = params.get('rrule')
@@ -633,8 +631,6 @@ class ChatView(APIView):
                                                                     
                                                             start_dt = _pi(task_snapshot.get('start_datetime'))
                                                             if start_dt:
-                                                                if timezone.is_naive(start_dt):
-                                                                    start_dt = timezone.make_aware(start_dt, timezone.utc)
                                                                 now = timezone.now()
                                                                 end_preview = now + timedelta(days=30)
                                                                 rrule_str = task_snapshot.get('rrule')

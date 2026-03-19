@@ -44,7 +44,8 @@ def _parse_iso(value):
     try:
         dt = datetime.fromisoformat(value.replace('Z', '+00:00'))
         if timezone.is_naive(dt):
-            dt = timezone.make_aware(dt, timezone.utc)
+            from datetime import timezone as dt_tz
+            dt = timezone.make_aware(dt, dt_tz.utc)
         return dt
     except (ValueError, AttributeError):
         return None
