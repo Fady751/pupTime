@@ -29,7 +29,7 @@ class _ChoiceProvider:
 						"id": "choice_1",
 						"actions": [
 							{
-								"action_name": "create_task",
+								"action_name": "create_TaskTemplate",
 								"params": {
 									"title": "Play lol with Fady",
 									"start_datetime": "2026-03-12T10:00:00Z",
@@ -95,7 +95,7 @@ class ChatViewTests(APITestCase):
 		choice = AIChoice.objects.get(message=assistant_message)
 		self.assertEqual(choice.choice_id_string, "choice_1")
 		self.assertFalse(choice.is_executed)
-		self.assertEqual(choice.actions_payload[0]["action_name"], "create_task")
+		self.assertEqual(choice.actions_payload[0]["action_name"], "create_TaskTemplate")
 
 		conversation_response = self.client.get(
 			reverse("ai-conversation-detail", kwargs={"pk": conversation.id})
@@ -136,7 +136,7 @@ class ChatViewTests(APITestCase):
 			choice_id_string="choice_1",
 			actions_payload=[
 				{
-					"action_name": "create_task",
+					"action_name": "create_TaskTemplate",
 					"params": {
 						"title": "Play lol with Fady",
 						"start_datetime": "2026-03-12T10:00:00Z",
