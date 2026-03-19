@@ -42,7 +42,10 @@ def _parse_iso(value):
         return None
     value = value.strip(" '\"")
     try:
-        return datetime.fromisoformat(value.replace('Z', '+00:00'))
+        dt = datetime.fromisoformat(value.replace('Z', '+00:00'))
+        if timezone.is_naive(dt):
+            dt = timezone.make_aware(dt, timezone.utc)
+        return dt
     except (ValueError, AttributeError):
         return None
 

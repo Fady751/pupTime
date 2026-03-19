@@ -168,7 +168,11 @@ class GeminiProvider(BaseAIProvider):
                             validator = PARAM_VALIDATORS.get(action.get("action_name"))
                             if validator:
                                 try:
-                                    validator(**action.get("params", {}))
+                                    params_to_validate = action.get("params", {})
+                                    for alias in ['task_name', 'name']:
+                                        if alias in params_to_validate and 'title' not in params_to_validate:
+                                            params_to_validate['title'] = params_to_validate.pop(alias)
+                                    validator(**params_to_validate)
                                 except Exception as e:
                                     logger.warning("AI produced invalid params for %s: %s", action.get("action_name"), e)
 

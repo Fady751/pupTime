@@ -28,6 +28,7 @@ class Message(models.Model):
     class Role(models.TextChoices):
         USER = 'user', 'User'
         ASSISTANT = 'assistant', 'Assistant'
+        SYSTEM = 'system', 'System'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     conversation = models.ForeignKey(

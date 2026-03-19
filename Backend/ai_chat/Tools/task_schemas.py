@@ -22,10 +22,12 @@ class CreateTaskTemplateSchema(BaseModel):
             "REQUIRED for new tasks. If the user says 'tomorrow at 9am', calculate the exact datetime before passing it here."
         )
     )
-    priority: PriorityType = Field(
+    priority: Optional[PriorityType] = Field(
+        default="none",
         description="Task priority. Must be exactly 'none', 'low', 'medium', or 'high'. If the user didn't specify one, choose the one you think is best (don't just default to 'none')."
     )
-    emoji:str = Field(
+    emoji: Optional[str] = Field(
+        default="📝",
         description="A single emoji that represents the task (e.g. '🏋️')."
     )
     reminder_time: Optional[int] = Field(
@@ -57,19 +59,24 @@ class UpdateTaskTemplateSchema(BaseModel):
     """
     Schema for partially updating an existing TaskTemplate (PATCH).
     All fields are optional — only pass the ones the user wants to change.
-    id is required to identify which TaskTemplate to update.
+    id (or master_task_id) is required to identify which TaskTemplate to update.
     """
 
-    id: str = Field(
-        description="The unique UUID of the TaskTemplate to update."
+    id: Optional[str] = Field(
+        default=None,
+        description="The unique UUID of the TaskTemplate to update. Also accepted as 'master_task_id'."
+    )
+    master_task_id: Optional[str] = Field(
+        default=None,
+        description="Alias for id. Use either 'id' or 'master_task_id' to identify the task."
     )
     title: Optional[str] = Field(
         default=None,
-        description="New task title, if the user wants to rename it."
+        description="New task title, if the user wants to rename it.\n"
     )
-    start_datetime: Optional[str] = Field(
+    start_time: Optional[str] = Field(
         default=None,
-        description="New start date/time in ISO 8601 format, if the user wants to reschedule."
+        description="New start time in 'HH:MM:SS' format (e.g. '14:30:00'), Just change the time not the date."
     )
     priority: Optional[PriorityType] = Field(
         default=None,
