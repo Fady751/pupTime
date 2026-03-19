@@ -6,7 +6,7 @@ from django.utils import timezone
 import json
 
 from .task_schemas import (
-    GetTasksSchema, CreateTaskSchema, UpdateInstanceSchema,
+    GetTasksSchema, CreateTaskTemplateSchema, UpdateTaskOverrideSchema,
     FindFreeTimeSchema, GetDailyLoadSummarySchema
 )
 from typing import List, Dict, Any
@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 
 class Action(BaseModel):
     model_config = {"extra": "ignore"}
-    action_name: str = Field(description="Action name. Must be 'create_task', 'update_task', 'update_instance', or 'delete_task'")
+    action_name: str = Field(description="Action name. Must be 'create_TaskTemplate', 'update_TaskTemplate', 'update_TaskOverride', or 'delete_TaskTemplate'")
     params: dict = Field(
         description="A JSON object containing the parameters for the action. MUST be a valid JSON object, NOT a string.",
         json_schema_extra={
@@ -172,11 +172,12 @@ def get_task_tools(user):
     def respond_to_user(**kwargs):
         """
         Propose task actions as choices.
-        - 'create_task': New master task.
-        - 'update_task': Change master task (e.g. permanent time change).
-        - 'update_instance': Change specific day (e.g. reschedule today only).
-        - 'delete_task': Remove master task.
+        - 'create_TaskTemplate': New TaskTemplate.
+        - 'update_TaskTemplate': Change TaskTemplate (e.g. permanent time change).
+        - 'update_TaskOverride': Change specific TaskOverride (e.g. reschedule today only).
+        - 'delete_TaskTemplate': Remove TaskTemplate.
         ONLY use this for choices. For normal chat, use plain text.
+        IMPORTANT: Before proposing a NEW task, you MUST check for conflicts using `get_tasks` or `get_today_tasks` for that time.
         """
         pass
     

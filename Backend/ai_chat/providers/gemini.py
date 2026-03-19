@@ -86,14 +86,15 @@ class GeminiProvider(BaseAIProvider):
     def stream_with_tools(self, messages: List[ChatMessage], tools: list) -> Generator[str, None, None]:
         import json
         import logging
-        from ..Tools.task_schemas import CreateTaskSchema, UpdateTaskSchema, DeleteTaskSchema
+        from ..Tools.task_schemas import CreateTaskTemplateSchema, UpdateTaskTemplateSchema, DeleteTaskTemplateSchema, UpdateTaskOverrideSchema
 
         logger = logging.getLogger(__name__)
 
         PARAM_VALIDATORS = {
-            "create_task": CreateTaskSchema,
-            "update_task": UpdateTaskSchema,
-            "delete_task": DeleteTaskSchema,
+            "create_TaskTemplate": CreateTaskTemplateSchema,
+            "update_TaskTemplate": UpdateTaskTemplateSchema,
+            "delete_TaskTemplate": DeleteTaskTemplateSchema,
+            "update_TaskOverride": UpdateTaskOverrideSchema,
         }
 
         lc_messages = _to_langchain_messages(messages)
@@ -162,7 +163,6 @@ class GeminiProvider(BaseAIProvider):
                         )
 
                 if respond_to_user_args is not None:
-                    # Validate action params against schemas
                     for choice in respond_to_user_args.get("choices", []):
                         for action in choice.get("actions", []):
                             validator = PARAM_VALIDATORS.get(action.get("action_name"))

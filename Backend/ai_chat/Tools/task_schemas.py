@@ -5,29 +5,28 @@ from typing import Optional, Literal
 PriorityType = Literal["none", "low", "medium", "high"]
 
 
-class CreateTaskSchema(BaseModel):
+class CreateTaskTemplateSchema(BaseModel):
     model_config = {"extra": "ignore"}
     """
-    Schema for creating a new task.
-    Maps to the writable fields in TaskSerializer (excluding user, id, overrides).
+    Schema for creating a new TaskTemplate.
+    Maps to the writable fields in TaskTemplate.
     """
 
     title: str = Field(
         description="The title or name of the task the user wants to create."
     )
-    start_datetime: str = Field(
+    start_datetime: Optional[str] = Field(
+        default=None,
         description=(
             "The start date and time in ISO 8601 format (e.g. '2026-03-12T10:00:00Z'). "
-            "If the user says 'tomorrow at 9am', calculate the exact datetime before passing it here."
+            "REQUIRED for new tasks. If the user says 'tomorrow at 9am', calculate the exact datetime before passing it here."
         )
     )
-    priority: Optional[PriorityType] = Field(
-        default="none",
-        description="Task priority. Must be exactly 'none', 'low', 'medium', or 'high'."
+    priority: PriorityType = Field(
+        description="Task priority. Must be exactly 'none', 'low', 'medium', or 'high'. If the user didn't specify one, choose the one you think is best (don't just default to 'none')."
     )
-    emoji: Optional[str] = Field(
-        default="",
-        description="A single emoji that represents the task (e.g. '🏋️'). Leave empty if the user didn't mention one."
+    emoji:str = Field(
+        description="A single emoji that represents the task (e.g. '🏋️')."
     )
     reminder_time: Optional[int] = Field(
         default=None,
@@ -53,17 +52,16 @@ class CreateTaskSchema(BaseModel):
         description="IANA timezone name (e.g. 'Africa/Cairo', 'America/New_York'). Defaults to UTC."
     )
 
-class UpdateTaskSchema(BaseModel):
+class UpdateTaskTemplateSchema(BaseModel):
     model_config = {"extra": "ignore"}
     """
-    Schema for partially updating an existing task (PATCH).
+    Schema for partially updating an existing TaskTemplate (PATCH).
     All fields are optional — only pass the ones the user wants to change.
-    task_id is required to identify which task to update.
-    make 
+    id is required to identify which TaskTemplate to update.
     """
 
-    task_id: str = Field(
-        description="The unique UUID of the task to update."
+    id: str = Field(
+        description="The unique UUID of the TaskTemplate to update."
     )
     title: Optional[str] = Field(
         default=None,
@@ -103,12 +101,12 @@ class UpdateTaskSchema(BaseModel):
     )
 
 
-class DeleteTaskSchema(BaseModel):
+class DeleteTaskTemplateSchema(BaseModel):
     model_config = {"extra": "ignore"}
-    """Schema for soft-deleting a task."""
+    """Schema for soft-deleting a TaskTemplate."""
 
-    task_id: str = Field(
-        description="The unique UUID of the task to delete."
+    id: str = Field(
+        description="The unique UUID of the TaskTemplate to delete."
     )
 
 
@@ -129,11 +127,11 @@ class GetTasksSchema(BaseModel):
         description="Filter tasks by priority. Omit to return all priorities."
     )
 
-class UpdateInstanceSchema(BaseModel):
+class UpdateTaskOverrideSchema(BaseModel):
     model_config = {"extra": "ignore"}
-    """Schema for rescheduling or updating a specific task occurrence (instance)."""
+    """Schema for rescheduling or updating a specific TaskOverride."""
 
-    instance_id: str = Field(description="The UUID of the specific task instance (INSTANCE_ID).")
+    id: str = Field(description="The UUID of the specific TaskOverride.")
     status: Optional[str] = Field(
         default="RESCHEDULED",
         description="New status: PENDING, COMPLETED, SKIPPED, RESCHEDULED, FAILED."

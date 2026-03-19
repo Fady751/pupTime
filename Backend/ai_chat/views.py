@@ -105,7 +105,7 @@ _EXECUTED_ACTION_SCHEMA = openapi.Schema(
     properties={
         'action_name': openapi.Schema(
             type=openapi.TYPE_STRING,
-            enum=['create_task', 'update_task', 'delete_task'],
+            enum=['create_TaskTemplate', 'update_TaskTemplate', 'update_TaskOverride', 'delete_TaskTemplate'],
         ),
         'task_id': openapi.Schema(type=openapi.TYPE_STRING, format='uuid'),
     },
@@ -214,11 +214,29 @@ class ApproveAIChoiceView(APIView):
         if not isinstance(params, dict):
             raise ValidationError({'actions': 'Each action params value must be an object.'})
 
-        if action_name == 'create_task':
+        if action_name == 'create_TaskTemplate':
             requested_task_id = params.get('task_id')
             if requested_task_id:
                 params = {**params, 'id': requested_task_id}
                 params.pop('task_id', None)
+            
+            # Ensure start_datetime is present
+            if not params.get('start_datetime'):
+                # Default to today at 9 AM or current time if 9 AM has passed
+                now = timezone.now()
+                default_dt = now.replace(hour=9, minute=0, second=0, microsecond=0)
+                if default_dt < now:
+                    default_dt = now
+                params['start_datetime'] = default_dt.isoformat()
+
+            # Ensure is_recurring is True if rrule is provided
+            if params.get('rrule') and not params.get('is_recurring'):
+                params['is_recurring'] = True
+
+            # Ensure emoji is present
+            if not params.get('emoji'):
+                params['emoji'] = "📝"
+
             serializer = TaskSerializer(data=params)
             serializer.is_valid(raise_exception=True)
             task = serializer.save(user=user)
@@ -228,18 +246,22 @@ class ApproveAIChoiceView(APIView):
                 'task_data': serializer.data
             }
 
-        if action_name == 'update_task':
-            task_id = params.get('task_id')
+        if action_name == 'update_TaskTemplate':
+            task_id = params.get('task_id') or params.get('id')
             if not task_id:
-                raise ValidationError({'task_id': 'task_id is required for update_task.'})
+                raise ValidationError({'task_id': 'task_id or id is required for update_TaskTemplate.'})
 
             try:
                 task = TaskTemplate.objects.get(pk=task_id, user=user, is_deleted=False)
             except TaskTemplate.DoesNotExist:
-                raise ValidationError({'task_id': 'Task not found.'})
+                raise ValidationError({'task_id': f'Task {task_id} not found.'})
 
-            update_data = {key: value for key, value in params.items() if key != 'task_id'}
+            update_data = {key: value for key, value in params.items() if key not in ['task_id', 'id']}
             
+            # Ensure is_recurring is True if rrule is provided in update
+            if update_data.get('rrule') and not update_data.get('is_recurring'):
+                update_data['is_recurring'] = True
+
             deleted_overrides_ids = []
             if 'rrule' in update_data:
                 overrides_to_delete = TaskOverride.objects.filter(
@@ -264,8 +286,8 @@ class ApproveAIChoiceView(APIView):
                 'task_data': TaskSerializer(updated_task).data,
             }
 
-        if action_name == 'update_instance':
-            instance_id = params.get('instance_id')
+        if action_name == 'update_TaskOverride':
+            instance_id = params.get('instance_id') or params.get('id')
             new_status = params.get('status', TaskOverride.STATUS_RESCHEDULED)
             new_dt_str = params.get('new_datetime')
             notes = params.get('notes')
@@ -304,10 +326,10 @@ class ApproveAIChoiceView(APIView):
                 'instance_data': TaskOverrideSerializer(override).data
             }
 
-        if action_name == 'delete_task':
-            task_id = params.get('task_id')
+        if action_name == 'delete_TaskTemplate':
+            task_id = params.get('task_id') or params.get('id')
             if not task_id:
-                raise ValidationError({'task_id': 'task_id is required for delete_task.'})
+                raise ValidationError({'task_id': 'task_id or id is required for delete_TaskTemplate.'})
 
             try:
                 task = TaskTemplate.objects.get(pk=task_id, user=user, is_deleted=False)
@@ -407,23 +429,27 @@ class ChatView(APIView):
         system_prompt = ChatMessage(
             role='system',
             content=(
-                f"You are 'Gemi', a helpful personal task manager assistant. "
+                f"You are 'PUP', a helpful personal task manager assistant. "
                 f"The current date and time is {current_time}. "
                 f"Use `get_today_tasks` to see today's specific instances. "
                 f"Use `find_free_time` to check for gaps or resolve scheduling conflicts. "
-                f"Use `get_tasks` for broader range lookups. "
+                f"Use `get_tasks` for broader range lookups. \n"
+                f"Before proposing a NEW task, ALWAYS check for potential conflicts by calling `get_tasks` (or `get_today_tasks` if for today) for the requested time range. If a conflict is found, inform the user and ask how to proceed (e.g., reschedule or create anyway). \n"
                 f"Fetch user interests and timezone with `get_user_preferences`. "
                 f"When proposing task changes, YOU MUST use the `respond_to_user` tool with `choices`. "
                 f"Distinguish between PERMANENT changes and SINGLE-DAY changes: \n"
-                f"1. FOR PERMANENT CHANGES (e.g., 'Change my gym time for all future days'): Use `update_task` with the `Master Task ID`. \n"
-                f"2. FOR SINGLE-DAY CHANGES (e.g., 'I'm doing my walk late today only'): Use `update_instance` with the `Occurrence ID`. \n"
+                f"1. FOR PERMANENT CHANGES (e.g., 'Change my gym time for all future days'): Use `update_TaskTemplate` with the `Master Task ID`. \n"
+                f"2. FOR SINGLE-DAY CHANGES (e.g., 'I'm doing my walk late today only'): Use `update_TaskOverride` with the `Occurrence ID`. \n"
+                f"3. FOR NEW TASKS: Use `create_TaskTemplate`. YOU MUST calculate and provide an exact ISO 8601 `start_datetime`. If the task is recurring, set `is_recurring` to `true` and provide a valid `rrule`. \n"
+                f"4. DURATION: If the user didn't specify a duration, YOU MUST ASK them for it before proposing the task using choices or suggest a duration based on the task type. \n"
                 f"IMPORTANT FOR IDS: \n"
-                f"- `Master Task ID` (from tools) is for `update_task` and `delete_task`. \n"
-                f"- `Occurrence ID` (from tools like get_today_tasks or get_tasks) is ONLY for `update_instance`. \n"
+                f"- `Master Task ID` (from tools) is for `update_TaskTemplate` and `delete_TaskTemplate`. \n"
+                f"- `Occurrence ID` (from tools like get_today_tasks or get_tasks) is ONLY for `update_TaskOverride`. \n"
                 f"- NEVER swap these. NEVER invent an ID. If you don't have an `Occurrence ID`, use a tool to find it first. \n"
                 f"IMPORTANT FOR PARAMS: \n"
-                f"- For `update_instance`: instance_id (MUST be an `Occurrence ID`), status, new_datetime, notes. \n"
-                f"- For `update_task`: task_id (MUST be a `Master Task ID`), title, rrule, etc."
+                f"- For `update_TaskOverride`: instance_id (MUST be an `Occurrence ID`), status, new_datetime, notes. \n"
+                f"- For `update_TaskTemplate`: task_id (MUST be a `Master Task ID`), title, rrule, etc. \n"
+                f"- For `create_TaskTemplate`: title, start_datetime (REQUIRED), priority (REQUIRED; choose based on context), emoji (REQUIRED; choose a relevant one), etc."
             ),
         )
         chat_messages = [system_prompt] + [ChatMessage(role=r, content=c) for r, c in history]
@@ -465,7 +491,7 @@ class ChatView(APIView):
                                 for action in actions_payload:
                                     if not isinstance(action, dict):
                                         continue
-                                    if action.get('action_name') != 'create_task':
+                                    if action.get('action_name') != 'create_TaskTemplate':
                                         continue
                                     params = action.get('params') or {}
                                     if isinstance(params, str):
