@@ -324,9 +324,14 @@ class ApproveAIChoiceView(APIView):
 
         if action_name == 'update_TaskOverride':
             instance_id = params.get('instance_id') or params.get('occurrence_id') or params.get('id')
-            new_status = params.get('status', TaskOverride.STATUS_RESCHEDULED)
+            requested_status = params.get('status')
             new_dt_str = params.get('new_datetime') or params.get('start_datetime')
             notes = params.get('notes')
+
+            if isinstance(requested_status, str):
+                requested_status = requested_status.upper()
+                if requested_status == 'DONE':
+                    requested_status = TaskOverride.STATUS_COMPLETED
 
             if not instance_id:
                 raise ValidationError({'instance_id': 'instance_id (or occurrence_id) is required.'})
@@ -336,24 +341,32 @@ class ApproveAIChoiceView(APIView):
             except TaskOverride.DoesNotExist:
                 raise ValidationError({'instance_id': 'Instance not found.'})
 
-            if new_status == TaskOverride.STATUS_RESCHEDULED:
-                if not new_dt_str:
-                    raise ValidationError({'new_datetime': 'Required for rescheduling.'})
+            if not new_dt_str and requested_status == TaskOverride.STATUS_RESCHEDULED:
+                raise ValidationError({'new_datetime': 'Required for rescheduling.'})
+
+            is_reschedule = bool(new_dt_str)
+            if is_reschedule:
                 parsed_dt = _parse_iso(new_dt_str)
                 if not parsed_dt:
                     raise ValidationError({'new_datetime': 'Invalid format.'})
                 override.new_datetime = parsed_dt
-                
-                TaskOverride.objects.get_or_create(
+                override.status = TaskOverride.STATUS_RESCHEDULED
+
+                new_instance_status = requested_status or TaskOverride.STATUS_PENDING
+                new_override, created = TaskOverride.objects.get_or_create(
                     task=override.task,
                     instance_datetime=parsed_dt,
-                    defaults={'status': TaskOverride.STATUS_PENDING}
+                    defaults={'status': new_instance_status}
                 )
+                if not created and requested_status:
+                    new_override.status = new_instance_status
+                    new_override.save(update_fields=['status'])
+            else:
+                override.status = requested_status or TaskOverride.STATUS_RESCHEDULED
 
             if notes:
                 override.notes = notes
             
-            override.status = new_status
             override.save()
             return {
                 'action_name': action_name,
@@ -452,7 +465,7 @@ class ChatView(APIView):
                 full_response_parts.append(chunk)
 
             full_response = ''.join(full_response_parts)
-
+            print("Full AI response:", full_response)
             # 5. Process AI response and save assistant message/choices
             assistant_message = ChatService.process_ai_response(
                 conversation=conversation,

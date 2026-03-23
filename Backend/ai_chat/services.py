@@ -62,7 +62,7 @@ class ChatService:
                 f"Use `update_TaskTemplate` with the `Master Task ID`. If you don't have it, call `get_tasks` to find it. NEVER ask the user for the ID. \n"
                 f"2. FOR SINGLE-DAY / ONE-TIME CHANGES — keywords: 'today only', 'just this time', 'this one', 'this instance': "
                 f"Use `update_TaskOverride` with the `Occurrence ID`. If you don't have it, call `get_today_tasks` or `get_tasks` to find it. NEVER ask the user for the ID. \n"
-                f"3. FOR NEW TASKS: Use `create_TaskTemplate`. Provide an EXACT ISO 8601 `start_datetime` for the FIRST instance. If the task is recurring, set `is_recurring` to `true` and provide an `rrule`. If the user wants it to start 'today', use today's date. \n"
+                f"3. FOR NEW TASKS: Use `create_TaskTemplate`. You MUST include 'emoji', 'priority', and 'timezone' inside the 'params' object. Provide an EXACT ISO 8601 `start_datetime` for the FIRST instance. If the task is recurring, set `is_recurring` to `true` and provide an `rrule`. If the user wants it to start 'today', use today's date. \n"
                 f"To update ONLY the time of a task, use `start_time` (e.g. '14:30:00') in `update_TaskTemplate`. \n"
                 f"4. DURATION: If the user didn't specify a duration, suggest a reasonable one based on the task type (e.g., Gym = 60 mins, Walk = 30 mins). State your suggestion in the message. \n"
                 f"IMPORTANT FOR IDS: \n"
@@ -105,7 +105,7 @@ class ChatService:
                 if raw_choices:
                     choice_objects = []
                     for c in raw_choices:
-                        actions_payload = c.get('actions') or []
+                        actions_payload = c.get('actions_payload') or c.get('actions') or []
                         choice_id = None
 
                         if isinstance(actions_payload, list):
@@ -134,9 +134,20 @@ class ChatService:
                                 if task_snapshot:
                                     action['task_snapshot'] = task_snapshot
 
+                        choice_id_str = str(c.get('choice_id_string') or c.get('id', ''))
+                        
+                        # Use provided ID if it's a valid UUID
+                        provided_id = c.get('id')
+                        try:
+                            if provided_id and str(uuid.UUID(provided_id)) == provided_id:
+                                if choice_id is None:
+                                    choice_id = uuid.UUID(provided_id)
+                        except (TypeError, ValueError):
+                            pass
+
                         choice_kwargs = {
                             'message': assistant_message,
-                            'choice_id_string': str(c.get('id', '')),
+                            'choice_id_string': choice_id_str,
                             'actions_payload': actions_payload,
                         }
                         if choice_id is not None:
@@ -151,7 +162,11 @@ class ChatService:
     def build_task_snapshot(action_name: str, params: Dict[str, Any], user) -> Tuple[Optional[Dict[str, Any]], Optional[uuid.UUID]]:
         task_snapshot = None
         choice_id = None
-
+        print("==================================================================")
+        print("action_name", action_name)
+        print("params", params)
+        print("user", user)
+        print("==================================================================")
         if action_name == 'create_TaskTemplate':
             if params.get('task_id'):
                 try:
@@ -273,13 +288,16 @@ class ChatService:
                 or params.get('occurrence_id')
                 or params.get('id')
             )
+            new_datetime = params.get('new_datetime') or params.get('start_datetime')
+            requested_status = params.get('status')
+
             if instance_id:
                 try:
                     from task.models import TaskOverride
                     from task.serializers import TaskSerializer
                     now = timezone.now()
                     context = {
-                        'start_date': now,
+                        'start_date': now - timedelta(days=1),
                         'end_date': now + timedelta(days=30),
                     }
                     override = TaskOverride.objects.get(
@@ -289,9 +307,49 @@ class ChatService:
                         override.task,
                         context=context
                     ).data
+
+                    if isinstance(requested_status, str):
+                        requested_status = requested_status.upper()
+                        if requested_status == 'DONE':
+                            requested_status = TaskOverride.STATUS_COMPLETED
+
+                    if task_snapshot and new_datetime:
+                        parsed_dt = _parse_iso(new_datetime)
+                        if parsed_dt:
+                            new_status = requested_status or TaskOverride.STATUS_PENDING
+                            old_dt = override.instance_datetime
+                            updated_overrides = []
+                            found_new = False
+
+                            for ov in task_snapshot.get('overrides', []):
+                                ov_dt = _parse_iso(ov.get('instance_datetime'))
+                                if ov_dt == old_dt:
+                                    ov['status'] = TaskOverride.STATUS_RESCHEDULED
+                                    ov['new_datetime'] = parsed_dt.isoformat()
+                                if ov_dt == parsed_dt:
+                                    ov['status'] = new_status
+                                    found_new = True
+                                updated_overrides.append(ov)
+
+                            if not found_new:
+                                updated_overrides.append({
+                                    'instance_datetime': parsed_dt.isoformat(),
+                                    'status': new_status,
+                                })
+
+                            task_snapshot['overrides'] = updated_overrides
+                    elif task_snapshot and requested_status:
+                        old_dt = override.instance_datetime
+                        updated_overrides = []
+                        for ov in task_snapshot.get('overrides', []):
+                            ov_dt = _parse_iso(ov.get('instance_datetime'))
+                            if ov_dt == old_dt:
+                                ov['status'] = requested_status
+                            updated_overrides.append(ov)
+                        task_snapshot['overrides'] = updated_overrides
                 except Exception:
                     task_snapshot = None
-
+                    
         if task_snapshot is not None:
             if 'overrides' in task_snapshot:
                 cleaned_overrides = []
