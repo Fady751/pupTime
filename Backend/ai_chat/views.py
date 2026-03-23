@@ -32,6 +32,7 @@ from task.models import TaskTemplate, TaskOverride
 from task.serializers import TaskSerializer, TaskOverrideSerializer
 from task.views import _parse_iso
 from task.utils import generate_overrides_for_task
+from .services import ChatService
 
 logger = logging.getLogger(__name__)
 
@@ -432,286 +433,50 @@ class ChatView(APIView):
         user_text: str = serializer.validated_data['message']
         conversation_id = serializer.validated_data.get('conversation_id')
 
-        if conversation_id:
-            try:
-                conversation = Conversation.objects.get(
-                    pk=conversation_id, user=request.user,
-                )
-            except Conversation.DoesNotExist:
-                return Response(
-                    {'detail': 'Conversation not found.'},
-                    status=status.HTTP_404_NOT_FOUND,
-                )
-        else:
-            title = user_text[:80]
-            conversation = Conversation.objects.create(
-                user=request.user,
-                title=title,
-            )
-
-        Message.objects.create(
-            conversation=conversation,
-            role=Message.Role.USER,
-            content=user_text,
-        )
-
-        history = list(
-            conversation.messages.order_by('created_at').values_list('role', 'content')
-        )
-        from django.utils import timezone
-        current_time = timezone.now().isoformat()
-        
-        system_prompt = ChatMessage(
-            role='system',
-            content=(
-                f"You are 'PUP', a helpful personal task manager assistant. "
-                f"The current date and time is {current_time}. "
-                f"Use `get_today_tasks` as your first action if the user asks about today or wants to change a task for today. "
-                f"Use `get_tasks` to look up tasks if you need IDs — NEVER ask the user for an ID, fetch it yourself using tools. "
-                f"Use `find_free_time` to check for gaps or resolve scheduling conflicts. \n"
-                f"Before proposing a NEW task, ALWAYS check for potential conflicts by calling `get_tasks` (or `get_today_tasks` if for today) for the requested time range. If a conflict is found, inform the user and ask how to proceed. \n"
-                f"Fetch user interests and timezone with `get_user_preferences`. "
-                f"When proposing task changes, YOU MUST use the `respond_to_user` tool with `choices`. "
-                f"Distinguish between PERMANENT changes and SINGLE-DAY changes: \n"
-                f"1. FOR PERMANENT / BULK CHANGES — keywords: 'all', 'every', 'always', 'from now on', 'all future', 'all overrides', 'all tasks': "
-                f"Use `update_TaskTemplate` with the `Master Task ID`. If you don't have it, call `get_tasks` to find it. NEVER ask the user for the ID. \n"
-                f"2. FOR SINGLE-DAY / ONE-TIME CHANGES — keywords: 'today only', 'just this time', 'this one', 'this instance': "
-                f"Use `update_TaskOverride` with the `Occurrence ID`. If you don't have it, call `get_today_tasks` or `get_tasks` to find it. NEVER ask the user for the ID. \n"
-                f"3. FOR NEW TASKS: Use `create_TaskTemplate`. Provide an EXACT ISO 8601 `start_datetime` for the FIRST instance. If the task is recurring, set `is_recurring` to `true` and provide an `rrule`. If the user wants it to start 'today', use today's date. \n"
-                f"To update ONLY the time of a task, use `start_time` (e.g. '14:30:00') in `update_TaskTemplate`. \n"
-                f"4. DURATION: If the user didn't specify a duration, suggest a reasonable one based on the task type (e.g., Gym = 60 mins, Walk = 30 mins). State your suggestion in the message. \n"
-                f"IMPORTANT FOR IDS: \n"
-                f"- `Master Task ID` is for `update_TaskTemplate` and `delete_TaskTemplate`. \n"
-                f"- `Occurrence ID` is ONLY for `update_TaskOverride`. \n"
-                f"- NEVER swap these. NEVER invent an ID. NEVER ask the user for an ID — use tools to find them. \n"
-                f"AI CONTEXT: \n"
-                f"- You will see 'Executed AI Choice' messages in history if your previous proposal was approved. Use this to confirm the current state without re-asking."
-            ),
-        )
-        chat_messages = [system_prompt] + [ChatMessage(role=r, content=c) for r, c in history]
+        current_conversation_id = conversation_id
 
         try:
-            provider = get_ai_provider()
-            full_response_parts: list[str] = []
-            tools = get_task_tools(request.user)
+            conversation = ChatService.get_or_create_conversation(
+                user=request.user, 
+                conversation_id=conversation_id, 
+                user_text=user_text
+            )
+            current_conversation_id = str(conversation.id)
 
-            for chunk in provider.stream_with_tools(chat_messages, tools):
+            ChatService.save_user_message(conversation, user_text)
+
+            chat_messages = ChatService.prepare_chat_messages(conversation)
+            
+            full_response_parts: list[str] = []
+            for chunk in ChatService.get_ai_response_stream(request.user, chat_messages):
                 full_response_parts.append(chunk)
 
             full_response = ''.join(full_response_parts)
-            parsed = None
-            try:
-                parsed = json.loads(full_response)
-                saved_content = parsed.get('message', full_response) if isinstance(parsed, dict) else full_response
-            except (json.JSONDecodeError, TypeError):
-                saved_content = full_response
 
-            with transaction.atomic():
-                assistant_message = Message.objects.create(
-                    conversation=conversation,
-                    role=Message.Role.ASSISTANT,
-                    content=saved_content,
-                )
-
-                if isinstance(parsed, dict):
-                    raw_choices = [
-                        c for c in (parsed.get('choices') or [])
-                        if isinstance(c, dict)
-                    ]
-                    if raw_choices:
-                        choice_objects = []
-                        for c in raw_choices:
-                            actions_payload = c.get('actions') or []
-                            choice_id = None
-
-                            if isinstance(actions_payload, list):
-                                for action in actions_payload:
-                                    task_snapshot = None
-                                    if not isinstance(action, dict):
-                                        continue
-                                    action_name = action.get('action_name')
-                                    params = action.get('params') or {}
-                                    if isinstance(params, str):
-                                        try:
-                                            params = json.loads(params)
-                                        except (json.JSONDecodeError, TypeError):
-                                            params = {}
-                                    if not isinstance(params, dict):
-                                        continue
-
-                                    for alias in ['task_name', 'name']:
-                                        if alias in params and 'title' not in params:
-                                            params['title'] = params.pop(alias)
-                                            break
-
-                                    if action_name == 'create_TaskTemplate':
-                                        if params.get('task_id'):
-                                            try:
-                                                choice_id = uuid.UUID(str(params['task_id']))
-                                            except (TypeError, ValueError):
-                                                choice_id = None
-                                        preview_overrides = []
-                                        try:
-                                            from dateutil.rrule import rrulestr as _rrulestr
-                                            from task.views import _parse_iso as _pi
-                                            start_dt = _pi(params.get('start_datetime'))
-                                            if start_dt:
-                                                from django.utils import timezone
-                                                now = timezone.now()
-                                                end_preview = now + timedelta(days=30)
-                                                rrule_str = params.get('rrule')
-                                                if params.get('is_recurring') and rrule_str:
-                                                    rule = _rrulestr(rrule_str, dtstart=start_dt.replace(microsecond=0))
-                                                    search_start = now if now > start_dt else start_dt
-                                                    instances = rule.between(search_start.replace(microsecond=0), end_preview, inc=True)
-                                                    preview_overrides = [
-                                                        {'date': dt.isoformat(), 'status': 'PENDING'}
-                                                        for dt in instances
-                                                    ]
-                                                else:
-                                                    if start_dt >= now and start_dt <= end_preview:
-                                                        preview_overrides = [{'date': start_dt.isoformat(), 'status': 'PENDING'}]
-                                                    else:
-                                                        preview_overrides = []
-                                        except Exception:
-                                            preview_overrides = []
-
-                                        task_snapshot = {
-                                            'id': str(choice_id) if choice_id else params.get('task_id'),
-                                            'title': params.get('title'),
-                                            'emoji': params.get('emoji', '📝'),
-                                            'priority': params.get('priority', 'none'),
-                                            'start_datetime': params.get('start_datetime'),
-                                            'duration_minutes': params.get('duration_minutes'),
-                                            'reminder_time': params.get('reminder_time'),
-                                            'is_recurring': params.get('is_recurring', False),
-                                            'rrule': params.get('rrule'),
-                                            'timezone': params.get('timezone', 'UTC'),
-                                            'overrides': preview_overrides,
-                                        }
-
-                                    if action_name in ('update_TaskTemplate', 'delete_TaskTemplate'):
-                                        task_id = (
-                                            params.get('task_id')
-                                            or params.get('master_task_id')
-                                            or params.get('id')
-                                        )
-                                        if task_id:
-                                            try:
-                                                from task.models import TaskTemplate
-                                                from task.serializers import TaskSerializer
-                                                task = TaskTemplate.objects.get(
-                                                    pk=task_id, user=request.user, is_deleted=False
-                                                )
-                                                task_snapshot = TaskSerializer(
-                                                    task,
-                                                    context=ApproveAIChoiceView._one_month_serializer_context()
-                                                ).data
-
-                                                if action_name == 'update_TaskTemplate':
-                                                    for k, v in params.items():
-                                                        if k in task_snapshot and k not in ('id', 'master_task_id', 'task_id'):
-                                                            task_snapshot[k] = v
-                                                    
-                                                    if 'rrule' in params or 'start_time' in params or 'start_datetime' in params:
-                                                        try:
-                                                            import datetime as _dt
-                                                            from dateutil.rrule import rrulestr as _rrulestr
-                                                            from task.views import _parse_iso as _pi
-                                                            from django.utils import timezone
-                                                            
-                                                            if 'start_time' in params and task_snapshot.get('start_datetime'):
-                                                                try:
-                                                                    _new_time = _dt.time.fromisoformat(params['start_time'])
-                                                                    _orig_dt = _pi(task_snapshot['start_datetime'])
-                                                                    _new_dt = _orig_dt.replace(hour=_new_time.hour, minute=_new_time.minute, second=_new_time.second)
-                                                                    task_snapshot['start_datetime'] = _new_dt.isoformat()
-                                                                except Exception:
-                                                                    pass
-                                                                    
-                                                            start_dt = _pi(task_snapshot.get('start_datetime'))
-                                                            if start_dt:
-                                                                now = timezone.now()
-                                                                end_preview = now + timedelta(days=30)
-                                                                rrule_str = task_snapshot.get('rrule')
-                                                                if task_snapshot.get('is_recurring') and rrule_str:
-                                                                    rule = _rrulestr(rrule_str, dtstart=start_dt.replace(microsecond=0))
-                                                                    search_start = now if now > start_dt else start_dt
-                                                                    instances = rule.between(search_start.replace(microsecond=0), end_preview, inc=True)
-                                                                    task_snapshot['overrides'] = [
-                                                                        {'date': dt.isoformat(), 'status': 'PENDING'}
-                                                                        for dt in instances
-                                                                    ]
-                                                                else:
-                                                                    if start_dt >= now and start_dt <= end_preview:
-                                                                        task_snapshot['overrides'] = [{'date': start_dt.isoformat(), 'status': 'PENDING'}]
-                                                                    else:
-                                                                        task_snapshot['overrides'] = []
-                                                        except Exception:
-                                                            pass
-
-                                            except Exception:
-                                                task_snapshot = None
-
-                                    elif action_name == 'update_TaskOverride':
-                                        instance_id = (
-                                            params.get('instance_id')
-                                            or params.get('occurrence_id')
-                                            or params.get('id')
-                                        )
-                                        if instance_id:
-                                            try:
-                                                from task.models import TaskOverride
-                                                from task.serializers import TaskSerializer
-                                                override = TaskOverride.objects.get(
-                                                    pk=instance_id, task__user=request.user, is_deleted=False
-                                                )
-                                                task_snapshot = TaskSerializer(
-                                                    override.task,
-                                                    context=ApproveAIChoiceView._one_month_serializer_context()
-                                                ).data
-                                            except Exception:
-                                                task_snapshot = None
-
-                                    if task_snapshot is not None:
-                                        if 'overrides' in task_snapshot:
-                                            cleaned_overrides = []
-                                            for ov in task_snapshot['overrides']:
-                                                if 'date' in ov:
-                                                    cleaned = {'date': ov['date'], 'status': ov.get('status')}
-                                                else:
-                                                    cleaned = {'date': ov.get('instance_datetime'), 'status': ov.get('status')}
-                                                if ov.get('status') == 'RESCHEDULED' and ov.get('new_datetime'):
-                                                    cleaned['new_datetime'] = ov.get('new_datetime')
-                                                cleaned_overrides.append(cleaned)
-                                            task_snapshot['overrides'] = cleaned_overrides
-                                        action['task_snapshot'] = task_snapshot
-
-                            choice_kwargs = {
-                                'message': assistant_message,
-                                'choice_id_string': str(c.get('id', '')),
-                                'actions_payload': actions_payload,
-                            }
-                            if choice_id is not None:
-                                choice_kwargs['id'] = choice_id
-
-                            choice_objects.append(AIChoice(**choice_kwargs))
-                        AIChoice.objects.bulk_create(choice_objects)
-
-            message_data = MessageSerializer(assistant_message).data
+            # 5. Process AI response and save assistant message/choices
+            assistant_message = ChatService.process_ai_response(
+                conversation=conversation,
+                full_response=full_response,
+                user=request.user
+            )
 
             return Response(
                 {
                     'conversation_id': str(conversation.id),
-                    'message': message_data,
+                    'message': MessageSerializer(assistant_message).data,
                 },
                 status=status.HTTP_200_OK
             )
 
+        except ValidationError as e:
+            # If it's a 404 from get_or_create_conversation
+            if e.detail.get('detail') == 'Conversation not found.':
+                return Response(e.detail, status=status.HTTP_404_NOT_FOUND)
+            return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
         except AIProviderRateLimitError as error:
             logger.warning("AI provider quota exhausted: %s", error)
             error_payload = {
-                'conversation_id': str(conversation.id),
+                'conversation_id': current_conversation_id,
                 'error': str(error),
                 'error_code': 'rate_limited',
             }
@@ -720,8 +485,10 @@ class ChatView(APIView):
             return Response(error_payload, status=status.HTTP_429_TOO_MANY_REQUESTS)
         except Exception:
             logger.exception("Error while generating AI response")
-            error_payload = {
-                'conversation_id': str(conversation.id),
-                'error': 'An error occurred while generating the response.',
-            }
-            return Response(error_payload, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {
+                    'conversation_id': current_conversation_id,
+                    'error': 'An error occurred while generating the response.',
+                }, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
