@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AppStackParamList } from '../../navigation/AppNavigator';
@@ -45,17 +45,35 @@ const AiConversationListScreen: React.FC = () => {
     const handleDeleteChat = async (conversationId: string) => {
         try {
             await deleteConversation(conversationId);
-            loadConversations();
+            setConversations(prev => prev.filter(conversation => conversation.id !== conversationId));
         } catch (error) {
             console.error(error);
         }
+    };
+
+    const handleConfirmDeleteChat = (conversationId: string) => {
+        Alert.alert(
+            'Delete chat?',
+            'Are you sure you want to delete this chat? This action cannot be undone.',
+            [
+                {
+                    text: 'Cancel',
+                    style: 'cancel',
+                },
+                {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: () => handleDeleteChat(conversationId),
+                },
+            ]
+        );
     };
 
     const renderItem = ({ item }: { item: Conversation }) => (
         <TouchableOpacity 
             style={[styles.itemContainer, { backgroundColor: colors.surface }]} 
             onPress={() => handleOpenChat(item.id)}
-            onLongPress={() => handleDeleteChat(item.id)}
+            onLongPress={() => handleConfirmDeleteChat(item.id)}
         >
             <View style={styles.textContainer}>
                 <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>

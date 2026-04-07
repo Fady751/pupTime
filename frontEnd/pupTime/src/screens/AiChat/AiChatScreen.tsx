@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Alert } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useSelector } from 'react-redux';
+import Markdown from 'react-native-markdown-display';
 
 import { AppStackParamList } from '../../navigation/AppNavigator';
 import { Message, Choice } from '../../types/aiConversation';
@@ -121,23 +122,46 @@ const AiChatScreen: React.FC = () => {
                 isUser ? styles.userMessage : styles.assistantMessage,
                 hasChoices && styles.messageWithChoices
             ]}>
-                {!hasChoices && (
-                    <View style={[
-                        styles.bubble, 
-                        isUser ? [styles.userBubble, { backgroundColor: colors.primary }] : [styles.assistantBubble, { backgroundColor: colors.surface }]
-                    ]}>
-                        <Text style={[styles.messageText, isUser ? { color: '#fff' } : { color: colors.text }]}>
-                            {item.content}
-                        </Text>
-                    </View>
-                )}
+                <View style={[
+                    styles.bubble, 
+                    isUser ? [styles.userBubble, { backgroundColor: colors.primary }] : [styles.assistantBubble, { backgroundColor: colors.surface }]
+                ]}>
+                    <Markdown
+                        style={{
+                            body: {
+                                color: isUser ? '#fff' : colors.text,
+                                fontSize: 16,
+                            },
+                            strong: {
+                                fontWeight: 'bold',
+                            },
+                            em: {
+                                fontStyle: 'italic',
+                            },
+                            code_inline: {
+                                backgroundColor: colors.surface,
+                                paddingHorizontal: 4,
+                                borderRadius: 4,
+                                fontFamily: 'monospace',
+                                color: colors.text,
+                            },
+                            code_block: {
+                                backgroundColor: colors.surface,
+                                padding: 8,
+                                borderRadius: 6,
+                                fontFamily: 'monospace',
+                                color: colors.text,
+                            },
+                        }}
+                    >
+                        {item.content}
+                    </Markdown>
+                </View>
 
                 {hasChoices && (
                     <View style={styles.choicesContainer}>
-                        <Text style={[styles.choicePromptText, { color: colors.text }]}>{item.content}</Text>
                         <ChoiceSelector 
-                           choices={item.choices!} 
-                           baseTasks={baseTasks}
+                           choices={item.choices!}
                            onSelect={handleChoiceSelect}
                            executedChoiceId={executedChoice?.id}
                         />

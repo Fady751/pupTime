@@ -20,7 +20,12 @@ export type status = 'PENDING' | 'COMPLETED' | 'SKIPPED' | 'RESCHEDULED' | 'FAIL
 * This avoids locale issues (e.g. US is MM/DD/YYYY, UK is DD/MM/YYYY)
 */
 export const toLocalDateString = (s: string | Date, timeZone?: string): string => {
-  const date = new Date(s);
+  const date = s instanceof Date ? s : new Date(s);
+
+  if (isNaN(date.getTime())) {
+    console.warn('toLocalDateString received invalid date:', s);
+    return '';
+  }
 
   const options: Intl.DateTimeFormatOptions = {
     year: 'numeric',

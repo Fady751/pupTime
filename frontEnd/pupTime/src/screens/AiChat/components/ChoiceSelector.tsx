@@ -8,12 +8,11 @@ import createChoiceSelectorStyles from './ChoiceSelector.styles';
 
 interface ChoiceSelectorProps {
     choices: Choice[];
-    baseTasks: TaskTemplate[];
     onSelect: (choice: Choice) => void;
     executedChoiceId?: string; // If one is executed, pass its ID
 }
 
-const ChoiceSelector: React.FC<ChoiceSelectorProps> = ({ choices, baseTasks, onSelect, executedChoiceId }) => {
+const ChoiceSelector: React.FC<ChoiceSelectorProps> = ({ choices, onSelect, executedChoiceId }) => {
     const [activeIndex, setActiveIndex] = useState(0);
     const { colors } = useTheme();
     const styles = useMemo(() => createChoiceSelectorStyles(colors), [colors]);
@@ -64,8 +63,7 @@ const ChoiceSelector: React.FC<ChoiceSelectorProps> = ({ choices, baseTasks, onS
             {activeChoice && (
                 <View style={styles.previewContainer}>
                     <ChoicePreview 
-                        choice={activeChoice} 
-                        baseTasks={baseTasks}
+                        choice={activeChoice}
                         // Could pass actions from choice.actions_payload here
                     />
                     

@@ -289,9 +289,7 @@ export const searchUsers = async (query: string): Promise<SearchUser[]> => {
     return [];
   }
 
-  const response = await api.get('/user/search/', {
-    params: { q: trimmed },
-  });
+  const response = await api.get(`/user/search/${encodeURIComponent(trimmed)}/`);
 
   if (!Array.isArray(response.data)) {
     return [];
