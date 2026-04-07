@@ -6,24 +6,25 @@ from django.utils import timezone
 import json
 
 from .task_schemas import (
-    GetTasksSchema, CreateTaskTemplateSchema, UpdateTaskOverrideSchema,
-    FindFreeTimeSchema, GetDailyLoadSummarySchema
+    GetTasksSchema, CreateTaskTemplateSchema, UpdateTaskTemplateSchema,
+    UpdateTaskOverrideSchema, DeleteTaskTemplateSchema, FindFreeTimeSchema,
+    GetDailyLoadSummarySchema
 )
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Union, Literal, Annotated
 from pydantic import BaseModel, Field
 
 class Action(BaseModel):
     model_config = {"extra": "ignore"}
-    action_name: str = Field(description="Action name. Must be 'create_TaskTemplate', 'update_TaskTemplate', 'update_TaskOverride', or 'delete_TaskTemplate'")
+    action_name: Literal['create_TaskTemplate', 'update_TaskTemplate', 'update_TaskOverride', 'delete_TaskTemplate'] = Field(
+        description="The exact name of the action."
+    )
     params: dict = Field(
-        description="A JSON object containing the parameters for the action. MUST be a valid JSON object, NOT a string.",
-        json_schema_extra={
-            "example": {
-                "title": "Example Task",
-                "start_datetime": "2026-03-12T15:00:00Z",
-                "priority": "high"
-            }
-        }
+        description=(
+            "A JSON object MUST contain the parameters for the action. "
+            "CRITICAL: ALL task fields (e.g. title, priority, start_datetime) MUST be nested exactly ONE level deep inside this 'params' object. "
+            "DO NOT put task fields at the top-level of the action object alongside 'action_name'. "
+            "DO NOT double-nest them inside a second 'params' object."
+        )
     )
 
 class Choice(BaseModel):
@@ -171,15 +172,32 @@ def get_task_tools(user):
     @tool(args_schema=RespondToUserSchema)
     def respond_to_user(**kwargs):
         """
-        Propose task actions as choices.
-        - 'create_TaskTemplate': New TaskTemplate.
-        - 'update_TaskTemplate': Change TaskTemplate (e.g. permanent time change).
-        - 'update_TaskOverride': Change specific TaskOverride (e.g. reschedule today only).
-        - 'delete_TaskTemplate': Remove TaskTemplate.
-        ONLY use this for choices. For normal chat, use plain text.
-        IMPORTANT: Before proposing a NEW task, you MUST check for conflicts using `get_tasks` or `get_today_tasks` for that time.
+        Propose task actions as choices for the user to approve.
+        - 'create_TaskTemplate': Use to create NEW tasks.
+        - 'update_TaskTemplate': Use for PERMANENT or FUTURE changes to a series (requires Master Task ID).
+        - 'update_TaskOverride': Use for ONE-TIME changes to a specific instance (requires Occurrence ID).
+        - 'delete_TaskTemplate': Use to remove a task series.
+        
+        ONLY use this tool if you need to suggest task changes. For basic conversation, just reply with text.
+        IMPORTANT: Before proposing a NEW task, you MUST check for conflicts using `get_tasks`.
+        CRITICAL: BEFORE using this tool to create, update, or delete tasks, you MUST call `get_task_crud_rules` to understand the required fields and constraints.
         """
         pass
+        
+    @tool
+    def get_task_crud_rules() -> str:
+        """
+        MUST BE CALLED BEFORE using `respond_to_user` to create, update, or delete tasks.
+        Returns the exact JSON schema and rules for CRUD operations on tasks.
+        """
+        schemas = {
+            "create_TaskTemplate": CreateTaskTemplateSchema.model_json_schema(),
+            "update_TaskTemplate": UpdateTaskTemplateSchema.model_json_schema(),
+            "update_TaskOverride": UpdateTaskOverrideSchema.model_json_schema(),
+            "delete_TaskTemplate": DeleteTaskTemplateSchema.model_json_schema(),
+        }
+        
+        return "CRITICAL RULES FOR TASK CRUD OPERATIONS. You must conform strictly to these schemas:\n" + json.dumps(schemas, indent=2)
     
     @tool(args_schema=FindFreeTimeSchema)
     def find_free_time(**kwargs) -> str:
@@ -294,5 +312,6 @@ def get_task_tools(user):
 
     return [
         get_today_tasks, get_task_by_id, get_tasks, respond_to_user,
-        find_free_time, get_overdue_tasks, get_daily_load_summary, get_user_preferences
+        find_free_time, get_overdue_tasks, get_daily_load_summary, get_user_preferences,
+        get_task_crud_rules
     ]
