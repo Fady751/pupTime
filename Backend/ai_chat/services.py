@@ -79,7 +79,7 @@ class ChatService:
     def get_ai_response_stream(user, chat_messages: List[ChatMessage]):
         provider = get_ai_provider()
         tools = get_task_tools(user)
-        return provider.stream_with_tools(chat_messages, tools)
+        return provider.stream_with_tools(chat_messages, tools, user=user)
 
     @classmethod
     def process_ai_response(cls, conversation: Conversation, full_response: str, user) -> Message:
@@ -162,11 +162,6 @@ class ChatService:
     def build_task_snapshot(action_name: str, params: Dict[str, Any], user) -> Tuple[Optional[Dict[str, Any]], Optional[uuid.UUID]]:
         task_snapshot = None
         choice_id = None
-        print("==================================================================")
-        print("action_name", action_name)
-        print("params", params)
-        print("user", user)
-        print("==================================================================")
         if action_name == 'create_TaskTemplate':
             if params.get('task_id'):
                 try:

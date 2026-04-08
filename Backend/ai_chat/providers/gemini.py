@@ -10,6 +10,11 @@ from langchain_google_vertexai import ChatVertexAI
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 
 from ..ai_provider import AIProviderError, AIProviderRateLimitError, BaseAIProvider, ChatMessage
+from ..ai_logger import (
+    log_ai_request, log_tool_call, log_tool_result, log_tool_error,
+    log_respond_to_user, log_validation_warning, log_ai_final_text,
+    log_rate_limit, log_max_rounds_reached,
+)
 
 _ROLE_MAP = {
     "user": HumanMessage,
@@ -83,7 +88,7 @@ class GeminiProvider(BaseAIProvider):
         except Exception as error:
             _raise_provider_error(error)
 
-    def stream_with_tools(self, messages: List[ChatMessage], tools: list) -> Generator[str, None, None]:
+    def stream_with_tools(self, messages: List[ChatMessage], tools: list, user=None) -> Generator[str, None, None]:
         import json
         import logging
         from ..Tools.task_schemas import CreateTaskTemplateSchema, UpdateTaskTemplateSchema, DeleteTaskTemplateSchema, UpdateTaskOverrideSchema
@@ -128,35 +133,60 @@ class GeminiProvider(BaseAIProvider):
         MAX_TOOL_ROUNDS = 5
         rounds = 0
 
+        # ── Log the start of this AI request ──
+        user_text = ""
+        for m in reversed(messages):
+            if m.role == "user":
+                user_text = m.content
+                break
+        log_ai_request(user_text, round_num=1, user=user)
+
         while rounds < MAX_TOOL_ROUNDS:
             try:
                 response = llm_with_tools.invoke(lc_messages)
             except Exception as error:
-                _raise_provider_error(error)
+                try:
+                    _raise_provider_error(error)
+                except AIProviderRateLimitError as rle:
+                    log_rate_limit(rle.retry_after_seconds, user=user)
+                    raise
+                except Exception:
+                    raise
             
             if response.tool_calls:
                 tool_map = {t.name: t for t in tools}
                 tool_results = []
                 respond_to_user_args = None
 
-                for tool_call in response.tool_calls:
-                    if tool_call["name"] == "respond_to_user":
-                        args = tool_call["args"]
-                        if "message" in args:
-                            msg_val = args["message"]
+                for call_idx, tool_call in enumerate(response.tool_calls):
+                    tool_name = tool_call["name"]
+                    tool_args = tool_call["args"]
+
+                    if tool_name == "respond_to_user":
+                        if "message" in tool_args:
+                            msg_val = tool_args["message"]
                             if isinstance(msg_val, list) and len(msg_val) > 0:
                                 first_item = msg_val[0]
                                 if isinstance(first_item, dict) and "text" in first_item:
-                                    args["message"] = first_item["text"]
-                        respond_to_user_args = args
+                                    tool_args["message"] = first_item["text"]
+                        respond_to_user_args = tool_args
+                        # ── Log respond_to_user decision ──
+                        log_respond_to_user(tool_args, user=user)
                         continue
 
-                    tool = tool_map.get(tool_call["name"])
+                    # ── Log the tool call ──
+                    log_tool_call(tool_name, tool_args, call_idx, user=user)
+
+                    tool = tool_map.get(tool_name)
                     if tool:
                         try:
-                            result = tool.invoke(tool_call["args"])
+                            result = tool.invoke(tool_args)
+                            # ── Log the tool result ──
+                            log_tool_result(tool_name, str(result), user=user)
                         except Exception as e:
                             result = f"Error executing tool: {e}"
+                            # ── Log the tool error ──
+                            log_tool_error(tool_name, str(e), user=user)
 
                         tool_results.append(
                             ToolMessage(content=str(result), tool_call_id=tool_call["id"])
@@ -175,6 +205,8 @@ class GeminiProvider(BaseAIProvider):
                                     validator(**params_to_validate)
                                 except Exception as e:
                                     logger.warning("AI produced invalid params for %s: %s", action.get("action_name"), e)
+                                    # ── Log validation warning ──
+                                    log_validation_warning(action.get("action_name", "?"), str(e), user=user)
 
                     yield json.dumps(respond_to_user_args)
                     return
@@ -182,6 +214,9 @@ class GeminiProvider(BaseAIProvider):
                 if tool_results:
                     lc_messages += [response] + tool_results
                 rounds += 1
+
+                if rounds >= MAX_TOOL_ROUNDS:
+                    log_max_rounds_reached(rounds, user=user)
             else:
                 content = response.content
                 if isinstance(content, list):
@@ -191,8 +226,12 @@ class GeminiProvider(BaseAIProvider):
                             text_parts.append(part)
                         elif isinstance(part, dict) and "text" in part:
                             text_parts.append(part["text"])
-                    yield "".join(text_parts)
+                    final_text = "".join(text_parts)
                 else:
-                    yield str(content)
+                    final_text = str(content)
+
+                # ── Log plain text response ──
+                log_ai_final_text(final_text, user=user)
+                yield final_text
                 break
 
