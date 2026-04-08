@@ -149,6 +149,8 @@ export type patchTaskOverrideRequest = {
 
 export const patchTaskOverride = async (id: string, id_override: string, data?: patchTaskOverrideRequest): Promise<patchTaskOverrideResponse> => {
     try {
+      console.log("url: ", `/task/${id}/override/${id_override}`);
+      console.log("body: ", data);
         const response = await api.patch(`/task/${id}/override/${id_override}`, data);
         if(data?.status === 'RESCHEDULED' && response.data?.new_instance) {
             return {

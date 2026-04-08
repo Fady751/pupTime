@@ -45,9 +45,10 @@ export const TaskOverrideRepository = {
 					eq(taskOverrides.instance_datetime, d.instance_datetime)
 				)
 			);
-			if(selct.length > 0/* && areOverridesEqual(d as TaskOverride, selct[0])*/) {
-				continue; 
-			}
+			// console.log("selct: ", selct);
+			// if(selct.length > 0/* && areOverridesEqual(d as TaskOverride, selct[0])*/) {
+			// 	continue; 
+			// }
 			dataToInsert.push(d);
 			const rows = await db
 				.delete(taskOverrides)
