@@ -39,6 +39,7 @@ const AiChatScreen: React.FC = () => {
     const loadConversation = async (id: string) => {
         try {
             const conv = await getConversation(id);
+            // console.log(conv);
             setMessages(conv.messages);
         } catch (error) {
             console.error("Failed to load conversation", error);
@@ -110,6 +111,9 @@ const AiChatScreen: React.FC = () => {
     };
 
     const renderItem = ({ item }: { item: Message }) => {
+        if(item.role === 'system') {
+            return null;
+        }
         const isUser = item.role === 'user';
         const hasChoices = item.choices && item.choices.length > 0;
         

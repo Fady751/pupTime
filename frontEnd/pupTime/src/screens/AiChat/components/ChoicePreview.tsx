@@ -65,7 +65,25 @@ const ChoicePreview: React.FC<ChoicePreviewProps> = ({ choice }) => {
           updatedTasks = updatedTasks.filter(t => t.id !== action.task_snapshot.id);
         }
         else if (action.action_name === 'update_TaskOverride') {
+          // const new_TaskTemplate = action.task_snapshot as TaskTemplate;
+          // console.log("debugging action: ", action);
           // continue For now, we will just apply the TaskTemplate changes.
+          const new_TaskTemplate = action.task_snapshot as TaskTemplate;
+          for (let i = 0; i < new_TaskTemplate.overrides.length; i++) {
+            new_TaskTemplate.overrides[i].id = uuid.v4().toString();
+            new_TaskTemplate.overrides[i].instance_datetime = new_TaskTemplate.overrides[i].date;
+          }
+
+          const index = updatedTasks.findIndex(t => t.id === action.task_snapshot.id);
+          if(index !== -1) {
+            const now = floorDateByTimezone(new Date().toISOString());
+            const overrides = updatedTasks[index].overrides.filter(o => o.instance_datetime < now);
+            overrides.push(...new_TaskTemplate.overrides);
+            updatedTasks[index] = { ...updatedTasks[index], ...new_TaskTemplate, overrides };
+          }
+          else {
+            updatedTasks.unshift(new_TaskTemplate);
+          }
         }
       }
       setPreviewTasks(updatedTasks);
@@ -95,17 +113,19 @@ const ChoicePreview: React.FC<ChoicePreviewProps> = ({ choice }) => {
     let created = 0;
     let updated = 0;
     let deleted = 0;
+    let updatedOverrides = 0;
 
     for (const a of actions) {
       if (a.action_name === 'create_TaskTemplate') created += 1;
       else if (a.action_name === 'update_TaskTemplate') updated += 1;
       else if (a.action_name === 'delete_TaskTemplate') deleted += 1;
+      else if (a.action_name === 'update_TaskOverride') updatedOverrides += 1;
     }
 
-    return { created, updated, deleted };
+    return { created, updated, deleted, updatedOverrides };
   }, [actions]);
 
-  const hasChanges = summary.created || summary.updated || summary.deleted;
+  const hasChanges = summary.created || summary.updated || summary.deleted || summary.updatedOverrides;
 
   // console.log("tasks in choice preview:", previewTasks);
   return (
@@ -117,6 +137,7 @@ const ChoicePreview: React.FC<ChoicePreviewProps> = ({ choice }) => {
           [
             summary.created ? `+${summary.created} new` : null,
             summary.updated ? `${summary.updated} edited` : null,
+            summary.updatedOverrides ? `${summary.updatedOverrides} change` : null,
             summary.deleted ? `${summary.deleted} removed` : null,
           ]
             .filter(Boolean)

@@ -145,7 +145,10 @@ export const TaskService = {
 	 * Create a new override instance and schedule its notification.
 	 */
 	async createOverrides(template_id: string, input: NewTaskOverride[]): Promise<{ inserted: TaskOverride[], deleted: string[] }> {
+		if(!input) return {inserted: [], deleted: []};
+		// console.log("added overrides: ", input);
 		const template = await TaskTemplateRepository.findById(template_id) as TaskTemplate;
+		// console.log("template: ", template);
 		if (!template) return { inserted: [], deleted: [] };
 
 		const nowIso = new Date().toISOString();
@@ -159,8 +162,11 @@ export const TaskService = {
 			created_at: item.created_at ?? nowIso,
 			updated_at: item.updated_at ?? nowIso,
 		}));
+		// console.log("data: ", data);
 		const { inserted, deleted } = await TaskOverrideRepository.upsertTaskOverrides(data);
 
+		// console.log("inserted: ", inserted);
+		// console.log("deleted: ", deleted);
 		for (const id of deleted) {
 			await NotificationService.cancel(id);
 		}

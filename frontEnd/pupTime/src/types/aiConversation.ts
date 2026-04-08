@@ -16,7 +16,7 @@ export type Choice = {
 
 export type Message = {
     id: string;
-    role: 'user' | 'assistant';
+    role: 'user' | 'assistant' | 'system';
     content: string;
     created_at: string;
     choices?: Choice[];
