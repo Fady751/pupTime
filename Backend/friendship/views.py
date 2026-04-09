@@ -78,15 +78,12 @@ class FriendshipAcceptView(APIView):
         responses={
             200: openapi.Response('Friendship request accepted successfully', FriendshipAcceptSerializer),
             400: openapi.Response('Bad request - validation errors or not authorized to accept this request'),
-        },
-        required= {
-            'fcm_token': openapi.Schema(type=openapi.TYPE_STRING, description='FCM token of the receiver for push notification')
         }
     )
 
     def post(self, request, friendship_id):
 
-        fcm_token = request.data.get('fcm_token')
+        fcm_token = request.user.fcm_token
 
         if not fcm_token:
             return Response({"error": "FCM token is required for sending notification"}, status=400)
@@ -107,10 +104,6 @@ class FriendshipAcceptView(APIView):
         
         serializer['fcm_token'] = fcm_token
         return Response(serializer.data , status=200)
-    
-
-
-
 
 class FriendshipCancelRequestView(APIView):
 
@@ -129,9 +122,6 @@ class FriendshipCancelRequestView(APIView):
         serializer.is_valid(raise_exception=True)
         self.perform_destroy(instance)
         return Response(status=status.HTTP_204_NO_CONTENT)  
-
-
-
 
 
 class BlockFriendshipView(APIView):
