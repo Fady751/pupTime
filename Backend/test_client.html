@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Chat Tester</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; }
+        .config { background: #f0f0f0; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        .config input { display: block; width: 100%; margin-bottom: 10px; padding: 8px; box-sizing: border-box; }
+        
+        #chat-log { height: 300px; border: 1px solid #ccc; overflow-y: scroll; padding: 10px; margin-bottom: 10px; border-radius: 8px; background: #fff; }
+        .message { margin-bottom: 10px; }
+        .message strong { color: blue; }
+        .system { color: gray; font-style: italic; }
+        
+        .message-form { display: flex; gap: 10px; }
+        .message-form input { flex: 1; padding: 8px; }
+        button { padding: 8px 16px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <h2>Django Channels Tester</h2>
+
+    <div class="config">
+        <label>Room ID:</label>
+        <input type="text" id="room-input" placeholder="e.g. 1" value="1">
+        
+        <label>Your User Token:</label>
+        <input type="text" id="token-input" placeholder="Auth Token you got from login">
+        
+        <button id="connect-btn">Connect to Room</button>
+        <button id="disconnect-btn" disabled>Disconnect</button>
+    </div>
+
+    <div id="chat-log"></div>
+
+    <div class="message-form">
+        <input id="chat-message-input" type="text" placeholder="Type a message..." disabled>
+        <button id="chat-message-submit" disabled>Send</button>
+    </div>
+
+    <script>
+        let chatSocket = null;
+
+        const roomInput = document.getElementById('room-input');
+        const tokenInput = document.getElementById('token-input');
+        const connectBtn = document.getElementById('connect-btn');
+        const disconnectBtn = document.getElementById('disconnect-btn');
+        const messageInput = document.getElementById('chat-message-input');
+        const submitBtn = document.getElementById('chat-message-submit');
+        const chatLog = document.getElementById('chat-log');
+
+        function appendMessage(text, isSystem=false, sender='') {
+            const div = document.createElement('div');
+            div.className = isSystem ? 'message system' : 'message';
+            if(sender) {
+                div.innerHTML = `<strong>${sender}:</strong> ${text}`;
+            } else {
+                div.innerText = text;
+            }
+            chatLog.appendChild(div);
+            chatLog.scrollTop = chatLog.scrollHeight;
+        }
+
+        connectBtn.onclick = function(e) {
+            const roomId = roomInput.value.trim();
+            const token = tokenInput.value.trim();
+
+            if (!roomId || !token) {
+                alert("Please provide both a Room ID and an Auth Token!");
+                return;
+            }
+
+            // Establish the connection
+            const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
+            // Connect to local dev server by default
+            const wsUrl = `ws://127.0.0.1:8000/ws/chat/${roomId}/?token=${token}`;
+
+            appendMessage(`Attempting to connect to Room ${roomId}...`, true);
+            chatSocket = new WebSocket(wsUrl);
+
+            chatSocket.onopen = function(e) {
+                appendMessage('Connected established successfully.', true);
+                
+                // Toggle UI
+                connectBtn.disabled = true;
+                disconnectBtn.disabled = false;
+                messageInput.disabled = false;
+                submitBtn.disabled = false;
+                
+                roomInput.disabled = true;
+                tokenInput.disabled = true;
+            };
+
+            chatSocket.onmessage = function(e) {
+                const data = JSON.parse(e.data);
+                appendMessage(data.message, false, data.sender);
+            };
+
+            chatSocket.onclose = function(e) {
+                if(e.code === 4003 || e.type === "close" && e.wasClean === false) {
+                   appendMessage('Connection suddenly closed. Is the token correct?', true);
+                } else {
+                    appendMessage('Chat socket closed.', true);
+                }
+                
+                // Reset UI
+                connectBtn.disabled = false;
+                disconnectBtn.disabled = true;
+                messageInput.disabled = true;
+                submitBtn.disabled = true;
+                
+                roomInput.disabled = false;
+                tokenInput.disabled = false;
+            };
+
+            chatSocket.onerror = function(e) {
+                console.error("WebSocket error:", e);
+                appendMessage('Error occurred (Check browser console). Usually indicates invalid token catching server-side disconnect limit.', true);
+            };
+        };
+
+        disconnectBtn.onclick = function(e) {
+            if (chatSocket) chatSocket.close();
+        };
+
+        // Handle enter key
+        messageInput.onkeyup = function(e) {
+            if (e.key === 'Enter') submitBtn.click();
+        };
+
+        submitBtn.onclick = function(e) {
+            const message = messageInput.value;
+            if(!message) return;
+
+            // Send to channel
+            chatSocket.send(JSON.stringify({
+                'message': message
+            }));
+            
+            messageInput.value = '';
+        };
+    </script>
+</body>
+</html>

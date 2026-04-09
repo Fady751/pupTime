@@ -46,7 +46,7 @@ class BaseAIProvider(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def stream_with_tools(self, messages: List[ChatMessage], tools: list) -> Generator[str, None, None]:
+    def stream_with_tools(self, messages: List[ChatMessage], tools: list, user=None) -> Generator[str, None, None]:
         """Yield the final AI response after resolving any tool calls"""
         ...
 

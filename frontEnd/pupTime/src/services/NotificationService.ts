@@ -1,4 +1,8 @@
-import notifee, { TimestampTrigger, TriggerType, AndroidImportance } from '@notifee/react-native';
+import notifee, { 
+  TimestampTrigger, 
+  TriggerType, 
+  AndroidImportance 
+} from '@notifee/react-native';
 
 class NotificationService {
   /**
@@ -27,6 +31,7 @@ class NotificationService {
         channelId,
         smallIcon: 'ic_stat_sync', // The custom icon we set up earlier
         color: '#ff9900', // pupTime orange
+        importance: AndroidImportance.HIGH, // <-- This handles everything you need
       },
     });
   }
@@ -89,6 +94,7 @@ class NotificationService {
           channelId,
           smallIcon: 'ic_stat_sync',
           color: '#ff9900',
+          importance: AndroidImportance.HIGH, // <-- Removed priority here too
         },
       },
       trigger
@@ -99,7 +105,6 @@ class NotificationService {
    * 3. Cancel a specific scheduled notification
    */
   async cancel(notificationId: string) {
-    // This cancels the scheduled trigger and removes it if it's currently displayed
     await notifee.cancelNotification(notificationId);
     console.log(`Notification ${notificationId} cancelled.`);
   }
@@ -111,10 +116,6 @@ class NotificationService {
     await notifee.cancelTriggerNotifications(notificationIds);
     console.log(`Notifications ${notificationIds} cancelled.`);
   }
-
-  /**
-   * schedule
-   */
 
   /**
    * Optional: Cancel ALL scheduled notifications at once

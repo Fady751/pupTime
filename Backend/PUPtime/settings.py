@@ -42,6 +42,7 @@ APPEND_SLASH = False
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',
     'corsheaders',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -52,6 +53,7 @@ INSTALLED_APPS = [
     'user',
     'friendship',
     'task',
+    'chat',
     'ai_chat',
     'notification',
     'rest_framework',
@@ -94,6 +96,13 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'PUPtime.wsgi.application'
+ASGI_APPLICATION = 'PUPtime.asgi.application'
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer"
+    }
+}
 
 
 # Database

@@ -11,24 +11,20 @@ class CreateTaskTemplateSchema(BaseModel):
     Schema for creating a new TaskTemplate.
     Maps to the writable fields in TaskTemplate.
     """
-
     title: str = Field(
         description="The title or name of the task the user wants to create."
     )
-    start_datetime: Optional[str] = Field(
-        default=None,
+    start_datetime: str = Field(
         description=(
             "The start date and time in ISO 8601 format (e.g. '2026-03-12T10:00:00Z'). "
             "REQUIRED for new tasks. If the user says 'tomorrow at 9am', calculate the exact datetime before passing it here."
         )
     )
-    priority: Optional[PriorityType] = Field(
-        default="none",
-        description="Task priority. Must be exactly 'none', 'low', 'medium', or 'high'. If the user didn't specify one, choose the one you think is best (don't just default to 'none')."
+    priority: PriorityType = Field(
+        description="Task priority. MUST be exactly 'none', 'low', 'medium', or 'high'. YOU MUST choose the one you think is best (don't just default to 'none')."
     )
-    emoji: Optional[str] = Field(
-        default="📝",
-        description="A single emoji that represents the task (e.g. '🏋️')."
+    emoji: str = Field(
+        description="A single emoji that represents the task (e.g. '🏋️'). YOU MUST choose an appropriate one."
     )
     reminder_time: Optional[int] = Field(
         default=None,
@@ -36,22 +32,21 @@ class CreateTaskTemplateSchema(BaseModel):
     )
     duration_minutes: Optional[int] = Field(
         default=None,
-        description="How long the task takes in minutes. Null if not specified."
+        description="How long the task takes in minutes. YOU SHOULD suggest a reasonable duration if the user didn't specify one."
     )
     is_recurring: bool = Field(
         default=False,
         description="Set to true only if the user explicitly says the task repeats (e.g. 'every day', 'every Monday')."
     )
-    rrule: Optional[str] = Field(
+    rrule: str = Field(
         default=None,
         description=(
             "The recurrence rule in RRULE format. Required only when is_recurring is true. "
             "Example: 'FREQ=DAILY' for every day, 'FREQ=WEEKLY;BYDAY=MO' for every Monday."
         )
     )
-    timezone: Optional[str] = Field(
-        default="UTC",
-        description="IANA timezone name (e.g. 'Africa/Cairo', 'America/New_York'). Defaults to UTC."
+    timezone: str = Field(
+        description="IANA timezone name (e.g. 'Africa/Cairo', 'America/New_York'). YOU MUST provide the user's timezone (fetch it using `get_user_preferences`)."
     )
 
 class UpdateTaskTemplateSchema(BaseModel):
@@ -144,9 +139,10 @@ class UpdateTaskOverrideSchema(BaseModel):
         description="New status: PENDING, COMPLETED, SKIPPED, RESCHEDULED, FAILED."
     )
     new_datetime: Optional[str] = Field(
+        default=None,
         description="The new ISO 8601 timestamp (required if status is 'RESCHEDULED')."
     )
-    notes: Optional[str] = Field(description="Optional notes for this specific instance.")
+    notes: Optional[str] = Field(default=None, description="Optional notes for this specific instance.")
 
 
 class FindFreeTimeSchema(BaseModel):

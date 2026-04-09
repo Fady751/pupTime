@@ -106,7 +106,10 @@ const FriendsListScreen = ({ navigation }: { navigation: any }) => {
   };
 
   const handlePressFriend = (friend: Friend) => {
-    Alert.alert("Friend", `${friend.name} is in your accountability circle.`);
+    navigation.navigate("FriendsChat", {
+      friendUserId: Number(friend.id),
+      friendName: friend.name,
+    });
   };
 
   const handleAcceptRequest = async (request: FriendRequest) => {
@@ -148,6 +151,17 @@ const FriendsListScreen = ({ navigation }: { navigation: any }) => {
             <Text style={styles.subtitle}>Your accountability circle</Text>
           </View>
           <View style={styles.headerActions}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.headerActionButton,
+                { opacity: pressed ? 0.8 : 1 },
+              ]}
+              onPress={() => navigation.navigate("FriendsChat")}
+            >
+              <Text style={styles.headerActionText}>
+                Chats
+              </Text>
+            </Pressable>
             <Pressable
               style={({ pressed }) => [
                 styles.headerActionButton,

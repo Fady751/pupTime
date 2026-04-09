@@ -1,8 +1,9 @@
 import { TaskTemplate, TaskOverride } from "./task";
 
 export type Action = {
-    action_name: string;
+    action_name: 'create_TaskTemplate' | 'delete_TaskTemplate' | 'update_TaskTemplate' | 'update_TaskOverride';
     params: TaskTemplate | TaskOverride;
+    task_snapshot: TaskTemplate | TaskOverride;
 };
 
 export type Choice = {
@@ -13,9 +14,10 @@ export type Choice = {
     created_at: string;
 };
 
+
 export type Message = {
     id: string;
-    role: 'user' | 'assistant';
+    role: 'user' | 'assistant' | 'system';
     content: string;
     created_at: string;
     choices?: Choice[];
