@@ -1,4 +1,4 @@
-from django.utils import timezone
+from time import timezone
 import firebase_admin
 from firebase_admin import messaging 
 from .models import Notification
@@ -25,18 +25,12 @@ def push_accept_notification(reciever , user_acceptedFriendship , notification_t
 
     try:
         message_obj = messaging.Message(
-            notification=messaging.Notification(
-                title=notification_type, 
-                body= notification['message']
-            ),
-            token=fcm_token , 
-            data = notification['data']
-            )
-        
+            notification=messaging.Notification(title= notification_type , body=notification.data),
+            token=fcm_token
+        )
         messaging.send(message_obj)
         notification.is_sent = True
         notification.save()
-
     except Exception as e:
         return ('500')
 
@@ -53,6 +47,7 @@ def push_request_notification(reciever , user_sentFriendship , notification_type
     notification = Notification.objects.create(
         receiver = reciever,
         type = notification_type,
+        created_at = timezone.now(),
         data={
             'message': f'{user_sentFriendship.username} sent you a friend request.',
             'user': {
@@ -63,7 +58,7 @@ def push_request_notification(reciever , user_sentFriendship , notification_type
                 'streak_cnt': user_sentFriendship.streak_cnt,
                 'joined_on': user_sentFriendship.joined_on.isoformat()
             },
-            'sent_at': sent_at.format()
+            'sent_at': sent_at.isoformat()
         }
     )
 

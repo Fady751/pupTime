@@ -26,7 +26,7 @@ def get_friendship_by_id(friendship_id):
     try: 
         friendship = Friendship.objects.get(id=friendship_id)
     except Friendship.DoesNotExist:
-        return ('404')
+        return Response({"error": "Friendship not found."}, status=404)
     return friendship
 
 @shared_task

@@ -1,6 +1,4 @@
 
-import json
-
 from notification.models import Notification 
 from rest_framework.views import APIView
 from rest_framework.pagination import PageNumberPagination
@@ -9,8 +7,6 @@ from drf_yasg import openapi
 from .serializers import NotificationSerializer
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-import firebase_admin
-from firebase_admin import messaging 
 
 class NotificationPagination(PageNumberPagination):
     page_size = 10 
@@ -126,20 +122,3 @@ class MarkAllAsReadView(APIView):
         notifications.save() 
 
         return Response({'message': 'All notifications marked as read successfully'}, status=200)
-    
-
-class noti(APIView):
-    
-    message_obj = messaging.Message(
-        notification=messaging.Notification(
-            title= 'FA', 
-            body= 'this is a test notification'
-        ),
-        token= "d10-68r-QmqxF0yQnmWnpT:APA91bG_erKzSQ2f6yV-L0AUHCAVN1mYzLokbBSxgDontARVPN2Byqk204zsn2xWreGKppUAXf-KS1u2LFpc9kj-msHqjNwQE0UbcGimU9g0_PN98bZvbcY" , 
-        data = {'message': 'this is a test notification'}
-    )
-    
-    messaging.send(message_obj)
-      
-    def get(self, request):
-        return Response({'message': self.message_obj}, status=200)

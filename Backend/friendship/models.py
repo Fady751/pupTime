@@ -16,7 +16,6 @@ class Friendship(models.Model):
 
     sent_at = models.DateTimeField(auto_now_add=True)
     accepted_at = models.DateTimeField(null=True, blank=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
     status = models.IntegerField(
         choices=Status.choices,
