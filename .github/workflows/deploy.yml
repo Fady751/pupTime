@@ -12,10 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: SSH into VM, Pull Code, Migrate, and Reload Systemd
+      - name: SSH into VM, Pull Code, Migrate, and Reload PM2
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.GCP_VM_IP }}
@@ -23,21 +20,17 @@ jobs:
           key: ${{ secrets.GCP_SSH_PRIVATE_KEY }}
           script: |
             echo "Navigating to the Backend directory..."
-            # Using the correct case-sensitive path
-            cd ~/pupTime/Backend
+            cd ~/puptime/pupTime/Backend
             
             echo "Pulling latest code from main..."
             git pull origin main
             
-            echo "Installing dependencies using venv pip..."
-            # Using the direct path to pip ensures we stay inside the virtual environment
-            ./venv/bin/pip install -r requirements.txt
+            echo "Activating virtual environment and installing dependencies..."
+            source ./venv/bin/activate
+            pip install -r requirements.txt
             
             echo "Applying database migrations..."
-            ./venv/bin/python manage.py migrate
+            python manage.py migrate
             
-            echo "Restarting the systemd service..."
-            # Restarting the service we created earlier
-            sudo systemctl restart puptime
-            
-            echo "Deployment successful!"
+            echo "Reloading the PM2 background process..."
+            pm2 reload puptime-backend
