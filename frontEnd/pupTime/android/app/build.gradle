@@ -79,14 +79,14 @@ android {
     compileSdk rootProject.ext.compileSdkVersion
 
     namespace "com.puptime"
-    // splits {
-    //     abi {
-    //         reset()
-    //         enable enableSeparateBuildPerCPUArchitecture
-    //         universalApk false  // This ensures the giant 90MB file is NOT created
-    //         include "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
-    //     }
-    // }
+    splits {
+        abi {
+            reset()
+            enable enableSeparateBuildPerCPUArchitecture
+            universalApk false  // This ensures the giant 90MB file is NOT created
+            include "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
+        }
+    }
     defaultConfig {
         applicationId "com.puptime"
         minSdkVersion rootProject.ext.minSdkVersion
