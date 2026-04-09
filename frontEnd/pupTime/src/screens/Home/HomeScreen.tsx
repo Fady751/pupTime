@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect, useCallback, useState } from "react";
+import React, { useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,13 +8,12 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useSelector } from "react-redux";
-import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import type { RootState } from "../../redux/store";
 import useTheme from "../../Hooks/useTheme";
 import { useTasks } from "../../Hooks/useTasks";
 import createHomeStyles from "./HomeScreen.styles";
 import { BottomBar } from "../../components/BottomBar/BottomBar";
-import { listChatRooms } from "../../services/chatService";
 import {
   type TaskTemplate,
   type TaskOverride,
@@ -67,13 +66,6 @@ const QUOTES = [
   { text: "Focus on being productive instead of busy.", author: "Tim Ferriss" },
 ];
 
-type ChatSpotlight = {
-  roomId: number;
-  title: string;
-  preview: string;
-  memberLabel: string;
-};
-
 /* ═══════════════════════════════════════════════════════════
    HELPERS
    ═══════════════════════════════════════════════════════════ */
@@ -103,12 +95,10 @@ const HomeScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const { colors } = useTheme();
   const styles = useMemo(() => createHomeStyles(colors), [colors]);
-  const route = useRoute();
+    const route = useRoute();
 
   const user = useSelector((state: RootState) => state.user.data);
   const userId = user?.id;
-  const [chatSpotlight, setChatSpotlight] = useState<ChatSpotlight | null>(null);
-  const [chatSpotlightLoading, setChatSpotlightLoading] = useState(false);
 
   // Today's date string in local timezone
     const dateStr = useMemo(() => floorDateByTimezone(new Date().toISOString()), []);
@@ -143,7 +133,6 @@ const HomeScreen: React.FC = () => {
       }
     });
     return unsubscribe;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Flatten overrides for today
@@ -176,55 +165,6 @@ const HomeScreen: React.FC = () => {
     }
     return user.username.slice(0, 2).toUpperCase();
   }, [user?.username]);
-
-  const loadChatSpotlight = useCallback(async () => {
-    if (!userId) {
-      setChatSpotlight(null);
-      return;
-    }
-
-    setChatSpotlightLoading(true);
-
-    try {
-      const rooms = await listChatRooms();
-      const latestRoom = [...rooms].sort((left, right) => {
-        const leftTime = new Date(left.latest_message?.created_at ?? left.created_at).getTime() || 0;
-        const rightTime = new Date(right.latest_message?.created_at ?? right.created_at).getTime() || 0;
-        return rightTime - leftTime;
-      })[0];
-
-      if (!latestRoom) {
-        setChatSpotlight(null);
-        return;
-      }
-
-      const otherUsers = latestRoom.users.filter((member) => member.id !== userId);
-      const title =
-        latestRoom.users.length > 2
-          ? `Group chat with ${latestRoom.users.length} people`
-          : otherUsers[0]?.username || "Direct chat";
-
-      setChatSpotlight({
-        roomId: latestRoom.id,
-        title,
-        preview: latestRoom.latest_message?.content || "Tap to open your latest conversation.",
-        memberLabel:
-          latestRoom.users.length > 2
-            ? `${latestRoom.users.length} members`
-            : "1-to-1 chat",
-      });
-    } catch {
-      setChatSpotlight(null);
-    } finally {
-      setChatSpotlightLoading(false);
-    }
-  }, [userId]);
-
-  useFocusEffect(
-    useCallback(() => {
-      loadChatSpotlight();
-    }, [loadChatSpotlight]),
-  );
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -267,39 +207,6 @@ const HomeScreen: React.FC = () => {
               <Text style={styles.statLabel}>Completed</Text>
             </View>
           </View>
-
-          <Pressable
-            style={({ pressed }) => [
-              styles.chatSpotlightCard,
-              { opacity: pressed ? 0.92 : 1 },
-            ]}
-            onPress={() => navigation.navigate("FriendsChat")}
-          >
-            <View style={styles.chatSpotlightCopy}>
-              <Text style={styles.chatSpotlightKicker}>Friends Chat</Text>
-              <Text style={styles.chatSpotlightTitle}>Messages are one tap away</Text>
-              <Text style={styles.chatSpotlightSubtitle}>
-                Open direct and group conversations from the home screen.
-              </Text>
-              <Text style={styles.chatSpotlightPreview} numberOfLines={1}>
-                {chatSpotlight
-                  ? `Latest: ${chatSpotlight.title} • ${chatSpotlight.preview}`
-                  : "No active chats yet. Start one from Friends."}
-              </Text>
-              {!!chatSpotlight && (
-                <Text style={styles.chatSpotlightMeta} numberOfLines={1}>
-                  {chatSpotlight.memberLabel}
-                </Text>
-              )}
-            </View>
-
-            <View style={styles.chatSpotlightAction}>
-              <Text style={styles.chatSpotlightActionIcon}>💬</Text>
-              <Text style={styles.chatSpotlightActionText}>
-                {chatSpotlightLoading ? "..." : "Open"}
-              </Text>
-            </View>
-          </Pressable>
         </View>
 
         {/* ========== QUICK ACTIONS ========== */}

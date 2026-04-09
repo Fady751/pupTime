@@ -16,7 +16,6 @@ import TemplateDetailsScreen from '../screens/Tasks/TemplateDetails/TemplateDeta
 import OverrideDetailsScreen from '../screens/Tasks/OverrideDetails/OverrideDetailsScreen';
 import SettingsScreen from '../screens/Settings/SettingsScreen';
 import FriendsListScreen from '../screens/Friends/FriendsListScreen';
-import FriendsChatScreen from '../screens/Friends/FriendsChatScreen';
 import AddFriendScreen from '../screens/Friends/AddFriendScreen';
 import BlockedListScreen from '../screens/Friends/BlockedListScreen';
 import NotificationsScreen from '../screens/Notifications/NotificationsScreen';
@@ -32,7 +31,6 @@ export type AppStackParamList = {
   Schedule: undefined;
   Timer: undefined;
   Friends: undefined;
-  FriendsChat: { friendUserId?: number; friendName?: string } | undefined;
   Tasks: undefined;
   AddTask: undefined;
   EditTask: { task: any };
@@ -65,7 +63,6 @@ const AppNavigator: React.FC = () => {
         <Stack.Screen name="Schedule" component={ScheduleScreen} />
         {/* <Stack.Screen name="Timer" component={TimerScreen} /> */}
         <Stack.Screen name="Friends" component={FriendsListScreen} />
-        <Stack.Screen name="FriendsChat" component={FriendsChatScreen} />
         <Stack.Screen name="Tasks" component={TasksScreen} />
         <Stack.Screen name="AddTask" component={AddTaskScreen} />
         <Stack.Screen name="EditTask" component={EditTaskScreen} />
