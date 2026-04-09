@@ -1,7 +1,7 @@
 export type Friend = {
   id: string;
   name: string;
-  avatar: string;
+  avatar: string; // URL, emoji, or placeholder
   status?: "active" | "offline";
   email?: string;
   streakCount?: number;
