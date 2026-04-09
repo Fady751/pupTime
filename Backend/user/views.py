@@ -1,5 +1,3 @@
-from os import name
-
 from rest_framework import status, generics
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -382,27 +380,25 @@ class UserReqeustsView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
     
 class SearchUserByUsernameView(APIView):
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
         responses={
-            200: openapi.Response('Search results', SearchUserByUsernameSerializer(many=True)),
+            200: openapi.Response('Search results', SearchUserByUsernameSerializer()),
             400: openapi.Response('Bad request - missing query parameter'),
         }
     )
     
     def get(self, request, name):
 
-        if not name or name.replace(' ', '') == '':
+        if not name :
             return Response({'error': 'Username parameter is required.'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        name = name.strip()
-      
-        users = User.objects.filter(username__icontains=name)
 
-        if users.count() == 0:
+        user = User.objects.filter(username = name).first()
+
+        if not user:
             return Response({'error': 'No users found with the given username.'}, status=status.HTTP_404_NOT_FOUND) 
 
-        serializer = SearchUserByUsernameSerializer(users, many=True)
+        serializer = SearchUserByUsernameSerializer(user)
 
         return Response(serializer.data, status=status.HTTP_200_OK)
