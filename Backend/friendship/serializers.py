@@ -58,18 +58,6 @@ class FriendshipCancelRequestSerializer(serializers.ModelSerializer):
         fields = ['id', 'status', 'sender', 'receiver']
         read_only_fields = ['id', 'sender', 'receiver' , 'status']
 
-    def update(self, instance, validated_data):
-
-        if instance.sender != self.context['request'].user:
-            raise serializers.ValidationError("You can only cancel friend requests you have sent.")
-        
-        if instance.status != Status.PENDING:
-            raise serializers.ValidationError(f"Relationship is not pending, but {instance.status}.")
-        
-        instance.status = Status.CANCELLED
-        instance.save()
-        delete_cancelled_friendship.apply_async(args=[instance.id], countdown=60)
-        return instance
     
 class BlockFriendshipSerializer(serializers.ModelSerializer):
     class Meta:
@@ -104,4 +92,9 @@ class UnblockFriendshipSerializer(serializers.ModelSerializer):
 
         instance.delete()
         return None
-        
+    
+
+class FriendshipStatusSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Friendship
+        fields = ['id', 'status' , 'sender', 'receiver']

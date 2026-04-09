@@ -177,3 +177,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 #firebase_fcm_settings
 cred = credentials.Certificate("./firebase_adminsdk.json")
 firebase_admin.initialize_app(cred)
+
+
+# Celery settings
+CELERY_RESULRT_BACKEND = 'redis://localhost:6379' 
+CELERY_BROKER_URL = 'redis://localhost:6379'
