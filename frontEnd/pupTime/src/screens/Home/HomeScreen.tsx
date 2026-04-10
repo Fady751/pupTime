@@ -186,12 +186,8 @@ const HomeScreen: React.FC = () => {
     setChatSpotlightLoading(true);
 
     try {
-      const rooms = await listChatRooms();
-      const latestRoom = [...rooms].sort((left, right) => {
-        const leftTime = new Date(left.latest_message?.created_at ?? left.created_at).getTime() || 0;
-        const rightTime = new Date(right.latest_message?.created_at ?? right.created_at).getTime() || 0;
-        return rightTime - leftTime;
-      })[0];
+      const rooms = await listChatRooms({ page: 1, page_size: 1 });
+      const latestRoom = rooms?.[0];
 
       if (!latestRoom) {
         setChatSpotlight(null);
@@ -271,33 +267,56 @@ const HomeScreen: React.FC = () => {
           <Pressable
             style={({ pressed }) => [
               styles.chatSpotlightCard,
-              { opacity: pressed ? 0.92 : 1 },
+              { opacity: pressed ? 0.92 : 1, transform: [{ scale: pressed ? 0.985 : 1 }] },
             ]}
-            onPress={() => navigation.navigate("FriendsChat")}
+            onPress={() => navigation.navigate("ChatRooms")}
           >
-            <View style={styles.chatSpotlightCopy}>
-              <Text style={styles.chatSpotlightKicker}>Friends Chat</Text>
-              <Text style={styles.chatSpotlightTitle}>Messages are one tap away</Text>
-              <Text style={styles.chatSpotlightSubtitle}>
-                Open direct and group conversations from the home screen.
-              </Text>
-              <Text style={styles.chatSpotlightPreview} numberOfLines={1}>
-                {chatSpotlight
-                  ? `Latest: ${chatSpotlight.title} • ${chatSpotlight.preview}`
-                  : "No active chats yet. Start one from Friends."}
-              </Text>
-              {!!chatSpotlight && (
-                <Text style={styles.chatSpotlightMeta} numberOfLines={1}>
-                  {chatSpotlight.memberLabel}
-                </Text>
-              )}
+            {/* Decorative background orbs */}
+            <View style={styles.chatSpotlightOrb1} />
+            <View style={styles.chatSpotlightOrb2} />
+
+            {/* Top row: icon badge + kicker */}
+            <View style={styles.chatSpotlightTopRow}>
+              <View style={styles.chatSpotlightBadge}>
+                <Text style={styles.chatSpotlightBadgeIcon}>💬</Text>
+              </View>
+              <View style={styles.chatSpotlightKickerPill}>
+                <Text style={styles.chatSpotlightKicker}>MESSAGES</Text>
+              </View>
             </View>
 
-            <View style={styles.chatSpotlightAction}>
-              <Text style={styles.chatSpotlightActionIcon}>💬</Text>
-              <Text style={styles.chatSpotlightActionText}>
-                {chatSpotlightLoading ? "..." : "Open"}
-              </Text>
+            {/* Main copy */}
+            <Text style={styles.chatSpotlightTitle}>
+              Chat with friends
+            </Text>
+            <Text style={styles.chatSpotlightSubtitle}>
+              {chatSpotlight
+                ? chatSpotlight.preview
+                : "Start a conversation with your friends"}
+            </Text>
+
+            {/* Bottom row: avatar stack / meta + CTA */}
+            <View style={styles.chatSpotlightBottom}>
+              <View style={styles.chatSpotlightMetaRow}>
+                {chatSpotlight ? (
+                  <>
+                    <View style={styles.chatSpotlightDot} />
+                    <Text style={styles.chatSpotlightMeta} numberOfLines={1}>
+                      {chatSpotlight.title} · {chatSpotlight.memberLabel}
+                    </Text>
+                  </>
+                ) : (
+                  <Text style={styles.chatSpotlightMeta}>
+                    No active chats
+                  </Text>
+                )}
+              </View>
+
+              <View style={styles.chatSpotlightCTA}>
+                <Text style={styles.chatSpotlightCTAText}>
+                  {chatSpotlightLoading ? "..." : "Open →"}
+                </Text>
+              </View>
             </View>
           </Pressable>
         </View>

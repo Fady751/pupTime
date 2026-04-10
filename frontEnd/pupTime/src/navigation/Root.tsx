@@ -1,5 +1,4 @@
 import { StyleSheet } from 'react-native';
-import { useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '../redux/store';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,13 +9,7 @@ import LoadingScreen from '../screens/Loading/loading';
 import OfflineBar from '../components/OfflineBar/offlineBar';
 import useNetworkListener from '../Hooks/RootHooks/NetworkBootstrap';
 import useAuthBootstrap from '../Hooks/RootHooks/AuthBootstrap';
-
-// for testing only, will remove later
-import { getTasks } from '../services/TaskService/tasks';
-import { fullSync, getTemplatesWithOverrides } from '../services/TaskService/syncService';
-import { AppMetaRepository, TaskTemplateRepository } from '../DB';
-import { getExactlyTime } from '../types/task';
-import { getConversation, getConversations, sendMessage } from '../services/aiConversationService/aiConversationService';
+import { useEffect } from 'react';
 
 export default function Root() {
   const { data, loading } = useSelector((s: RootState) => s.user);

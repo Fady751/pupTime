@@ -18,9 +18,9 @@ export type ChatRoom = {
   latest_message: ChatMessage | null;
 };
 
-export type ChatSocketPayload = {
-  message: string;
-  sender: string;
-  sender_id: number;
-  created_at: string;
-};
+// export type ChatSocketPayload = {
+//   message: string;
+//   sender: string;
+//   sender_id: number;
+//   created_at: string;
+// };
