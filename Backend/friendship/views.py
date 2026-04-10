@@ -1,7 +1,7 @@
 from unittest import result
-
 from google_crc32c import value
 from httpcore import request
+from numpy import rint
 from rest_framework import status, generics
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -82,10 +82,8 @@ class FriendshipAcceptView(APIView):
 
     def post(self, request, friendship_id):
 
-        user = request.user 
-
-        for key , value in user .__dict__.keys():
-            print(key ," " , value)
+        user = request.user
+        fcm_token = user.fcm_token
 
         friendship = get_object_or_404(Friendship, id=friendship_id)
 
@@ -101,7 +99,6 @@ class FriendshipAcceptView(APIView):
         elif notification == '400':
             return Response({"error": "Invalid data for notification"}, status=400)
         
-        serializer['fcm_token'] = fcm_token
         return Response(serializer.data , status=200)
 
 class FriendshipCancelRequestView(APIView):
