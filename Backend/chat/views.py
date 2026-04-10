@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from .models import ChatRoom, Message
 from .serializers import ChatRoomSerializer, MessageSerializer
 from django.contrib.auth import get_user_model
-from django.db.models import Count
+from django.db.models import Count, Max
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 
@@ -25,7 +25,9 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         if getattr(self, 'swagger_fake_view', False):
             return ChatRoom.objects.none()
-        return self.request.user.chatrooms.all().order_by('-created_at')
+        return self.request.user.chatrooms.annotate(
+            last_message_time=Max('messages__created_at')
+        ).order_by('-last_message_time', '-created_at')
 
     @swagger_auto_schema(
         operation_summary="Create or fetch a 1-to-1 Chat Room",
