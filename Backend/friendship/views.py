@@ -53,12 +53,14 @@ class FriendshipRequestView(APIView):
         if existing_friendship:
             return Response({"error": "relation request already exists" , "status": existing_friendship.status}, status=400)
 
+        
+
         serializer = FriendshipRequestSerializer(data={'sender': sender.id, 'receiver': receiver.id, 'status': Status.PENDING} , context={'request': request})
         
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        notification = push_request_notification(receiver , sender , 'FR' , receiver.fcm_token ,serializer['sent_at']) 
+        notification = push_request_notification(receiver , sender , 'FR' , receiver.fcm_token ,  serializer.data['sent_at']) 
 
         if notification == '500':
             return Response({"error": "Failed to send notification"}, status=500)
@@ -92,7 +94,7 @@ class FriendshipAcceptView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        notification = push_accept_notification(friendship.sender , request.user , 'FA', friendship.sender.fcm_token , serializer['accepted_at'])
+        notification = push_accept_notification(friendship.sender , request.user , 'FA', friendship.sender.fcm_token , friendship.sent_at )
 
         if notification == '500':
             return Response({"error": "Failed to send notification"}, status=500)

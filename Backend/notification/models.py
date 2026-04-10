@@ -17,7 +17,7 @@ class Notification(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     type = models.CharField(max_length=2, choices=NotificationType.choices)
     data = models.JSONField()
-
+    
     
     class Meta:
         ordering = ['-created_at']
