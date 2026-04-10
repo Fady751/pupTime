@@ -1,5 +1,7 @@
 from unittest import result
 
+from google_crc32c import value
+from httpcore import request
 from rest_framework import status, generics
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -39,9 +41,6 @@ class FriendshipRequestView(APIView):
         responses={
             201: openapi.Response('Friendship request created successfully', FriendshipRequestSerializer),
             400: openapi.Response('Bad request - validation errors or friendship already exists'),
-        },
-        required= {
-            "fcm_token": openapi.Schema(type=openapi.TYPE_STRING, description='FCM token of the receiver for push notification')
         }
     )
     def post(self, request, user_id):
@@ -59,7 +58,7 @@ class FriendshipRequestView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        notification = push_request_notification(receiver , sender , 'FR' , receiver.fcm_token ,serializer.sent_at) 
+        notification = push_request_notification(receiver , sender , 'FR' , receiver.fcm_token ,serializer['sent_at']) 
 
         if notification == '500':
             return Response({"error": "Failed to send notification"}, status=500)
@@ -83,10 +82,10 @@ class FriendshipAcceptView(APIView):
 
     def post(self, request, friendship_id):
 
-        fcm_token = request.user.fcm_token
+        user = request.user 
 
-        if not fcm_token:
-            return Response({"error": "FCM token is required for sending notification"}, status=400)
+        for key , value in user .__dict__.keys():
+            print(key ," " , value)
 
         friendship = get_object_or_404(Friendship, id=friendship_id)
 
@@ -95,7 +94,7 @@ class FriendshipAcceptView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        notification = push_accept_notification(friendship.sender , request.user , 'FA', friendship.sender.fcm_token , serializer.accepted_at)
+        notification = push_accept_notification(friendship.sender , request.user , 'FA', friendship.sender.fcm_token , serializer['accepted_at'])
 
         if notification == '500':
             return Response({"error": "Failed to send notification"}, status=500)
@@ -116,12 +115,19 @@ class FriendshipCancelRequestView(APIView):
             400: openapi.Response('Bad request - validation errors or not authorized to cancel this request'),
         }
     )
-    def delete(self, request, *args, **kwargs):
+    def delete(self, request, friendship_id):
+        friendship = get_object_or_404(Friendship, id=friendship_id)
+
+        if friendship.sender != request.user:
+            return Response({"error": "You are not authorized to cancel this request"}, status=400)
         
-        serializer = self.get_serializer(instance, data=request.data)
-        serializer.is_valid(raise_exception=True)
-        self.perform_destroy(instance)
-        return Response(status=status.HTTP_204_NO_CONTENT)  
+        if friendship.status != Status.PENDING:
+            return Response({"error": "Only pending requests can be cancelled"}, status=400)
+
+        friendship.delete()
+
+        return Response(status=204)
+        
 
 
 class BlockFriendshipView(APIView):

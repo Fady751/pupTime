@@ -338,12 +338,17 @@ class UserFreindsView(APIView):
         ).select_related('sender', 'receiver')
 
         if not friendships.exists():
-            return Response({'error': 'User does not have friends yet'}, status=status.HTTP_404_NOT_FOUND)
+            return Response( 'User does not have friends yet', status=status.HTTP_200_OK)
 
         friends = [
             f.receiver if f.sender == user else f.sender
             for f in friendships
         ]
+
+
+        # for friend in friends:
+        #     for key , value in friend.__dict__.items():
+        #         print(f"{key} : {value}") 
 
         serializer = UserFriendsSerializer(friends, many=True)
 
@@ -382,7 +387,6 @@ class UserReqeustsView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
     
 class SearchUserByUsernameView(APIView):
-    # permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
         responses={
