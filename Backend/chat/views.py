@@ -1,23 +1,33 @@
 from rest_framework import viewsets, permissions, status
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from .models import ChatRoom, Message
 from .serializers import ChatRoomSerializer, MessageSerializer
 from django.contrib.auth import get_user_model
-from django.db.models import Count
+from django.db.models import Count, Max
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 
 User = get_user_model()
 
+class ChatRoomPagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+
 class ChatRoomViewSet(viewsets.ModelViewSet):
     serializer_class = ChatRoomSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = ChatRoomPagination
 
     def get_queryset(self):
         if getattr(self, 'swagger_fake_view', False):
             return ChatRoom.objects.none()
-        return self.request.user.chatrooms.all().order_by('-created_at')
+        return self.request.user.chatrooms.annotate(
+            last_message_time=Max('messages__created_at')
+        ).order_by('-last_message_time', '-created_at')
 
     @swagger_auto_schema(
         operation_summary="Create or fetch a 1-to-1 Chat Room",
@@ -70,14 +80,25 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
 
     @swagger_auto_schema(
         operation_summary="Get Historical Messages for Room",
-        operation_description="Returns an array of all historical messages sent within this specific ChatRoom.",
+        operation_description="Returns a paginated list of historical messages in this ChatRoom. Use `page` and `page_size` query params to control pagination.",
+        manual_parameters=[
+            openapi.Parameter('page', openapi.IN_QUERY, type=openapi.TYPE_INTEGER, description="Page number"),
+            openapi.Parameter('page_size', openapi.IN_QUERY, type=openapi.TYPE_INTEGER, description="Results per page (max 100)"),
+        ],
         responses={200: MessageSerializer(many=True)}
     )
     @action(detail=True, methods=['get'])
     def messages(self, request, pk=None):
         room = self.get_object()
-        messages = room.messages.all()
-        serializer = MessageSerializer(messages, many=True)
+        qs = room.messages.all().order_by('created_at')
+
+        paginator = ChatRoomPagination()
+        page = paginator.paginate_queryset(qs, request, view=self)
+        if page is not None:
+            serializer = MessageSerializer(page, many=True)
+            return paginator.get_paginated_response(serializer.data)
+
+        serializer = MessageSerializer(qs, many=True)
         return Response(serializer.data)
 
     @swagger_auto_schema(
