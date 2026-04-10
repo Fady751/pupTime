@@ -90,7 +90,7 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['get'])
     def messages(self, request, pk=None):
         room = self.get_object()
-        qs = room.messages.all().order_by('created_at')
+        qs = room.messages.all().order_by('-created_at')
 
         paginator = ChatRoomPagination()
         page = paginator.paginate_queryset(qs, request, view=self)
