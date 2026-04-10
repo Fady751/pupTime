@@ -36,8 +36,8 @@ class FriendshipRequestSerializer(serializers.ModelSerializer):
 class FriendshipAcceptSerializer(serializers.ModelSerializer):
     class Meta:
         model = Friendship
-        fields = ['id', 'status', 'accepted_at' , 'sender', 'receiver']
-        read_only_fields = ['id', 'accepted_at', 'sender', 'receiver']
+        fields = ['id', 'status', 'accepted_at' , 'sender', 'receiver' , 'sent_at']
+        read_only_fields = ['id', 'accepted_at', 'sender', 'receiver' , 'sent_at']
 
     def update(self, instance, validated_data):
 

@@ -5,7 +5,8 @@
     "password": "12345678",
     "gender": "Male",
     "birth_day": "2004-11-24",
-    "interests": ["Quantum Physics" , "League of Legends" , "Competitive Programming"]
+    "interests": ["Quantum Physics" , "League of Legends" , "Competitive Programming"],
+    "fcm_token": "c5owPYCdTMiXafANKVK9ij:APA91bGSEgVBkVkDE35vcF9UgSN7nTDFQy5R-uCup0dDTdTZHPqvwpuqbQqpJn9s_7WshW6svgMK8EVN28-8DHFLoVCl2ZOirFBHofZspvDjB3gAO9ncZGw"
   },
   {
   "username": "omarhussien",
@@ -21,7 +22,8 @@
     "password": "12345678",
     "gender": "Female",
     "birth_day": "2004-04-24",
-    "interests": ["Creative Writing" , "Self-Improvement" ,"Surfing","League of Legends","Watching Movies & Shows"]
+    "interests": ["Creative Writing" , "Self-Improvement" ,"Surfing","League of Legends","Watching Movies & Shows"],
+    "fcm_token" : "fwE69gZ4TCCYLhjft2_lGX:APA91bF6guM63nI-8bpt4fuMmX2U8fd51XsqRwH7CSk0kV2m3urEkcVAYycjd-zGApYavGubjuInzrIcvDty3iYFtS5DHQ9ewTVxMQhSI5-vea-7iClwLws"
   },
   {
     "username": "febyashraf",
@@ -37,7 +39,8 @@
     "password": "12345678",
     "gender": "Male",
     "birth_day": "2004-06-01",
-    "interests": ["Watching Movies & Shows" , "Walking" , "Podcasting" , "Wine Tasting" , "Chess"]
+    "interests": ["Watching Movies & Shows" , "Walking" , "Podcasting" , "Wine Tasting" , "Chess"],
+    "fcm_token" : "csY32u6yROe471zXnBlAXJ:APA91bHiuDb0wST16KsQIWzaYUsqojShM56WBUR3Ql7oO9ng2cqHNfx0lpYYq3ftN6oqzWD9sb6f3pZizDjgeqy47yayKNxms0Kf12xJTT9R_oMUjXy88R8"
   },
   {
     "username": "ahmed_ali",
