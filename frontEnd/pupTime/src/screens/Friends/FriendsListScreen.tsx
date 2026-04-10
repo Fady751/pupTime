@@ -23,6 +23,7 @@ import {
   getFriends,
   getPendingRequests,
 } from "../../services/friendshipService";
+import { createOrFetchDirectRoom } from "../../services/chatService";
 
 const FriendsListScreen = ({ navigation }: { navigation: any }) => {
   const { colors } = useTheme();
@@ -105,11 +106,16 @@ const FriendsListScreen = ({ navigation }: { navigation: any }) => {
     ]);
   };
 
-  const handlePressFriend = (friend: Friend) => {
-    navigation.navigate("FriendsChat", {
-      friendUserId: Number(friend.id),
-      friendName: friend.name,
-    });
+  const handlePressFriend = async (friend: Friend) => {
+    try {
+      const room = await createOrFetchDirectRoom(Number(friend.id));
+      navigation.navigate("ChatRoom", {
+        roomId: room.id,
+        roomName: friend.name,
+      });
+    } catch (e) {
+      Alert.alert("Error", extractApiErrorMessage(e, "Could not open chat"));
+    }
   };
 
   const handleAcceptRequest = async (request: FriendRequest) => {
@@ -156,7 +162,7 @@ const FriendsListScreen = ({ navigation }: { navigation: any }) => {
                 styles.headerActionButton,
                 { opacity: pressed ? 0.8 : 1 },
               ]}
-              onPress={() => navigation.navigate("FriendsChat")}
+              onPress={() => navigation.navigate("ChatRooms")}
             >
               <Text style={styles.headerActionText}>
                 Chats

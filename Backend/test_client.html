@@ -76,7 +76,7 @@
             // Establish the connection
             const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
             // Connect to local dev server by default
-            const wsUrl = `ws://127.0.0.1:8000/ws/chat/${roomId}/?token=${token}`;
+            const wsUrl = `ws://34.165.170.245:8000/ws/chat/${roomId}/?token=${token}`;
 
             appendMessage(`Attempting to connect to Room ${roomId}...`, true);
             chatSocket = new WebSocket(wsUrl);
