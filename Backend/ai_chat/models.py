@@ -37,14 +37,29 @@ class Message(models.Model):
         related_name='messages',
     )
     role = models.CharField(max_length=10, choices=Role.choices)
-    content = models.TextField()
+    content = models.TextField(blank=True, default='')
+
+    voice_s3_key = models.CharField(
+        max_length=512, blank=True, null=True,
+        help_text="S3 object key for the voice recording.",
+    )
+    voice_duration_seconds = models.FloatField(
+        null=True, blank=True,
+        help_text="Duration of the voice message in seconds.",
+    )
+    voice_mime_type = models.CharField(
+        max_length=50, blank=True, null=True,
+        help_text="MIME type of the uploaded voice file (e.g. audio/webm, audio/m4a).",
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ['created_at']
 
     def __str__(self):
-        return f"[{self.role}] {self.content[:50]}"
+        prefix = "🎤 " if self.voice_s3_key else ""
+        return f"{prefix}[{self.role}] {self.content[:50]}"
 
 
 class AIChoice(models.Model):

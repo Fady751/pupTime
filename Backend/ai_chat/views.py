@@ -12,6 +12,7 @@ from drf_yasg.utils import swagger_auto_schema
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
 from rest_framework.generics import ListAPIView, RetrieveDestroyAPIView
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -27,7 +28,9 @@ from .serializers import (
     ConversationSerializer,
     MessageSerializer,
     SendMessageSerializer,
+    VoiceChatSerializer,
 )
+from .s3_storage import ALLOWED_MIME_TYPES, MAX_VOICE_FILE_SIZE, upload_voice_file, generate_presigned_url
 from task.models import TaskTemplate, TaskOverride
 from task.serializers import TaskSerializer, TaskOverrideSerializer
 from task.views import _parse_iso
@@ -466,7 +469,6 @@ class ChatView(APIView):
 
             full_response = ''.join(full_response_parts)
             print("Full AI response:", full_response)
-            # 5. Process AI response and save assistant message/choices
             assistant_message = ChatService.process_ai_response(
                 conversation=conversation,
                 full_response=full_response,
@@ -482,7 +484,6 @@ class ChatView(APIView):
             )
 
         except ValidationError as e:
-            # If it's a 404 from get_or_create_conversation
             if e.detail.get('detail') == 'Conversation not found.':
                 return Response(e.detail, status=status.HTTP_404_NOT_FOUND)
             return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
@@ -505,3 +506,238 @@ class ChatView(APIView):
                 }, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class VoiceChatView(APIView):
+    """
+    POST /ai/chat/voice/
+
+    Send a voice message to the AI chat.
+    Accepts multipart/form-data with an audio file.
+    The audio is uploaded to S3, sent to Gemini for native understanding,
+    and the AI response is returned.
+    """
+
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    @swagger_auto_schema(
+        tags=['AI Chat'],
+        operation_summary='Send a voice message to AI',
+        operation_description=(
+            'Upload a voice recording to chat with the AI. The audio is stored in S3 '
+            'and sent directly to Gemini for native audio understanding. '
+            'Supported formats: webm, m4a, mp3, wav, ogg, aac. Max size: 10 MB.'
+        ),
+        manual_parameters=[
+            openapi.Parameter(
+                'audio', openapi.IN_FORM, type=openapi.TYPE_FILE,
+                description='Voice recording file', required=True,
+            ),
+            openapi.Parameter(
+                'conversation_id', openapi.IN_FORM, type=openapi.TYPE_STRING,
+                format='uuid', description='Existing conversation ID (optional)',
+            ),
+            openapi.Parameter(
+                'message', openapi.IN_FORM, type=openapi.TYPE_STRING,
+                description='Optional text context alongside voice',
+            ),
+            openapi.Parameter(
+                'duration', openapi.IN_FORM, type=openapi.TYPE_NUMBER,
+                description='Duration of recording in seconds',
+            ),
+        ],
+        responses={
+            200: openapi.Response(description='AI response.', schema=ChatResponseSerializer),
+            400: openapi.Response(description='Invalid audio file or request.'),
+            413: openapi.Response(description='Audio file too large.'),
+        },
+    )
+    def post(self, request):
+        serializer = VoiceChatSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        audio_file = serializer.validated_data['audio']
+        conversation_id = serializer.validated_data.get('conversation_id')
+        text_context = serializer.validated_data.get('message', '')
+        duration = serializer.validated_data.get('duration')
+
+        current_conversation_id = conversation_id
+
+        audio_bytes = audio_file.read()
+        mime_type = audio_file.content_type or 'audio/webm'
+
+        if mime_type not in ALLOWED_MIME_TYPES:
+            return Response(
+                {
+                    'error': f'Unsupported audio format: {mime_type}',
+                    'supported_formats': list(ALLOWED_MIME_TYPES.keys()),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if len(audio_bytes) > MAX_VOICE_FILE_SIZE:
+            return Response(
+                {'error': f'Audio file too large. Maximum: {MAX_VOICE_FILE_SIZE // (1024*1024)} MB.'},
+                status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            )
+
+        import tempfile
+        import os
+        import subprocess
+
+        try:
+            with tempfile.NamedTemporaryFile(delete=False) as f_in, tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as f_out:
+                f_in.write(audio_bytes)
+                f_in.flush()
+                subprocess.run(
+                    ['ffmpeg', '-y', '-i', f_in.name, '-c:a', 'libmp3lame', '-q:a', '2', f_out.name],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True
+                )
+                with open(f_out.name, 'rb') as f:
+                    audio_bytes = f.read()
+            os.unlink(f_in.name)
+            os.unlink(f_out.name)
+            mime_type = 'audio/mp3'
+        except Exception as e:
+            logger.error(f"Audio conversion failed: {e}")
+            return Response({'error': 'Failed to process audio format.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            title = text_context[:80] if text_context else "Voice message"
+            conversation = ChatService.get_or_create_conversation(
+                user=request.user,
+                conversation_id=conversation_id,
+                user_text=title,
+            )
+            current_conversation_id = str(conversation.id)
+
+            voice_message = ChatService.save_voice_message(
+                conversation=conversation,
+                s3_key='',  # placeholder — updated after S3 upload
+                mime_type=mime_type,
+                duration=duration,
+                text_content=text_context,
+            )
+
+            from concurrent.futures import ThreadPoolExecutor, Future
+
+            chat_messages = ChatService.prepare_chat_messages(conversation)
+
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                s3_future: Future = executor.submit(
+                    upload_voice_file,
+                    file_bytes=audio_bytes,
+                    user_id=request.user.id,
+                    mime_type=mime_type,
+                )
+
+                full_response_parts: list[str] = []
+                for chunk in ChatService.get_ai_response_stream_with_audio(
+                    user=request.user,
+                    chat_messages=chat_messages,
+                    audio_bytes=audio_bytes,
+                    audio_mime_type=mime_type,
+                ):
+                    full_response_parts.append(chunk)
+
+                s3_key = s3_future.result(timeout=30)
+
+            voice_message.voice_s3_key = s3_key
+            voice_message.save(update_fields=['voice_s3_key'])
+
+            full_response = ''.join(full_response_parts)
+            logger.info("Voice chat AI response: %s", full_response[:200])
+
+            assistant_message = ChatService.process_ai_response(
+                conversation=conversation,
+                full_response=full_response,
+                user=request.user,
+            )
+
+            return Response(
+                {
+                    'conversation_id': str(conversation.id),
+                    'message': MessageSerializer(assistant_message).data,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        except ValidationError as e:
+            if hasattr(e, 'detail') and isinstance(e.detail, dict) and e.detail.get('detail') == 'Conversation not found.':
+                return Response(e.detail, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {'error': str(e.detail) if hasattr(e, 'detail') else str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except AIProviderRateLimitError as error:
+            logger.warning("AI provider quota exhausted (voice): %s", error)
+            error_payload = {
+                'conversation_id': current_conversation_id,
+                'error': str(error),
+                'error_code': 'rate_limited',
+            }
+            if error.retry_after_seconds is not None:
+                error_payload['retry_after_seconds'] = error.retry_after_seconds
+            return Response(error_payload, status=status.HTTP_429_TOO_MANY_REQUESTS)
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            logger.exception("Error in voice chat")
+            return Response(
+                {
+                    'conversation_id': current_conversation_id,
+                    'error': 'An error occurred while processing the voice message.',
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class VoiceFileView(APIView):
+    """
+    GET /ai/voice/<uuid:message_id>/
+
+    Retrieve a stored voice recording. Returns a redirect to the S3 presigned URL.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        tags=['AI Chat'],
+        operation_summary='Get voice recording for a message',
+        operation_description=(
+            'Returns a 302 redirect to a presigned S3 URL for the voice recording. '
+            'The URL is valid for 1 hour. Only the owner of the conversation can access it.'
+        ),
+        responses={
+            302: openapi.Response(description='Redirect to S3 presigned URL.'),
+            404: openapi.Response(description='Message not found or has no voice recording.'),
+        },
+    )
+    def get(self, request, message_id):
+        try:
+            message = Message.objects.select_related('conversation').get(
+                pk=message_id,
+                conversation__user=request.user,
+            )
+        except Message.DoesNotExist:
+            return Response(
+                {'detail': 'Message not found.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if not message.voice_s3_key:
+            return Response(
+                {'detail': 'This message has no voice recording.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        presigned_url = generate_presigned_url(message.voice_s3_key)
+        if not presigned_url:
+            return Response(
+                {'detail': 'Failed to generate download URL.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        from django.http import HttpResponseRedirect
+        return HttpResponseRedirect(presigned_url)

@@ -50,6 +50,22 @@ class BaseAIProvider(abc.ABC):
         """Yield the final AI response after resolving any tool calls"""
         ...
 
+    def stream_with_tools_and_audio(
+        self,
+        messages: List[ChatMessage],
+        tools: list,
+        audio_bytes: bytes,
+        audio_mime_type: str,
+        user=None,
+    ) -> Generator[str, None, None]:
+        """
+        Like stream_with_tools, but the last user message includes audio content.
+        Override in providers that support multimodal input (e.g. Gemini).
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not support audio input."
+        )
+
 
 _provider_instance: BaseAIProvider | None = None
 

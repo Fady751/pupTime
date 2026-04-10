@@ -40,6 +40,23 @@ class ChatService:
         )
 
     @staticmethod
+    def save_voice_message(
+        conversation: Conversation,
+        s3_key: str,
+        mime_type: str,
+        duration: float | None = None,
+        text_content: str = '',
+    ) -> Message:
+        return Message.objects.create(
+            conversation=conversation,
+            role=Message.Role.USER,
+            content=text_content,
+            voice_s3_key=s3_key,
+            voice_mime_type=mime_type,
+            voice_duration_seconds=duration,
+        )
+
+    @staticmethod
     def prepare_chat_messages(conversation: Conversation) -> List[ChatMessage]:
         history = list(
             conversation.messages.order_by('created_at').values_list('role', 'content')
@@ -80,6 +97,19 @@ class ChatService:
         provider = get_ai_provider()
         tools = get_task_tools(user)
         return provider.stream_with_tools(chat_messages, tools, user=user)
+
+    @staticmethod
+    def get_ai_response_stream_with_audio(
+        user,
+        chat_messages: List[ChatMessage],
+        audio_bytes: bytes,
+        audio_mime_type: str,
+    ):
+        provider = get_ai_provider()
+        tools = get_task_tools(user)
+        return provider.stream_with_tools_and_audio(
+            chat_messages, tools, audio_bytes, audio_mime_type, user=user
+        )
 
     @classmethod
     def process_ai_response(cls, conversation: Conversation, full_response: str, user) -> Message:
@@ -136,7 +166,6 @@ class ChatService:
 
                         choice_id_str = str(c.get('choice_id_string') or c.get('id', ''))
                         
-                        # Use provided ID if it's a valid UUID
                         provided_id = c.get('id')
                         try:
                             if provided_id and str(uuid.UUID(provided_id)) == provided_id:

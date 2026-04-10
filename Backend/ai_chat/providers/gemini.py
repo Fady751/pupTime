@@ -1,6 +1,7 @@
 
 from __future__ import annotations
 
+import base64
 import os
 import re
 from typing import Generator, List
@@ -54,6 +55,34 @@ def _raise_provider_error(error: Exception) -> None:
     raise AIProviderError("The AI provider request failed.") from error
 
 
+def _build_tool_defs(tools: list) -> list:
+    tool_defs = []
+    for t in tools:
+        if hasattr(t, "args_schema") and t.args_schema:
+            params_schema = t.args_schema.model_json_schema()
+        else:
+            params_schema = {"type": "object", "properties": {}}
+
+        def strip_additional_properties(schema):
+            if isinstance(schema, dict):
+                schema.pop("additionalProperties", None)
+                schema.pop("title", None)
+                for value in schema.values():
+                    strip_additional_properties(value)
+            elif isinstance(schema, list):
+                for item in schema:
+                    strip_additional_properties(item)
+
+        strip_additional_properties(params_schema)
+
+        tool_defs.append({
+            "name": t.name,
+            "description": t.description,
+            "parameters": params_schema
+        })
+    return tool_defs
+
+
 class GeminiProvider(BaseAIProvider):
 
     def __init__(self) -> None:
@@ -88,10 +117,25 @@ class GeminiProvider(BaseAIProvider):
         except Exception as error:
             _raise_provider_error(error)
 
-    def stream_with_tools(self, messages: List[ChatMessage], tools: list, user=None) -> Generator[str, None, None]:
+    # ── Core tool-calling loop (shared by text and audio) ───────────────────
+
+    def _run_tool_loop(
+        self,
+        lc_messages: list,
+        tools: list,
+        user=None,
+    ) -> Generator[str, None, None]:
+        """
+        Invoke the LLM with tools bound, handle tool calls in a loop,
+        and yield the final response. Shared by stream_with_tools and
+        stream_with_tools_and_audio.
+        """
         import json
         import logging
-        from ..Tools.task_schemas import CreateTaskTemplateSchema, UpdateTaskTemplateSchema, DeleteTaskTemplateSchema, UpdateTaskOverrideSchema
+        from ..Tools.task_schemas import (
+            CreateTaskTemplateSchema, UpdateTaskTemplateSchema,
+            DeleteTaskTemplateSchema, UpdateTaskOverrideSchema,
+        )
 
         logger = logging.getLogger(__name__)
 
@@ -102,44 +146,11 @@ class GeminiProvider(BaseAIProvider):
             "update_TaskOverride": UpdateTaskOverrideSchema,
         }
 
-        lc_messages = _to_langchain_messages(messages)
-        tool_defs = []
-        for t in tools:
-            if hasattr(t, "args_schema") and t.args_schema:
-                params_schema = t.args_schema.model_json_schema()
-            else:
-                params_schema = {"type": "object", "properties": {}}
-            
-            def strip_additional_properties(schema):
-                if isinstance(schema, dict):
-                    schema.pop("additionalProperties", None)
-                    schema.pop("title", None)
-                    for value in schema.values():
-                        strip_additional_properties(value)
-                elif isinstance(schema, list):
-                    for item in schema:
-                        strip_additional_properties(item)
-
-            strip_additional_properties(params_schema)
-
-            tool_defs.append({
-                "name": t.name,
-                "description": t.description,
-                "parameters": params_schema
-            })
-
+        tool_defs = _build_tool_defs(tools)
         llm_with_tools = self._llm.bind_tools(tool_defs)
 
         MAX_TOOL_ROUNDS = 5
         rounds = 0
-
-        # ── Log the start of this AI request ──
-        user_text = ""
-        for m in reversed(messages):
-            if m.role == "user":
-                user_text = m.content
-                break
-        log_ai_request(user_text, round_num=1, user=user)
 
         while rounds < MAX_TOOL_ROUNDS:
             try:
@@ -152,7 +163,7 @@ class GeminiProvider(BaseAIProvider):
                     raise
                 except Exception:
                     raise
-            
+
             if response.tool_calls:
                 tool_map = {t.name: t for t in tools}
                 tool_results = []
@@ -170,22 +181,18 @@ class GeminiProvider(BaseAIProvider):
                                 if isinstance(first_item, dict) and "text" in first_item:
                                     tool_args["message"] = first_item["text"]
                         respond_to_user_args = tool_args
-                        # ── Log respond_to_user decision ──
                         log_respond_to_user(tool_args, user=user)
                         continue
 
-                    # ── Log the tool call ──
                     log_tool_call(tool_name, tool_args, call_idx, user=user)
 
                     tool = tool_map.get(tool_name)
                     if tool:
                         try:
                             result = tool.invoke(tool_args)
-                            # ── Log the tool result ──
                             log_tool_result(tool_name, str(result), user=user)
                         except Exception as e:
                             result = f"Error executing tool: {e}"
-                            # ── Log the tool error ──
                             log_tool_error(tool_name, str(e), user=user)
 
                         tool_results.append(
@@ -205,7 +212,6 @@ class GeminiProvider(BaseAIProvider):
                                     validator(**params_to_validate)
                                 except Exception as e:
                                     logger.warning("AI produced invalid params for %s: %s", action.get("action_name"), e)
-                                    # ── Log validation warning ──
                                     log_validation_warning(action.get("action_name", "?"), str(e), user=user)
 
                     yield json.dumps(respond_to_user_args)
@@ -230,8 +236,74 @@ class GeminiProvider(BaseAIProvider):
                 else:
                     final_text = str(content)
 
-                # ── Log plain text response ──
                 log_ai_final_text(final_text, user=user)
                 yield final_text
                 break
 
+    # ── Public methods ──────────────────────────────────────────────────────
+
+    def stream_with_tools(self, messages: List[ChatMessage], tools: list, user=None) -> Generator[str, None, None]:
+        lc_messages = _to_langchain_messages(messages)
+
+        # Log the start of this AI request
+        user_text = ""
+        for m in reversed(messages):
+            if m.role == "user":
+                user_text = m.content
+                break
+        log_ai_request(user_text, round_num=1, user=user)
+
+        yield from self._run_tool_loop(lc_messages, tools, user=user)
+
+    def stream_with_tools_and_audio(
+        self,
+        messages: List[ChatMessage],
+        tools: list,
+        audio_bytes: bytes,
+        audio_mime_type: str,
+        user=None,
+    ) -> Generator[str, None, None]:
+        """
+        Same as stream_with_tools, but the last user message is multimodal:
+        it includes the audio content alongside any text for Gemini's native
+        audio understanding.
+        """
+        # Build all messages EXCEPT the last user message
+        lc_messages = []
+        last_user_text = ""
+        history = list(messages)
+
+        # Find last user message
+        last_user_idx = None
+        for i in range(len(history) - 1, -1, -1):
+            if history[i].role == "user":
+                last_user_idx = i
+                last_user_text = history[i].content
+                break
+
+        # Convert messages, replacing the last user message with multimodal
+        for i, msg in enumerate(history):
+            if i == last_user_idx:
+                text_instruction = last_user_text or "Listen to this voice message and respond appropriately."
+                audio_b64 = base64.b64encode(audio_bytes).decode("utf-8")
+
+                lc_messages.append(HumanMessage(content=[
+                    {"type": "text", "text": text_instruction},
+                    {
+                        "type": "audio",
+                        "source_type": "base64",
+                        "data": audio_b64,
+                        "mime_type": audio_mime_type,
+                    },
+                ]))
+            else:
+                cls = _ROLE_MAP.get(msg.role, HumanMessage)
+                # Gemini throws `400 Unable to submit request` if any message part is empty.
+                text_content = msg.content.strip() if msg.content else ""
+                if not text_content:
+                    text_content = "(Voice message without text)"
+                lc_messages.append(cls(content=text_content))
+
+        log_ai_request(f"[VOICE] {last_user_text or '(audio only)'}", round_num=1, user=user)
+
+        yield from self._run_tool_loop(lc_messages, tools, user=user)

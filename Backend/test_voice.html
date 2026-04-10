@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PUPtime — Voice Chat Tester</title>
+    <style>
+        :root {
+            --bg: #0f0f13;
+            --surface: #1a1a24;
+            --surface-hover: #22223a;
+            --border: #2a2a3d;
+            --primary: #7c5cfc;
+            --primary-glow: rgba(124, 92, 252, 0.3);
+            --accent: #00d9a3;
+            --danger: #ff5c72;
+            --text: #e8e6f0;
+            --text-muted: #8b89a0;
+            --radius: 12px;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 24px;
+        }
+        h1 {
+            font-size: 1.6rem;
+            margin-bottom: 4px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .subtitle { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 24px; }
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            width: 100%;
+            max-width: 600px;
+            margin-bottom: 16px;
+        }
+        .card h2 { font-size: 1rem; margin-bottom: 12px; color: var(--accent); }
+        label { display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 4px; }
+        input, select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg);
+            color: var(--text);
+            font-size: 0.9rem;
+            margin-bottom: 12px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        input:focus, select:focus { border-color: var(--primary); }
+        input[type="file"] { padding: 8px; }
+
+        .row { display: flex; gap: 12px; }
+        .row > * { flex: 1; }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 0 20px var(--primary-glow);
+        }
+        .btn-primary:hover:not(:disabled) { background: #6b4be6; }
+
+        .btn-record {
+            background: var(--danger);
+            color: white;
+            width: 100%;
+        }
+        .btn-record.recording {
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(255, 92, 114, 0.5); }
+            50% { box-shadow: 0 0 0 12px rgba(255, 92, 114, 0); }
+        }
+
+        .btn-send {
+            background: var(--accent);
+            color: var(--bg);
+            width: 100%;
+            margin-top: 8px;
+        }
+        .btn-send:hover:not(:disabled) { background: #00c791; }
+
+        #status {
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-family: 'Fira Code', monospace;
+            margin-top: 8px;
+            display: none;
+        }
+        #status.info { display: block; background: rgba(124,92,252,0.1); border: 1px solid var(--primary); }
+        #status.success { display: block; background: rgba(0,217,163,0.1); border: 1px solid var(--accent); }
+        #status.error { display: block; background: rgba(255,92,114,0.1); border: 1px solid var(--danger); }
+
+        .messages-container {
+            max-height: 400px;
+            overflow-y: auto;
+            padding: 12px;
+            background: var(--bg);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+        .message {
+            margin-bottom: 12px;
+            padding: 10px 14px;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+        .message.user {
+            background: var(--primary);
+            color: white;
+            margin-left: 40px;
+            border-bottom-right-radius: 4px;
+        }
+        .message.assistant {
+            background: var(--surface-hover);
+            margin-right: 40px;
+            border-bottom-left-radius: 4px;
+        }
+        .message .role {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .message.user .role { color: rgba(255,255,255,0.6); }
+        .voice-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(255,255,255,0.15);
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            margin-bottom: 6px;
+        }
+        audio {
+            width: 100%;
+            height: 32px;
+            margin-top: 6px;
+        }
+        .timer { font-size: 1.5rem; text-align: center; margin: 8px 0; color: var(--danger); font-family: 'Fira Code', monospace; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <h1>🎤 PUPtime Voice Chat Tester</h1>
+    <p class="subtitle">Test AI voice chat endpoint</p>
+
+    <!-- Config -->
+    <div class="card">
+        <h2>⚙️ Configuration</h2>
+        <label>Base URL</label>
+        <input type="text" id="baseUrl" value="http://127.0.0.1:8000" placeholder="http://127.0.0.1:8000">
+        <label>Auth Token</label>
+        <input type="text" id="authToken" placeholder="Paste your token here">
+        <label>Conversation ID (leave blank for new)</label>
+        <input type="text" id="conversationId" placeholder="Optional — auto-fills after first message">
+    </div>
+
+    <!-- Record / Upload -->
+    <div class="card">
+        <h2>🎙️ Voice Input</h2>
+        <p style="color: var(--text-muted); font-size:0.8rem; margin-bottom:12px;">
+            Record from your microphone or upload an audio file.
+        </p>
+
+        <button id="recordBtn" class="btn-record" onclick="toggleRecording()">
+            🎤 Start Recording
+        </button>
+        <div id="timerDisplay" class="timer hidden">00:00</div>
+
+        <div style="text-align: center; color: var(--text-muted); margin: 12px 0; font-size: 0.8rem;">— OR —</div>
+
+        <label>Upload audio file</label>
+        <input type="file" id="audioFile" accept="audio/*">
+
+        <label>Text context (optional)</label>
+        <input type="text" id="messageText" placeholder="Add text alongside your voice...">
+
+        <button id="sendBtn" class="btn-send" onclick="sendVoice()" disabled>
+            🚀 Send Voice Message
+        </button>
+
+        <div id="status"></div>
+    </div>
+
+    <!-- Playback -->
+    <div class="card" id="playbackCard" style="display:none;">
+        <h2>🔊 Your Recording</h2>
+        <audio id="playbackAudio" controls></audio>
+    </div>
+
+    <!-- Messages -->
+    <div class="card">
+        <h2>💬 Conversation</h2>
+        <div class="messages-container" id="messagesContainer">
+            <p style="color: var(--text-muted); font-size: 0.8rem; text-align: center;">
+                No messages yet. Send a voice message to start.
+            </p>
+        </div>
+        <button class="btn-primary" style="width: 100%; margin-top: 12px;" onclick="loadConversation()">
+            🔄 Reload Conversation
+        </button>
+    </div>
+
+    <script>
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let recordedBlob = null;
+        let timerInterval = null;
+        let recordingSeconds = 0;
+
+        // ── Recording ───────────────────────────────────────
+        async function toggleRecording() {
+            const btn = document.getElementById('recordBtn');
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                btn.textContent = '🎤 Start Recording';
+                btn.classList.remove('recording');
+                clearInterval(timerInterval);
+                document.getElementById('timerDisplay').classList.add('hidden');
+                return;
+            }
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                // Prefer webm (Chrome) or mp4 (Safari)
+                const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+                    ? 'audio/webm;codecs=opus'
+                    : 'audio/mp4';
+                mediaRecorder = new MediaRecorder(stream, { mimeType });
+                audioChunks = [];
+
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) audioChunks.push(e.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    const baseMime = mimeType.split(';')[0];
+                    recordedBlob = new Blob(audioChunks, { type: baseMime });
+                    stream.getTracks().forEach(t => t.stop());
+
+                    // Show playback
+                    const audioUrl = URL.createObjectURL(recordedBlob);
+                    document.getElementById('playbackAudio').src = audioUrl;
+                    document.getElementById('playbackCard').style.display = 'block';
+
+                    document.getElementById('sendBtn').disabled = false;
+                    document.getElementById('audioFile').value = '';
+                    setStatus(`Recorded ${(recordedBlob.size / 1024).toFixed(1)} KB (${baseMime})`, 'info');
+                };
+
+                mediaRecorder.start();
+                btn.textContent = '⏹ Stop Recording';
+                btn.classList.add('recording');
+
+                // Timer
+                recordingSeconds = 0;
+                document.getElementById('timerDisplay').classList.remove('hidden');
+                timerInterval = setInterval(() => {
+                    recordingSeconds++;
+                    const m = String(Math.floor(recordingSeconds / 60)).padStart(2, '0');
+                    const s = String(recordingSeconds % 60).padStart(2, '0');
+                    document.getElementById('timerDisplay').textContent = `${m}:${s}`;
+                }, 1000);
+
+            } catch (err) {
+                setStatus('Microphone access denied: ' + err.message, 'error');
+            }
+        }
+
+        // File upload → enable send
+        document.getElementById('audioFile').addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                recordedBlob = null;
+                document.getElementById('sendBtn').disabled = false;
+
+                const file = e.target.files[0];
+                const audioUrl = URL.createObjectURL(file);
+                document.getElementById('playbackAudio').src = audioUrl;
+                document.getElementById('playbackCard').style.display = 'block';
+
+                setStatus(`File selected: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`, 'info');
+            }
+        });
+
+        // ── Send Voice ──────────────────────────────────────
+        async function sendVoice() {
+            const baseUrl = document.getElementById('baseUrl').value.replace(/\/$/, '');
+            const token = document.getElementById('authToken').value.trim();
+            const convId = document.getElementById('conversationId').value.trim();
+            const message = document.getElementById('messageText').value.trim();
+
+            if (!token) { setStatus('Auth token is required.', 'error'); return; }
+
+            // Determine audio source
+            let audioBlob;
+            let filename;
+            const fileInput = document.getElementById('audioFile');
+
+            if (recordedBlob) {
+                audioBlob = recordedBlob;
+                const ext = audioBlob.type.includes('webm') ? 'webm' : 'm4a';
+                filename = `recording.${ext}`;
+            } else if (fileInput.files.length > 0) {
+                audioBlob = fileInput.files[0];
+                filename = audioBlob.name;
+            } else {
+                setStatus('No audio to send. Record or upload a file.', 'error');
+                return;
+            }
+
+            // Build multipart form
+            const formData = new FormData();
+            formData.append('audio', audioBlob, filename);
+            if (convId) formData.append('conversation_id', convId);
+            if (message) formData.append('message', message);
+            if (recordingSeconds > 0) formData.append('duration', recordingSeconds);
+
+            const btn = document.getElementById('sendBtn');
+            btn.disabled = true;
+            btn.textContent = '⏳ Sending...';
+            setStatus('Uploading audio & waiting for AI response...', 'info');
+
+            try {
+                const resp = await fetch(`${baseUrl}/ai/chat/voice/`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Token ${token}` },
+                    body: formData,
+                });
+
+                const data = await resp.json();
+
+                if (resp.ok) {
+                    setStatus('✅ AI response received!', 'success');
+                    document.getElementById('conversationId').value = data.conversation_id;
+                    addMessage('user', message || '🎤 (voice message)', true);
+                    addMessage('assistant', data.message.content);
+
+                    // If the AI returned choices
+                    if (data.message.choices && data.message.choices.length > 0) {
+                        const choiceInfo = data.message.choices.map(c =>
+                            `Choice ${c.choice_id_string} (ID: ${c.id})`
+                        ).join('\n');
+                        setStatus(`✅ AI response with ${data.message.choices.length} choice(s):\n${choiceInfo}`, 'success');
+                    }
+                } else {
+                    setStatus(`❌ ${resp.status}: ${JSON.stringify(data)}`, 'error');
+                }
+            } catch (err) {
+                setStatus(`❌ Network error: ${err.message}`, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🚀 Send Voice Message';
+                recordedBlob = null;
+                recordingSeconds = 0;
+            }
+        }
+
+        // ── Load conversation ───────────────────────────────
+        async function loadConversation() {
+            const baseUrl = document.getElementById('baseUrl').value.replace(/\/$/, '');
+            const token = document.getElementById('authToken').value.trim();
+            const convId = document.getElementById('conversationId').value.trim();
+
+            if (!token) { setStatus('Auth token required.', 'error'); return; }
+            if (!convId) { setStatus('Conversation ID required to reload.', 'error'); return; }
+
+            try {
+                const resp = await fetch(`${baseUrl}/ai/conversations/${convId}/`, {
+                    headers: { 'Authorization': `Token ${token}` },
+                });
+                const data = await resp.json();
+
+                if (resp.ok) {
+                    const container = document.getElementById('messagesContainer');
+                    container.innerHTML = '';
+
+                    data.messages.forEach(msg => {
+                        const hasVoice = !!msg.voice_url;
+                        const div = document.createElement('div');
+                        div.className = `message ${msg.role}`;
+
+                        let html = `<div class="role">${msg.role}</div>`;
+                        if (hasVoice) {
+                            html += `<div class="voice-badge">🎤 Voice • ${msg.voice_duration_seconds?.toFixed(1) || '?'}s • ${msg.voice_mime_type || '?'}</div>`;
+                            html += `<audio controls src="${msg.voice_url}"></audio>`;
+                        }
+                        if (msg.content) {
+                            html += `<div>${msg.content}</div>`;
+                        }
+                        if (msg.choices && msg.choices.length > 0) {
+                            html += `<div style="margin-top:8px; font-size:0.75rem; color:var(--accent);">${msg.choices.length} choice(s) available</div>`;
+                        }
+                        div.innerHTML = html;
+                        container.appendChild(div);
+                    });
+
+                    container.scrollTop = container.scrollHeight;
+                    setStatus(`Loaded ${data.messages.length} messages`, 'success');
+                } else {
+                    setStatus(`❌ ${resp.status}: ${JSON.stringify(data)}`, 'error');
+                }
+            } catch (err) {
+                setStatus(`❌ ${err.message}`, 'error');
+            }
+        }
+
+        // ── Helpers ─────────────────────────────────────────
+        function addMessage(role, content, isVoice = false) {
+            const container = document.getElementById('messagesContainer');
+            // Clear placeholder
+            if (container.querySelector('p')) container.innerHTML = '';
+
+            const div = document.createElement('div');
+            div.className = `message ${role}`;
+
+            let html = `<div class="role">${role}</div>`;
+            if (isVoice) html += `<div class="voice-badge">🎤 Voice</div>`;
+            html += `<div>${content}</div>`;
+            div.innerHTML = html;
+
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function setStatus(msg, type) {
+            const el = document.getElementById('status');
+            el.textContent = msg;
+            el.className = type;
+        }
+    </script>
+</body>
+</html>
