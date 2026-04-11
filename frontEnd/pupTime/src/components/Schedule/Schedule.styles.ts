@@ -2,11 +2,16 @@ import { StyleSheet, Dimensions } from "react-native";
 import type { AppColors } from "../../constants/colors";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const DAY_SIZE = (SCREEN_WIDTH - 48 - 24) / 7; // 48 padding, 24 gap
-const DAY_SIZE_COMPACT = (SCREEN_WIDTH - 32 - 16) / 7;
 
-export const createScheduleStyles = (colors: AppColors, compact = false) => {
-  const ds = compact ? DAY_SIZE_COMPACT : DAY_SIZE;
+const calcDaySize = (w: number, compact: boolean) => {
+  const padding = compact ? 32 : 48;
+  const gap = compact ? 16 : 24;
+  return (w - padding - gap) / 7;
+};
+
+export const createScheduleStyles = (colors: AppColors, compact = false, containerWidth?: number) => {
+  const w = containerWidth || SCREEN_WIDTH;
+  const ds = calcDaySize(w, compact);
   return StyleSheet.create({
     container: {
       flex: 1,

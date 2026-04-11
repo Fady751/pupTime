@@ -2,6 +2,8 @@
   "extends": "@react-native/typescript-config",
   "compilerOptions": {
     "types": ["jest"],
+    // "allowSyntheticDefaultImports": true,
+    // "esModuleInterop": true
   },
   "include": ["**/*.ts", "**/*.tsx", "drizzle/migrations.js"],
   "exclude": ["**/node_modules", "**/Pods"]
