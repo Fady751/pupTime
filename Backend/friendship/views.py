@@ -60,7 +60,7 @@ class FriendshipRequestView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        notification = push_request_notification(receiver , sender , 'FR' , receiver.fcm_token ,  serializer.data['sent_at']) 
+        notification = push_request_notification(receiver , sender , 'FR' , serializer.data['sent_at']) 
 
         if notification == '500':
             return Response({"error": "Failed to send notification"}, status=500)
@@ -84,9 +84,6 @@ class FriendshipAcceptView(APIView):
 
     def post(self, request, friendship_id):
 
-        user = request.user
-        fcm_token = user.fcm_token
-
         friendship = get_object_or_404(Friendship, id=friendship_id)
 
         serializer = FriendshipAcceptSerializer(friendship, data=request.data, partial=True, context={'request': request})
@@ -94,7 +91,7 @@ class FriendshipAcceptView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        notification = push_accept_notification(friendship.sender , request.user , 'FA', friendship.sender.fcm_token , friendship.sent_at )
+        notification = push_accept_notification(friendship.sender , request.user , 'FA', friendship.sent_at )
 
         if notification == '500':
             return Response({"error": "Failed to send notification"}, status=500)

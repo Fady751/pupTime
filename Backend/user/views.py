@@ -345,11 +345,6 @@ class UserFreindsView(APIView):
             for f in friendships
         ]
 
-
-        # for friend in friends:
-        #     for key , value in friend.__dict__.items():
-        #         print(f"{key} : {value}") 
-
         serializer = UserFriendsSerializer(friends, many=True)
 
         return Response(serializer.data, status=status.HTTP_200_OK)

@@ -8,9 +8,12 @@ from django.utils.timezone import timezone
 from .models import User
 
 
-def push_accept_notification(reciever , user_acceptedFriendship , notification_type , fcm_token , accepted_at):
+def push_accept_notification(reciever , user_acceptedFriendship , notification_type , accepted_at):
 
-    if not reciever or not user_acceptedFriendship or not notification_type or not fcm_token:
+
+    # don't forget to put fcm_token here
+
+    if not reciever or not user_acceptedFriendship or not notification_type:
         return ('400') 
     
 
@@ -24,24 +27,24 @@ def push_accept_notification(reciever , user_acceptedFriendship , notification_t
         }
     )
 
-    try:
-        message_obj = messaging.Message(
-            notification=messaging.Notification(title= notification_type , body=notification.data),
-            token=fcm_token
-        )
-        messaging.send(message_obj)
-        notification.is_sent = True
-        notification.save()
-    except Exception as e:
-        return ('500')
+    # try:
+    #     message_obj = messaging.Message(
+    #         notification=messaging.Notification(title= notification_type , body=notification.data),
+    #         token=fcm_token
+    #     )
+    #     messaging.send(message_obj)
+    #     notification.is_sent = True
+    #     notification.save()
+    # except Exception as e:
+    #     return ('500')
 
     return ('200')
 
 
 
-def push_request_notification(reciever , user_sentFriendship , notification_type , fcm_token , sent_at):
+def push_request_notification(reciever , user_sentFriendship , notification_type , sent_at):
 
-    if not reciever or not user_sentFriendship or not notification_type or not fcm_token:
+    if not reciever or not user_sentFriendship or not notification_type:
         return ('400') 
 
 
@@ -62,16 +65,16 @@ def push_request_notification(reciever , user_sentFriendship , notification_type
         }
     )
 
-    try:
-        message_obj = messaging.Message(
-            notification=messaging.Notification(title= notification_type , body=notification.data),
-            token=fcm_token
-        )
-        messaging.send(message_obj)
-        notification.is_sent = True
-        notification.save()
+    # try:
+    #     message_obj = messaging.Message(
+    #         notification=messaging.Notification(title= notification_type , body=notification.data),
+    #         token=fcm_token
+    #     )
+    #     messaging.send(message_obj)
+    #     notification.is_sent = True
+    #     notification.save()
 
-    except Exception as e:
-        return ('500')
+    # except Exception as e:
+    #     return ('500')
 
     return ('200')
