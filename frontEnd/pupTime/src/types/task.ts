@@ -27,14 +27,22 @@ export const toLocalDateString = (s: string | Date, timeZone?: string): string =
     return '';
   }
 
-  const options: Intl.DateTimeFormatOptions = {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    timeZone: timeZone || getCurrentTimezone(),
-  };
-  const formattedDate = new Intl.DateTimeFormat('en-CA', options).format(date);
-  return `${formattedDate}T00:00:00Z`;
+  try {
+    const options: Intl.DateTimeFormatOptions = {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      timeZone: timeZone || getCurrentTimezone(),
+    };
+    const formattedDate = new Intl.DateTimeFormat('en-CA', options).format(date);
+    return `${formattedDate}T00:00:00Z`;
+  } catch (error) {
+    console.warn('[toLocalDateString] fallback for timezone', error);
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}T00:00:00Z`;
+  }
 };
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -42,24 +50,29 @@ dayjs.extend(timezone);
 export function getUTCOffset(tz: string): number {
   const now = new Date();
 
-  const dtf = new Intl.DateTimeFormat("en-US", {
-    timeZone: tz,
-    hour12: false,
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
+  try {
+    const dtf = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      hour12: false,
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
 
-  const parts = dtf.formatToParts(now);
-  const hour = Number(parts.find(p => p.type === "hour")?.value || 0);
-  const minute = Number(parts.find(p => p.type === "minute")?.value || 0);
+    const parts = dtf.formatToParts(now);
+    const hour = Number(parts.find(p => p.type === "hour")?.value || 0);
+    const minute = Number(parts.find(p => p.type === "minute")?.value || 0);
 
-  const utcHour = now.getUTCHours();
-  const utcMinute = now.getUTCMinutes();
+    const utcHour = now.getUTCHours();
+    const utcMinute = now.getUTCMinutes();
 
-  const offset = (hour + minute / 60) - (utcHour + utcMinute / 60);
+    const offset = (hour + minute / 60) - (utcHour + utcMinute / 60);
 
-  return ((offset + 24 + 14) % 24) - 14;
+    return ((offset + 24 + 14) % 24) - 14;
+  } catch (error) {
+    console.warn(`[getUTCOffset] Failed for timezone ${tz}`, error);
+    return -(now.getTimezoneOffset() / 60);
+  }
 }
 export function floorDateUTC(time: string, offsetHours: number): string {
   const date = new Date(time);
