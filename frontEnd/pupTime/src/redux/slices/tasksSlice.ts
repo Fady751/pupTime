@@ -364,28 +364,28 @@ const tasksSlice = createSlice({
    ═══════════════════════════════════════════════════════════ */
 
 /** Background task executed by react-native-background-actions. */
-const bgSyncTask = async (taskData?: { userId: number; dispatch: AppDispatch }) => {
-    if (!taskData) return;
-    const { userId, dispatch } = taskData;
+// const bgSyncTask = async (taskData?: { userId: number; dispatch: AppDispatch }) => {
+//     if (!taskData) return;
+//     const { userId, dispatch } = taskData;
 
-    // Run once immediately
-    await dispatch(backgroundSync(userId));
+//     // Run once immediately
+//     await dispatch(backgroundSync(userId));
 
-    // Then loop every SYNC_INTERVAL_MS while the service is running
-    // while (BackgroundService.isRunning()) {
-    //     await sleep(SYNC_INTERVAL_MS);
-    //     await dispatch(backgroundSync(userId));
-    // }
-};
+//     // Then loop every SYNC_INTERVAL_MS while the service is running
+//     // while (BackgroundService.isRunning()) {
+//     //     await sleep(SYNC_INTERVAL_MS);
+//     //     await dispatch(backgroundSync(userId));
+//     // }
+// };
 
-const bgSyncOptions = {
-    taskName: 'BackgroundSync',
-    taskTitle: 'PupTime Sync',
-    taskDesc: 'Syncing your tasks in the background',
-    taskIcon: { name: 'ic_stat_sync', type: 'drawable' },
-    color: '#0048ff',
-    linkingURI: undefined,
-};
+// const bgSyncOptions = {
+//     taskName: 'BackgroundSync',
+//     taskTitle: 'PupTime Sync',
+//     taskDesc: 'Syncing your tasks in the background',
+//     taskIcon: { name: 'ic_stat_sync', type: 'drawable' },
+//     color: '#0048ff',
+//     linkingURI: undefined,
+// };
 
 /**
  * Start a background sync loop that runs fullSync every 5 minutes.
@@ -394,20 +394,21 @@ const bgSyncOptions = {
  */
 export const startBackgroundSync =
     (userId: number) => async (dispatch: AppDispatch) => {
-        if (BackgroundService.isRunning()) return;
+    //     if (BackgroundService.isRunning()) return;
 
-        await BackgroundService.start(bgSyncTask, {
-            ...bgSyncOptions,
-            parameters: { userId, dispatch },
-        });
+    //     await BackgroundService.start(bgSyncTask, {
+    //         ...bgSyncOptions,
+    //         parameters: { userId, dispatch },
+    //     });
+        await dispatch(backgroundSync(userId));
     };
 
 /** Stop the background sync loop. */
-export const stopBackgroundSync = () => async () => {
-    if (BackgroundService.isRunning()) {
-        await BackgroundService.stop();
-    }
-};
+// export const stopBackgroundSync = () => async () => {
+//     if (BackgroundService.isRunning()) {
+//         await BackgroundService.stop();
+//     }
+// };
 
 /* ═══════════════════════════════════════════════════════════
    EXPORTS
