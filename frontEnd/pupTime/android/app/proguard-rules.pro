@@ -8,3 +8,21 @@
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
 # Add any project specific keep options here:
+
+# React Native JNI and Annotations
+-keepclassmembers class * {
+    native <methods>;
+}
+-keep class com.facebook.react.** { *; }
+-keep class com.facebook.proguard.annotations.** { *; }
+-keep @com.facebook.proguard.annotations.DoNotStrip class *
+-keepclassmembers class * {
+    @com.facebook.proguard.annotations.DoNotStrip *;
+}
+
+# Nitro Modules and Audio Recorder Player (prevents native crash in release mode)
+-keep class com.margelo.nitro.** { *; }
+-keep @com.facebook.proguard.annotations.DoNotStrip class *
+-keepclassmembers class * {
+    @com.facebook.proguard.annotations.DoNotStrip *;
+}
