@@ -134,33 +134,18 @@ class UserUpdateSerializer(serializers.ModelSerializer):
 
 
 class UserFriendsSerializer(serializers.ModelSerializer):
-    friends = serializers.SerializerMethodField()
 
     class Meta:
-            model = User
-            fields = [
-                'id',
-                'username',
-                'email',
-                'gender',
-                'birth_day',
-                'streak_cnt',
-                'joined_on',
-                'friends'
-            ]
-
-    def get_friends(self, obj):
-        from friendship.models import Friendship, Status
-        from django.db.models import Q
-        friendships = Friendship.objects.filter(
-            (Q(sender=obj) | Q(receiver=obj)) & Q(status=Status.ACCEPTED)
-        ).select_related('sender', 'receiver')
-        friends = [f.receiver if f.sender == obj else f.sender for f in friendships]
-        return [{
-            'id': friend.id, 'username': friend.username, 'email': friend.email, 
-            'gender': friend.gender, 'birth_day': friend.birth_day, 'streak_cnt': friend.streak_cnt,
-            'joined_on': friend.joined_on
-        } for friend in friends]
+        model = User
+        fields = [
+            'id',
+            'username',
+            'email',
+            'gender',
+            'birth_day',
+            'streak_cnt',
+            'joined_on',
+        ]
     
 class SenderSerializer(serializers.ModelSerializer):
     class Meta:
