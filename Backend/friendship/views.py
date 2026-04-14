@@ -51,7 +51,10 @@ class FriendshipRequestView(APIView):
         existing_friendship = check_existing_friendship(sender.id, receiver.id) 
     
         if existing_friendship:
-            return Response({"error": "relation request already exists" , "status": existing_friendship.status}, status=400)
+            if existing_friendship.status == Status.BLOCKED:
+                return Response({"error": "Cannot send friend request to a user you have blocked or who has blocked you." , "status": existing_friendship.status }, status=400)
+            
+            return Response({"error": "relation already exists" , "status": existing_friendship.status}, status=400)
 
         
 
@@ -60,7 +63,7 @@ class FriendshipRequestView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        notification = push_request_notification(receiver , sender , 'FR' , receiver.fcm_token ,  serializer.data['sent_at']) 
+        notification = push_request_notification(receiver , sender , 'FR' , serializer.data['sent_at']) 
 
         if notification == '500':
             return Response({"error": "Failed to send notification"}, status=500)
@@ -84,9 +87,6 @@ class FriendshipAcceptView(APIView):
 
     def post(self, request, friendship_id):
 
-        user = request.user
-        fcm_token = user.fcm_token
-
         friendship = get_object_or_404(Friendship, id=friendship_id)
 
         serializer = FriendshipAcceptSerializer(friendship, data=request.data, partial=True, context={'request': request})
@@ -94,7 +94,7 @@ class FriendshipAcceptView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        notification = push_accept_notification(friendship.sender , request.user , 'FA', friendship.sender.fcm_token , friendship.sent_at )
+        notification = push_accept_notification(friendship.sender , request.user , 'FA', friendship.sent_at )
 
         if notification == '500':
             return Response({"error": "Failed to send notification"}, status=500)
@@ -159,25 +159,15 @@ class BlockFriendshipView(APIView):
             if existing_friendship.status == Status.BLOCKED:
                 return Response({"error": "This user is already blocked."}, status=status.HTTP_400_BAD_REQUEST)
             
-            relationship = existing_friendship
-
-            serializer = BlockFriendshipSerializer(relationship, data={'status': Status.BLOCKED, 'blocked_by': sender.id}, partial=True , context={'request': request})
+            serializer = BlockFriendshipSerializer(existing_friendship, data={'status': Status.BLOCKED, 'blocked_by': sender.id}, partial=True , context={'request': request})
 
         else:
             serializer = BlockFriendshipSerializer(data={'sender': sender.id, 'receiver': receiver.id} , context={'request': request})
 
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        
-        data = serializer.data
 
-        return Response(
-            {
-                "message": "User blocked successfully",
-                "data": data
-            },
-            status=status.HTTP_200_OK
-        )
+        return Response({ "message": "User blocked successfully"}, status=status.HTTP_200_OK)
     
 class UnblockFriendshipView(APIView):
     permission_classes = [IsAuthenticated]
@@ -190,7 +180,7 @@ class UnblockFriendshipView(APIView):
         }
     )
     def delete(self, request, user_id):
-        sender = request.user
+        user = request.user
 
         try:
             receiver = User.objects.get(id=user_id)
@@ -198,7 +188,7 @@ class UnblockFriendshipView(APIView):
             return Response({"error": "User not found"}, status=404)
 
         try:
-            friendship = Friendship.objects.get(sender=sender, receiver=receiver, status=Status.BLOCKED)
+            friendship = Friendship.objects.get(blocked_by = user , status=Status.BLOCKED)
         except Friendship.DoesNotExist:
             return Response({"error": "can not unblock user you did not block him"}, status=404)
 
@@ -212,6 +202,48 @@ class UnblockFriendshipView(APIView):
         )
     
 
+class FriendshipStatusView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, user_id):
+        sender = request.user
+        receiver = get_user_by_id(user_id)
+
+        existing_friendship = check_existing_friendship(sender.id, receiver.id)
+
+        if existing_friendship:
+            return Response({
+                "status": existing_friendship.status,
+                "friendship_id": existing_friendship.id,
+                "sender_id": existing_friendship.sender.id,
+                "receiver_id": existing_friendship.receiver.id,
+                'blocked_by': existing_friendship.blocked_by.id if existing_friendship.blocked_by else None,
+                'sent_at': existing_friendship.sent_at,
+            }, status=200)
+        else:
+            return Response({"status": "NO_RELATION"}, status=200)
+        
+
+class unfriendView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, user_id):
+
+        try :
+            User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({"error": "User not found"}, status=404)
+
+        friendship = Friendship.objects.filter(
+            Q(sender=request.user, receiver_id=user_id) | Q(sender_id=user_id, receiver=request.user) & Q(status=Status.ACCEPTED)
+        ).first()
+
+        if not friendship:
+            return Response({"error": "Friendship not found"}, status=404)
+
+        friendship.delete()
+
+        return Response({"message": "Friendship deleted successfully"}, status=200)
 
 class check(APIView):
 

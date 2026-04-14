@@ -11,7 +11,7 @@ import {
   deleteTask,
   updateOverride,
   startBackgroundSync,
-  stopBackgroundSync,
+  // stopBackgroundSync,
   setFilter,
   resetTasks,
   clearError,
@@ -47,7 +47,7 @@ export const useTasks = (userId: number, currentFilter?: TaskFilter) => {
     dispatch(startBackgroundSync(userId));
 
     return () => {
-      dispatch(stopBackgroundSync());
+      // dispatch(stopBackgroundSync());
     };
   }, [ userId, dispatch, currentFilter ]);
 
@@ -104,7 +104,7 @@ export const useTasks = (userId: number, currentFilter?: TaskFilter) => {
 
   /** Clear everything (e.g. on logout). */
   const reset = useCallback(() => {
-    dispatch(stopBackgroundSync());
+    // dispatch(stopBackgroundSync());
     dispatch(resetTasks());
   }, [ dispatch ]);
 

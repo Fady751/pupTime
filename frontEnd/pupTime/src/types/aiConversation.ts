@@ -21,6 +21,9 @@ export type Message = {
     content: string;
     created_at: string;
     choices?: Choice[];
+    voice_url: string | null;
+    voice_duration_seconds: number | null;
+    voice_mime_type: string | null;
 };
 
 export type Conversation = {

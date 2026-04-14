@@ -10,6 +10,7 @@ import {
   Dimensions,
   ActivityIndicator,
   StyleSheet,
+  LayoutChangeEvent,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
@@ -174,7 +175,16 @@ const Schedule: React.FC<ScheduleProps> = ({
   embedded,
 }) => {
   const { colors } = useTheme();
-  const styles = useMemo(() => createScheduleStyles(colors, embedded), [colors, embedded]);
+  const [containerWidth, setContainerWidth] = useState(0);
+  const styles = useMemo(
+    () => createScheduleStyles(colors, embedded, containerWidth || undefined),
+    [colors, embedded, containerWidth],
+  );
+
+  const handleContainerLayout = useCallback((e: LayoutChangeEvent) => {
+    const { width } = e.nativeEvent.layout;
+    setContainerWidth((prev) => (Math.abs(prev - width) > 1 ? width : prev));
+  }, []);
 
   // console.log("tasks: ", tasks);
   const today = useMemo(() => {
@@ -492,7 +502,7 @@ const Schedule: React.FC<ScheduleProps> = ({
   const Container = embedded ? View : SafeAreaView;
 
   return (
-    <Container style={styles.container}>
+    <Container style={styles.container} onLayout={handleContainerLayout}>
       {/* ========= CALENDAR HEADER ========= */}
       <View style={styles.header}>
         {/* Title row + Today pill */}

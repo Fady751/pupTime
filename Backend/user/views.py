@@ -345,11 +345,6 @@ class UserFreindsView(APIView):
             for f in friendships
         ]
 
-
-        # for friend in friends:
-        #     for key , value in friend.__dict__.items():
-        #         print(f"{key} : {value}") 
-
         serializer = UserFriendsSerializer(friends, many=True)
 
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -404,8 +399,18 @@ class SearchUserByUsernameView(APIView):
       
         users = User.objects.filter(username__icontains=name)
 
+        blocked_users = Friendship.objects.filter(
+            Q(sender=request.user, status=Status.BLOCKED) | Q(receiver=request.user, status=Status.BLOCKED)
+        )
+
+
+
+        users = users.exclude(
+            Q(id__in=blocked_users.values_list('sender_id', flat=True)) | Q(id__in=blocked_users.values_list('receiver_id', flat=True))
+        )
+
         if users.count() == 0:
-            return Response({'error': 'No users found with the given username.'}, status=status.HTTP_404_NOT_FOUND) 
+            return Response('No users found with the given username.', status=status.HTTP_200_OK)
 
         serializer = SearchUserByUsernameSerializer(users, many=True)
 

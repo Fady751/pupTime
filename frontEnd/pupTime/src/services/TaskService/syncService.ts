@@ -578,6 +578,7 @@ export const pullFromServer = async (): Promise<boolean> => {
 	if (queueCount > 0) {
 		await processQueue();
 	}
+	// await AppMetaRepository.set(SYNC_IN_PROGRESS_KEY, 'false');
 
 	const isSyncing = (await AppMetaRepository.get(SYNC_IN_PROGRESS_KEY))?.value === 'true';
 	const isProcessing = (await AppMetaRepository.get(PROCESS_QUEUE_KEY))?.value === 'true';

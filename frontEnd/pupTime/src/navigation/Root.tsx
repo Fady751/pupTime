@@ -38,6 +38,8 @@ export default function Root() {
 
       // const res = await sendMessage({ message: "Hello, AI!" });
       // console.log("res: ", res);
+
+      // console.log("recordedUri: ", recordedUri);
     };
     test();
   }, []);
