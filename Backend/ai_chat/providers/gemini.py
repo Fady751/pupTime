@@ -307,3 +307,45 @@ class GeminiProvider(BaseAIProvider):
         log_ai_request(f"[VOICE] {last_user_text or '(audio only)'}", round_num=1, user=user)
 
         yield from self._run_tool_loop(lc_messages, tools, user=user)
+    def generate_conversation_title(
+        self,
+        user_message: str,
+        ai_response: str,
+        audio_bytes: bytes = None,
+        audio_mime_type: str = None,
+    ) -> str:
+        prompt_instruction = (
+            "You are a helpful assistant. Generate a concise, 3-5 word title for a chat conversation "
+            "based on the following exchange. Return ONLY the title without quotes or punctuation."
+        )
+
+        lc_messages = [SystemMessage(content=prompt_instruction)]
+
+        if audio_bytes and audio_mime_type:
+            audio_b64 = base64.b64encode(audio_bytes).decode("utf-8")
+            
+            user_text = user_message or "(Voice message without text)"
+            lc_messages.append(
+                HumanMessage(content=[
+                    {
+                        "type": "text", 
+                        "text": f"User: {user_text}\n\nAI: {ai_response}"
+                    },
+                    {
+                        "type": "audio",
+                        "source_type": "base64",
+                        "data": audio_b64,
+                        "mime_type": audio_mime_type,
+                    },
+                ])
+            )
+        else:
+            lc_messages.append(
+                HumanMessage(content=f"User: {user_message}\n\nAI: {ai_response}")
+            )
+        try:
+            response = self._llm.invoke(lc_messages)
+            return response.content.strip()
+        except Exception as error:
+            return "New Chat"
+

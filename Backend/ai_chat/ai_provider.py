@@ -55,7 +55,7 @@ class BaseAIProvider(abc.ABC):
         messages: List[ChatMessage],
         tools: list,
         audio_bytes: bytes,
-        audio_mime_type: str,
+        audio_mime_type: List[str],
         user=None,
     ) -> Generator[str, None, None]:
         """
@@ -64,6 +64,18 @@ class BaseAIProvider(abc.ABC):
         """
         raise NotImplementedError(
             f"{self.__class__.__name__} does not support audio input."
+        )
+    @abc.abstractmethod
+    def generate_conversation_title(
+        self,
+        user_message: str,
+        ai_response: str,
+        audio_bytes: bytes = None,
+        audio_mime_type: str = None,
+    ) -> str:
+        """Return a custom generated title for the conversation."""
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not support conversation title generation."
         )
 
 

@@ -474,11 +474,19 @@ class ChatView(APIView):
                 full_response=full_response,
                 user=request.user
             )
-
+            if conversation_id is None:
+                provider = get_ai_provider()
+                title = provider.generate_conversation_title(
+                    user_message=user_text,
+                    ai_response=full_response,
+                )
+                conversation.title = title
+                conversation.save(update_fields=['title'])
             return Response(
                 {
                     'conversation_id': str(conversation.id),
                     'message': MessageSerializer(assistant_message).data,
+                    'title': conversation.title,
                 },
                 status=status.HTTP_200_OK
             )
@@ -654,11 +662,21 @@ class VoiceChatView(APIView):
                 full_response=full_response,
                 user=request.user,
             )
-
+            if conversation_id is None:
+                provider = get_ai_provider()
+                title = provider.generate_conversation_title(
+                    user_message=text_context,
+                    ai_response=full_response,
+                    audio_bytes=audio_bytes,
+                    audio_mime_type=mime_type,
+                )
+                conversation.title = title
+                conversation.save(update_fields=['title'])
             return Response(
                 {
                     'conversation_id': str(conversation.id),
                     'message': MessageSerializer(assistant_message).data,
+                    'title': title,
                 },
                 status=status.HTTP_200_OK,
             )
