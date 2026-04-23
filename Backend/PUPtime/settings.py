@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     'task',
     'chat',
     'ai_chat',
+    'hobby',
     'notification',
     'rest_framework',
     'rest_framework.authtoken',
