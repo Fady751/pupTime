@@ -11,11 +11,15 @@ from django.views.decorators.csrf import csrf_exempt
 logger = logging.getLogger(__name__)
 
 _classifier = None
+_classifier_model_id = None
 _classifier_lock = Lock()
 
-# Public, lightweight emotion-recognition model.
-# You can override it with `TEST_VOICE_MODEL_ID`.
-DEFAULT_MODEL_ID = "superb/wav2vec2-base-superb-er"
+# Default model sequence:
+# - If `TEST_VOICE_MODEL_ID` is set, use it.
+# - Otherwise try a stronger XLSR-based SER model first.
+# - Fall back to a smaller public model.
+PRIMARY_MODEL_ID = "ehcalabres/wav2vec2-lg-xlsr-en-speech-emotion-recognition"
+FALLBACK_MODEL_ID = "superb/wav2vec2-base-superb-er"
 
 TARGET_SAMPLE_RATE = 16000
 
@@ -133,7 +137,7 @@ def _mood_from_emotion_label(label: str) -> str:
 
 
 def _get_classifier():
-    global _classifier
+    global _classifier, _classifier_model_id
 
     if _classifier is not None:
         return _classifier
@@ -142,27 +146,76 @@ def _get_classifier():
         if _classifier is not None:
             return _classifier
 
-        model_id = os.getenv("TEST_VOICE_MODEL_ID", DEFAULT_MODEL_ID)
+        requested_model_id = os.getenv("TEST_VOICE_MODEL_ID")
         token = os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_HUB_TOKEN")
 
-        try:
+        model_candidates = [requested_model_id, PRIMARY_MODEL_ID, FALLBACK_MODEL_ID]
+        model_candidates = [m for m in model_candidates if m]
+
+        def _looks_like_auth_error(exc: Exception) -> bool:
+            msg = str(exc).lower()
+            return any(s in msg for s in ("401", "unauthorized", "invalid username or password"))
+
+        def _build_pipeline(model_id: str, auth_token: str | None):
             from transformers import pipeline
 
-            # Newer `transformers` uses `token=`, older versions used `use_auth_token=`.
-            if token:
+            if auth_token:
+                # Newer `transformers` uses `token=`, older versions used `use_auth_token=`.
                 try:
-                    _classifier = pipeline("audio-classification", model=model_id, token=token)
+                    return pipeline("audio-classification", model=model_id, token=auth_token)
                 except TypeError:
-                    _classifier = pipeline("audio-classification", model=model_id, use_auth_token=token)
-            else:
-                _classifier = pipeline("audio-classification", model=model_id)
+                    return pipeline("audio-classification", model=model_id, use_auth_token=auth_token)
+            return pipeline("audio-classification", model=model_id)
 
-            logger.info("test_voice classifier loaded: %s", model_id)
-            return _classifier
-        except Exception:
-            logger.exception("Failed to load test_voice classifier (model=%s)", model_id)
-            _classifier = None
-            return None
+        last_error: Exception | None = None
+        for model_id in model_candidates:
+            try:
+                _classifier = _build_pipeline(model_id, token)
+                _classifier_model_id = model_id
+                logger.info("test_voice classifier loaded: %s", model_id)
+                return _classifier
+            except Exception as exc:
+                last_error = exc
+
+                # If a bad token is configured, HF returns 401 even for public models.
+                # Retry once without token in that case.
+                if token and _looks_like_auth_error(exc):
+                    try:
+                        _classifier = _build_pipeline(model_id, None)
+                        _classifier_model_id = model_id
+                        logger.warning("test_voice classifier loaded without token: %s", model_id)
+                        return _classifier
+                    except Exception as exc2:
+                        last_error = exc2
+
+                logger.warning("Failed to load model '%s' (trying next)", model_id, exc_info=True)
+
+        logger.error("All test_voice model candidates failed", exc_info=last_error)
+        _classifier = None
+        _classifier_model_id = None
+        return None
+
+
+def _mood_from_predictions(predictions: Any) -> tuple[str, dict[str, float]]:
+    scores = {"good": 0.0, "normal": 0.0, "bad": 0.0}
+    if not isinstance(predictions, list):
+        return "normal", scores
+
+    for item in predictions:
+        if not isinstance(item, dict):
+            continue
+        label = item.get("label")
+        mood = _mood_from_emotion_label(label)
+        try:
+            score = float(item.get("score") or 0.0)
+        except (TypeError, ValueError):
+            score = 0.0
+        if mood not in scores:
+            mood = "normal"
+        scores[mood] += score
+
+    mood = max(scores, key=scores.get) if any(scores.values()) else "normal"
+    return mood, scores
 
 @csrf_exempt
 def analyze_emotion(request):
@@ -198,13 +251,14 @@ def analyze_emotion(request):
         return JsonResponse({"error": "Failed to analyze audio"}, status=500)
 
     top = predictions[0] if isinstance(predictions, list) and predictions else {}
-    top_label = top.get("label") if isinstance(top, dict) else None
-    mood = _mood_from_emotion_label(top_label)
+    mood, mood_scores = _mood_from_predictions(predictions)
 
     return JsonResponse(
         {
             "mood": mood,
+            "mood_scores": mood_scores,
             "top_emotion": top,
             "emotions": predictions,
+            "model": _classifier_model_id,
         }
     )
