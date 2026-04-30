@@ -21,6 +21,7 @@ _asr_lock = Lock()
 _sentiment = None
 _sentiment_model_id = None
 _sentiment_lock = Lock()
+_sentiment_load_error = None
 
 # Default model sequence:
 # - If `TEST_VOICE_MODEL_ID` is set, use it.
@@ -261,7 +262,7 @@ def _sentiment_to_mood(label: str) -> str:
 
 
 def _get_sentiment_pipeline():
-    global _sentiment, _sentiment_model_id
+    global _sentiment, _sentiment_model_id, _sentiment_load_error
 
     if _sentiment is not None:
         return _sentiment
@@ -279,6 +280,7 @@ def _get_sentiment_pipeline():
             {"return_all_scores": True},
         ]
 
+        _sentiment_load_error = None
         last_error: Exception | None = None
         for kwargs in kwargs_variants:
             try:
@@ -288,6 +290,9 @@ def _get_sentiment_pipeline():
                 return _sentiment
             except Exception as exc:
                 last_error = exc
+                msg = str(exc).lower()
+                if "sentencepiece" in msg and "not" in msg and "found" in msg:
+                    _sentiment_load_error = "Missing dependency: sentencepiece"
                 if token and _looks_like_auth_error(exc):
                     try:
                         _sentiment = _build_hf_pipeline("text-classification", model_id, None, **kwargs)
@@ -297,9 +302,15 @@ def _get_sentiment_pipeline():
                     except Exception as exc2:
                         last_error = exc2
 
+                        msg2 = str(exc2).lower()
+                        if "sentencepiece" in msg2 and "not" in msg2 and "found" in msg2:
+                            _sentiment_load_error = "Missing dependency: sentencepiece"
+
         logger.exception("Failed to load test_voice sentiment (model=%s)", model_id, exc_info=last_error)
         _sentiment = None
         _sentiment_model_id = None
+        if _sentiment_load_error is None and last_error is not None:
+            _sentiment_load_error = str(last_error)
         return None
 
 
@@ -417,7 +428,7 @@ def analyze_emotion(request):
     if enable_sentiment and transcript:
         sent = _get_sentiment_pipeline()
         if sent is None:
-            sentiment_error = "Sentiment model not available"
+            sentiment_error = _sentiment_load_error or "Sentiment model not available"
         else:
             try:
                 out = sent(transcript)
