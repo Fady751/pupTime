@@ -45,8 +45,18 @@
                     headers: { 'X-CSRFToken': '{{ csrf_token }}' }
                 });
                 const data = await response.json();
-                const res = data.emotions[0];
-                document.getElementById('result').innerText = `Result: ${res.label} (${Math.round(res.score * 100)}%)`;
+                if (data.error) {
+                    document.getElementById('result').innerText = `Error: ${data.error}`;
+                } else {
+                    const top = data.top_emotion || (data.emotions && data.emotions[0]) || {};
+                    const mood = data.mood || 'unknown';
+                    const label = top.label || 'unknown';
+                    const scorePct = (typeof top.score === 'number') ? Math.round(top.score * 100) : null;
+
+                    document.getElementById('result').innerText = scorePct === null
+                        ? `Mood: ${mood} | Emotion: ${label}`
+                        : `Mood: ${mood} | Emotion: ${label} (${scorePct}%)`;
+                }
                 
                 document.getElementById('recordBtn').style.display = 'inline-block';
                 document.getElementById('stopBtn').style.display = 'none';
