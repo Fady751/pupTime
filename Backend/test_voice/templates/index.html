@@ -15,54 +15,208 @@
     <h1>Live Emotion Analysis - Django</h1>
     <button id="recordBtn" class="btn">Start talking</button>
     <button id="stopBtn" class="btn">Stop & analyze</button>
+    <form id="uploadForm" style="margin-top: 20px;">
+        <input id="audioFile" type="file" accept="audio/*" />
+        <button type="submit" class="btn">Upload & analyze</button>
+    </form>
     <div id="result"></div>
 
     <script>
-        let mediaRecorder;
-        let audioChunks = [];
+        const recordBtn = document.getElementById('recordBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const resultEl = document.getElementById('result');
 
-        document.getElementById('recordBtn').onclick = async () => {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorder = new MediaRecorder(stream);
-            mediaRecorder.start();
-            audioChunks = [];
-            
-            document.getElementById('recordBtn').style.display = 'none';
-            document.getElementById('stopBtn').style.display = 'inline-block';
-            document.getElementById('result').innerText = "Listening...";
+        let audioContext = null;
+        let mediaStream = null;
+        let sourceNode = null;
+        let processorNode = null;
+        let silenceNode = null;
+        let chunks = [];
+        let recordedLength = 0;
+        let recordingSampleRate = 48000;
 
-            mediaRecorder.ondataavailable = event => audioChunks.push(event.data);
-            mediaRecorder.onstop = async () => {
-                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                const formData = new FormData();
-                formData.append('file', audioBlob, 'rec.wav');
+        function isSecureOrigin() {
+            const isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+            return window.isSecureContext || isLocalhost;
+        }
 
-                document.getElementById('result').innerText = "Analyzing...";
+        function flattenChunks(chunksArr, totalLength) {
+            const result = new Float32Array(totalLength);
+            let offset = 0;
+            for (const chunk of chunksArr) {
+                result.set(chunk, offset);
+                offset += chunk.length;
+            }
+            return result;
+        }
 
-                const response = await fetch('analyze/', {
-                    method: 'POST',
-                    body: formData,
-                    headers: { 'X-CSRFToken': '{{ csrf_token }}' }
-                });
-                const data = await response.json();
-                if (data.error) {
-                    document.getElementById('result').innerText = `Error: ${data.error}`;
-                } else {
-                    const top = data.top_emotion || (data.emotions && data.emotions[0]) || {};
-                    const mood = data.mood || 'unknown';
-                    const label = top.label || 'unknown';
-                    const scorePct = (typeof top.score === 'number') ? Math.round(top.score * 100) : null;
+        function writeString(view, offset, str) {
+            for (let i = 0; i < str.length; i++) {
+                view.setUint8(offset + i, str.charCodeAt(i));
+            }
+        }
 
-                    document.getElementById('result').innerText = scorePct === null
-                        ? `Mood: ${mood} | Emotion: ${label}`
-                        : `Mood: ${mood} | Emotion: ${label} (${scorePct}%)`;
-                }
-                
-                document.getElementById('recordBtn').style.display = 'inline-block';
-                document.getElementById('stopBtn').style.display = 'none';
+        function floatTo16BitPCM(view, offset, input) {
+            for (let i = 0; i < input.length; i++, offset += 2) {
+                const s = Math.max(-1, Math.min(1, input[i]));
+                view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+            }
+        }
+
+        function encodeWav(samples, sampleRate) {
+            const buffer = new ArrayBuffer(44 + samples.length * 2);
+            const view = new DataView(buffer);
+
+            writeString(view, 0, 'RIFF');
+            view.setUint32(4, 36 + samples.length * 2, true);
+            writeString(view, 8, 'WAVE');
+            writeString(view, 12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true);
+            view.setUint16(22, 1, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * 2, true);
+            view.setUint16(32, 2, true);
+            view.setUint16(34, 16, true);
+            writeString(view, 36, 'data');
+            view.setUint32(40, samples.length * 2, true);
+            floatTo16BitPCM(view, 44, samples);
+
+            return new Blob([view], { type: 'audio/wav' });
+        }
+
+        async function sendForAnalysis(audioBlob, filename = 'rec.wav') {
+            const formData = new FormData();
+            formData.append('file', audioBlob, filename);
+
+            resultEl.innerText = 'Analyzing...';
+
+            const response = await fetch('analyze/', {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+            });
+            const data = await response.json();
+
+            if (data.error) {
+                resultEl.innerText = `Error: ${data.error}`;
+                return;
+            }
+
+            const top = data.top_emotion || (data.emotions && data.emotions[0]) || {};
+            const mood = data.mood || 'unknown';
+            const label = top.label || 'unknown';
+            const scorePct = (typeof top.score === 'number') ? Math.round(top.score * 100) : null;
+
+            resultEl.innerText = scorePct === null
+                ? `Mood: ${mood} | Emotion: ${label}`
+                : `Mood: ${mood} | Emotion: ${label} (${scorePct}%)`;
+        }
+
+        async function startRecording() {
+            if (!isSecureOrigin()) {
+                resultEl.innerText = 'Microphone access requires HTTPS (or localhost). Open this page via https:// or run it locally.';
+                return;
+            }
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                resultEl.innerText = 'Microphone APIs are not available in this browser/context.';
+                return;
+            }
+
+            try {
+                mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            } catch (err) {
+                resultEl.innerText = 'Microphone permission denied or not available.';
+                return;
+            }
+
+            chunks = [];
+            recordedLength = 0;
+
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            recordingSampleRate = audioContext.sampleRate;
+
+            sourceNode = audioContext.createMediaStreamSource(mediaStream);
+            processorNode = audioContext.createScriptProcessor(4096, 1, 1);
+            silenceNode = audioContext.createGain();
+            silenceNode.gain.value = 0;
+
+            processorNode.onaudioprocess = (event) => {
+                const input = event.inputBuffer.getChannelData(0);
+                chunks.push(new Float32Array(input));
+                recordedLength += input.length;
             };
-        };
-        document.getElementById('stopBtn').onclick = () => mediaRecorder.stop();
+
+            sourceNode.connect(processorNode);
+            processorNode.connect(silenceNode);
+            silenceNode.connect(audioContext.destination);
+
+            recordBtn.style.display = 'none';
+            stopBtn.style.display = 'inline-block';
+            resultEl.innerText = 'Listening...';
+        }
+
+        async function stopRecording() {
+            if (!audioContext) {
+                return;
+            }
+
+            try {
+                processorNode && processorNode.disconnect();
+                sourceNode && sourceNode.disconnect();
+                silenceNode && silenceNode.disconnect();
+            } catch (e) {
+                // Ignore disconnect errors
+            }
+
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(t => t.stop());
+            }
+
+            try {
+                await audioContext.close();
+            } catch (e) {
+                // Ignore close errors
+            }
+
+            const pcm = flattenChunks(chunks, recordedLength);
+            const wavBlob = encodeWav(pcm, recordingSampleRate);
+
+            audioContext = null;
+            mediaStream = null;
+            sourceNode = null;
+            processorNode = null;
+            silenceNode = null;
+            chunks = [];
+            recordedLength = 0;
+
+            recordBtn.style.display = 'inline-block';
+            stopBtn.style.display = 'none';
+
+            await sendForAnalysis(wavBlob, 'rec.wav');
+        }
+
+        recordBtn.onclick = startRecording;
+        stopBtn.onclick = stopRecording;
+
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const fileInput = document.getElementById('audioFile');
+            const file = fileInput && fileInput.files && fileInput.files[0];
+            if (!file) {
+                resultEl.innerText = 'Please choose an audio file first.';
+                return;
+            }
+
+            await sendForAnalysis(file, file.name || 'upload');
+            fileInput.value = '';
+        });
+
+        // Helpful hint on load
+        if (!isSecureOrigin()) {
+            resultEl.innerText = 'Note: Microphone recording requires HTTPS (or localhost). Use the upload option instead.';
+        }
     </script>
 </body>
 </html>
