@@ -19,6 +19,7 @@ schema_view = get_schema_view(
 )
 
 urlpatterns = [
+    path('test-voice/', include('test_voice.urls')),
     path('admin/', admin.site.urls),
     path('user/', include('user.urls')),
     path('task/', include('task.urls')),
