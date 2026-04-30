@@ -12,7 +12,7 @@
     </style>
 </head>
 <body>
-    <h1>Live Emotion Analysis - Django</h1>
+    <h1>Emotion Analysis</h1>
     <button id="recordBtn" class="btn">Start talking</button>
     <button id="stopBtn" class="btn">Stop & analyze</button>
     <form id="uploadForm" style="margin-top: 20px;">
@@ -108,9 +108,18 @@
             const label = top.label || 'unknown';
             const scorePct = (typeof top.score === 'number') ? Math.round(top.score * 100) : null;
 
-            resultEl.innerText = scorePct === null
+            const transcript = data.transcript ? `\nTranscript: ${data.transcript}` : '';
+            const toneMood = data.mood_components && data.mood_components.tone ? data.mood_components.tone : null;
+            const textMood = data.mood_components && data.mood_components.text ? data.mood_components.text : null;
+            const components = (toneMood || textMood)
+                ? `\nTone: ${toneMood || 'n/a'} | Text: ${textMood || 'n/a'}`
+                : '';
+
+            const header = scorePct === null
                 ? `Mood: ${mood} | Emotion: ${label}`
                 : `Mood: ${mood} | Emotion: ${label} (${scorePct}%)`;
+
+            resultEl.innerText = header + components + transcript;
         }
 
         async function startRecording() {
