@@ -2,30 +2,332 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Django Emotion AI</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Mood Analyzer — PUPtime</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: sans-serif; text-align: center; padding: 50px; background: #1a1a1a; color: white; }
-        .btn { padding: 15px 30px; font-size: 18px; cursor: pointer; border-radius: 8px; border: none; margin: 10px; transition: 0.3s; }
-        #recordBtn { background: #e74c3c; color: white; }
-        #stopBtn { background: #95a5a6; display: none; }
-        #result { margin-top: 30px; font-size: 22px; color: #2ecc71; font-weight: bold; }
+        :root {
+            --bg: #0c0c14;
+            --surface: #14142a;
+            --surface-2: #1c1c3a;
+            --border: #2a2a50;
+            --primary: #7c5cfc;
+            --primary-glow: rgba(124, 92, 252, 0.25);
+            --accent: #00d9a3;
+            --accent-glow: rgba(0, 217, 163, 0.2);
+            --danger: #ff5c72;
+            --warning: #ffb347;
+            --text: #e8e6f0;
+            --text-muted: #7b79a0;
+            --radius: 16px;
+            --good: #00d9a3;
+            --normal: #7c5cfc;
+            --bad: #ff5c72;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 32px 16px;
+        }
+        h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 4px;
+        }
+        .subtitle { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 32px; }
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+            width: 100%;
+            max-width: 640px;
+            margin-bottom: 20px;
+            transition: border-color 0.3s;
+        }
+        .card:hover { border-color: var(--primary); }
+        .card h2 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--accent);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        #recordBtn {
+            background: linear-gradient(135deg, #ff5c72, #ff3355);
+            color: white;
+            width: 100%;
+            font-size: 1.1rem;
+            padding: 16px;
+            box-shadow: 0 4px 24px rgba(255, 92, 114, 0.3);
+        }
+        #recordBtn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 30px rgba(255, 92, 114, 0.4); }
+        #recordBtn.recording {
+            background: linear-gradient(135deg, #ff3355, #cc0033);
+            animation: pulse 1.2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(255, 92, 114, 0.5); }
+            50% { box-shadow: 0 0 0 16px rgba(255, 92, 114, 0); }
+        }
+        #stopBtn {
+            display: none;
+            background: var(--surface-2);
+            color: var(--text);
+            border: 1px solid var(--border);
+            width: 100%;
+            font-size: 1.05rem;
+            padding: 14px;
+            margin-top: 8px;
+        }
+        #stopBtn:hover { border-color: var(--accent); }
+        .upload-row {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-top: 16px;
+        }
+        .upload-row input[type="file"] {
+            flex: 1;
+            padding: 10px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text);
+            font-size: 0.85rem;
+        }
+        .upload-row .btn {
+            background: var(--accent);
+            color: var(--bg);
+            white-space: nowrap;
+        }
+        .upload-row .btn:hover:not(:disabled) { background: #00c791; }
+
+        .timer {
+            font-size: 2rem;
+            text-align: center;
+            margin: 12px 0;
+            color: var(--danger);
+            font-family: 'Courier New', monospace;
+            font-weight: 700;
+            letter-spacing: 2px;
+            display: none;
+        }
+        .divider {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 16px 0;
+            position: relative;
+        }
+        .divider::before, .divider::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 40%;
+            height: 1px;
+            background: var(--border);
+        }
+        .divider::before { left: 0; }
+        .divider::after { right: 0; }
+
+        /* Status */
+        #status {
+            padding: 14px 16px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            margin-top: 12px;
+            display: none;
+            line-height: 1.5;
+        }
+        #status.info { display: block; background: rgba(124,92,252,0.1); border: 1px solid rgba(124,92,252,0.3); }
+        #status.success { display: block; background: rgba(0,217,163,0.1); border: 1px solid rgba(0,217,163,0.3); }
+        #status.error { display: block; background: rgba(255,92,114,0.1); border: 1px solid rgba(255,92,114,0.3); }
+
+        /* Result panel */
+        .result-panel { display: none; }
+        .result-panel.visible { display: block; }
+        .mood-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 28px;
+            border-radius: 50px;
+            font-size: 1.6rem;
+            font-weight: 700;
+            margin: 8px auto 20px;
+        }
+        .mood-badge.good { background: rgba(0,217,163,0.15); color: var(--good); border: 2px solid var(--good); }
+        .mood-badge.normal { background: rgba(124,92,252,0.15); color: var(--normal); border: 2px solid var(--normal); }
+        .mood-badge.bad { background: rgba(255,92,114,0.15); color: var(--bad); border: 2px solid var(--bad); }
+
+        .scores-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .score-item {
+            background: var(--bg);
+            border-radius: 12px;
+            padding: 14px;
+            text-align: center;
+        }
+        .score-item .label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+        .score-bar {
+            height: 6px;
+            border-radius: 3px;
+            background: var(--border);
+            margin-top: 8px;
+            overflow: hidden;
+        }
+        .score-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.6s ease;
+        }
+        .score-bar-fill.good { background: var(--good); }
+        .score-bar-fill.normal { background: var(--normal); }
+        .score-bar-fill.bad { background: var(--bad); }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.85rem;
+        }
+        .detail-row:last-child { border-bottom: none; }
+        .detail-label { color: var(--text-muted); }
+        .detail-value { font-weight: 600; }
+        .transcript-box {
+            background: var(--bg);
+            border-radius: 12px;
+            padding: 16px;
+            margin-top: 12px;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            border: 1px solid var(--border);
+        }
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .tag.pipeline { background: rgba(124,92,252,0.2); color: var(--primary); }
+        .tag.lang { background: rgba(0,217,163,0.2); color: var(--accent); }
     </style>
 </head>
 <body>
-    <h1>Emotion Analysis</h1>
-    <button id="recordBtn" class="btn">Start talking</button>
-    <button id="stopBtn" class="btn">Stop & analyze</button>
-    <form id="uploadForm" style="margin-top: 20px;">
-        <input id="audioFile" type="file" accept="audio/*" />
-        <button type="submit" class="btn">Upload & analyze</button>
-    </form>
-    <div id="result"></div>
+    <h1>🎤 Voice Mood Analyzer</h1>
+    <p class="subtitle">Speak or upload audio — supports Arabic, Egyptian, & English</p>
+
+    <!-- Input Card -->
+    <div class="card">
+        <h2>🎙️ Voice Input</h2>
+        <button id="recordBtn" class="btn" onclick="startRecording()">
+            🎤 Start Talking
+        </button>
+        <button id="stopBtn" class="btn" onclick="stopRecording()">
+            ⏹ Stop & Analyze
+        </button>
+        <div id="timerDisplay" class="timer">00:00</div>
+
+        <div class="divider">or upload a file</div>
+
+        <form id="uploadForm">
+            <div class="upload-row">
+                <input id="audioFile" type="file" accept="audio/*" />
+                <button type="submit" class="btn">Upload & Analyze</button>
+            </div>
+        </form>
+
+        <div id="status"></div>
+    </div>
+
+    <!-- Results Card -->
+    <div class="card result-panel" id="resultPanel">
+        <h2>📊 Analysis Results</h2>
+
+        <div style="text-align: center;">
+            <div id="moodBadge" class="mood-badge good">😊 Good</div>
+        </div>
+
+        <div id="scoresGrid" class="scores-grid">
+            <div class="score-item">
+                <div class="label">Good 😊</div>
+                <div id="scoreGood" style="font-size: 1.3rem; font-weight: 700; color: var(--good);">0%</div>
+                <div class="score-bar"><div class="score-bar-fill good" id="barGood" style="width: 0%"></div></div>
+            </div>
+            <div class="score-item">
+                <div class="label">Normal 😐</div>
+                <div id="scoreNormal" style="font-size: 1.3rem; font-weight: 700; color: var(--normal);">0%</div>
+                <div class="score-bar"><div class="score-bar-fill normal" id="barNormal" style="width: 0%"></div></div>
+            </div>
+            <div class="score-item">
+                <div class="label">Bad 😠</div>
+                <div id="scoreBad" style="font-size: 1.3rem; font-weight: 700; color: var(--bad);">0%</div>
+                <div class="score-bar"><div class="score-bar-fill bad" id="barBad" style="width: 0%"></div></div>
+            </div>
+        </div>
+
+        <div id="detailsSection">
+            <div class="detail-row">
+                <span class="detail-label">Tone (voice)</span>
+                <span class="detail-value" id="detailTone">—</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Text sentiment</span>
+                <span class="detail-value" id="detailText">—</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Language</span>
+                <span class="detail-value" id="detailLang">—</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Pipeline</span>
+                <span class="detail-value" id="detailPipeline">—</span>
+            </div>
+        </div>
+
+        <div id="transcriptSection" style="display: none; margin-top: 16px;">
+            <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 6px;">📝 Transcript</div>
+            <div class="transcript-box" id="transcriptText"></div>
+        </div>
+    </div>
 
     <script>
-        const recordBtn = document.getElementById('recordBtn');
-        const stopBtn = document.getElementById('stopBtn');
-        const resultEl = document.getElementById('result');
-
         let audioContext = null;
         let mediaStream = null;
         let sourceNode = null;
@@ -34,26 +336,31 @@
         let chunks = [];
         let recordedLength = 0;
         let recordingSampleRate = 48000;
+        let timerInterval = null;
+        let recordingSeconds = 0;
+
+        const recordBtn = document.getElementById('recordBtn');
+        const stopBtn = document.getElementById('stopBtn');
 
         function isSecureOrigin() {
-            const isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-            return window.isSecureContext || isLocalhost;
+            return window.isSecureContext || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
         }
 
-        function flattenChunks(chunksArr, totalLength) {
-            const result = new Float32Array(totalLength);
+        function setStatus(msg, type) {
+            const el = document.getElementById('status');
+            el.textContent = msg;
+            el.className = type;
+        }
+
+        function flattenChunks(arr, totalLen) {
+            const result = new Float32Array(totalLen);
             let offset = 0;
-            for (const chunk of chunksArr) {
-                result.set(chunk, offset);
-                offset += chunk.length;
-            }
+            for (const c of arr) { result.set(c, offset); offset += c.length; }
             return result;
         }
 
         function writeString(view, offset, str) {
-            for (let i = 0; i < str.length; i++) {
-                view.setUint8(offset + i, str.charCodeAt(i));
-            }
+            for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
         }
 
         function floatTo16BitPCM(view, offset, input) {
@@ -66,7 +373,6 @@
         function encodeWav(samples, sampleRate) {
             const buffer = new ArrayBuffer(44 + samples.length * 2);
             const view = new DataView(buffer);
-
             writeString(view, 0, 'RIFF');
             view.setUint32(4, 36 + samples.length * 2, true);
             writeString(view, 8, 'WAVE');
@@ -81,77 +387,36 @@
             writeString(view, 36, 'data');
             view.setUint32(40, samples.length * 2, true);
             floatTo16BitPCM(view, 44, samples);
-
             return new Blob([view], { type: 'audio/wav' });
-        }
-
-        async function sendForAnalysis(audioBlob, filename = 'rec.wav') {
-            const formData = new FormData();
-            formData.append('file', audioBlob, filename);
-
-            resultEl.innerText = 'Analyzing...';
-
-            const response = await fetch('analyze/', {
-                method: 'POST',
-                body: formData,
-                headers: { 'X-CSRFToken': '{{ csrf_token }}' }
-            });
-            const data = await response.json();
-
-            if (data.error) {
-                resultEl.innerText = `Error: ${data.error}`;
-                return;
-            }
-
-            const top = data.top_emotion || (data.emotions && data.emotions[0]) || {};
-            const mood = data.mood || 'unknown';
-            const label = top.label || 'unknown';
-            const scorePct = (typeof top.score === 'number') ? Math.round(top.score * 100) : null;
-
-            const transcript = data.transcript ? `\nTranscript: ${data.transcript}` : '';
-            const toneMood = data.mood_components && data.mood_components.tone ? data.mood_components.tone : null;
-            const textMood = data.mood_components && data.mood_components.text ? data.mood_components.text : null;
-            const components = (toneMood || textMood)
-                ? `\nTone: ${toneMood || 'n/a'} | Text: ${textMood || 'n/a'}`
-                : '';
-
-            const header = scorePct === null
-                ? `Mood: ${mood} | Emotion: ${label}`
-                : `Mood: ${mood} | Emotion: ${label} (${scorePct}%)`;
-
-            resultEl.innerText = header + components + transcript;
         }
 
         async function startRecording() {
             if (!isSecureOrigin()) {
-                resultEl.innerText = 'Microphone access requires HTTPS (or localhost). Open this page via https:// or run it locally.';
+                setStatus('Microphone requires HTTPS or localhost.', 'error');
                 return;
             }
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                resultEl.innerText = 'Microphone APIs are not available in this browser/context.';
+            if (!navigator.mediaDevices?.getUserMedia) {
+                setStatus('Microphone API not available in this browser.', 'error');
                 return;
             }
-
             try {
                 mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            } catch (err) {
-                resultEl.innerText = 'Microphone permission denied or not available.';
+            } catch {
+                setStatus('Microphone permission denied.', 'error');
                 return;
             }
 
             chunks = [];
             recordedLength = 0;
-
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
             recordingSampleRate = audioContext.sampleRate;
-
             sourceNode = audioContext.createMediaStreamSource(mediaStream);
             processorNode = audioContext.createScriptProcessor(4096, 1, 1);
             silenceNode = audioContext.createGain();
             silenceNode.gain.value = 0;
 
-            processorNode.onaudioprocess = (event) => {
-                const input = event.inputBuffer.getChannelData(0);
+            processorNode.onaudioprocess = (e) => {
+                const input = e.inputBuffer.getChannelData(0);
                 chunks.push(new Float32Array(input));
                 recordedLength += input.length;
             };
@@ -161,70 +426,127 @@
             silenceNode.connect(audioContext.destination);
 
             recordBtn.style.display = 'none';
-            stopBtn.style.display = 'inline-block';
-            resultEl.innerText = 'Listening...';
+            stopBtn.style.display = 'block';
+            const timer = document.getElementById('timerDisplay');
+            timer.style.display = 'block';
+            recordingSeconds = 0;
+            timer.textContent = '00:00';
+            timerInterval = setInterval(() => {
+                recordingSeconds++;
+                const m = String(Math.floor(recordingSeconds / 60)).padStart(2, '0');
+                const s = String(recordingSeconds % 60).padStart(2, '0');
+                timer.textContent = `${m}:${s}`;
+            }, 1000);
+
+            setStatus('🎤 Listening...', 'info');
         }
 
         async function stopRecording() {
-            if (!audioContext) {
-                return;
-            }
+            if (!audioContext) return;
+            clearInterval(timerInterval);
+            document.getElementById('timerDisplay').style.display = 'none';
 
-            try {
-                processorNode && processorNode.disconnect();
-                sourceNode && sourceNode.disconnect();
-                silenceNode && silenceNode.disconnect();
-            } catch (e) {
-                // Ignore disconnect errors
-            }
-
-            if (mediaStream) {
-                mediaStream.getTracks().forEach(t => t.stop());
-            }
-
-            try {
-                await audioContext.close();
-            } catch (e) {
-                // Ignore close errors
-            }
+            try { processorNode?.disconnect(); sourceNode?.disconnect(); silenceNode?.disconnect(); } catch {}
+            if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+            try { await audioContext.close(); } catch {}
 
             const pcm = flattenChunks(chunks, recordedLength);
             const wavBlob = encodeWav(pcm, recordingSampleRate);
 
-            audioContext = null;
-            mediaStream = null;
-            sourceNode = null;
-            processorNode = null;
-            silenceNode = null;
-            chunks = [];
-            recordedLength = 0;
+            audioContext = null; mediaStream = null; sourceNode = null;
+            processorNode = null; silenceNode = null; chunks = []; recordedLength = 0;
 
-            recordBtn.style.display = 'inline-block';
+            recordBtn.style.display = 'block';
             stopBtn.style.display = 'none';
 
             await sendForAnalysis(wavBlob, 'rec.wav');
         }
 
-        recordBtn.onclick = startRecording;
-        stopBtn.onclick = stopRecording;
+        async function sendForAnalysis(audioBlob, filename = 'rec.wav') {
+            const formData = new FormData();
+            formData.append('file', audioBlob, filename);
 
+            setStatus('⏳ Analyzing voice — this may take a moment...', 'info');
+
+            try {
+                const response = await fetch('analyze/', {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+                });
+                const data = await response.json();
+
+                if (data.error) {
+                    setStatus(`❌ ${data.error}`, 'error');
+                    return;
+                }
+
+                displayResults(data);
+                setStatus('✅ Analysis complete!', 'success');
+            } catch (err) {
+                setStatus(`❌ Network error: ${err.message}`, 'error');
+            }
+        }
+
+        function displayResults(data) {
+            const panel = document.getElementById('resultPanel');
+            panel.classList.add('visible');
+
+            // Mood badge
+            const mood = data.mood || 'normal';
+            const badge = document.getElementById('moodBadge');
+            const moodEmoji = { good: '😊', normal: '😐', bad: '😠' };
+            const moodLabel = { good: 'Good', normal: 'Normal', bad: 'Bad' };
+            badge.className = `mood-badge ${mood}`;
+            badge.textContent = `${moodEmoji[mood] || '😐'} ${moodLabel[mood] || 'Normal'}`;
+
+            // Scores
+            const combined = data.mood_scores?.combined || {};
+            const total = (combined.good || 0) + (combined.normal || 0) + (combined.bad || 0) || 1;
+            const pct = (v) => Math.round(((v || 0) / total) * 100);
+
+            document.getElementById('scoreGood').textContent = pct(combined.good) + '%';
+            document.getElementById('scoreNormal').textContent = pct(combined.normal) + '%';
+            document.getElementById('scoreBad').textContent = pct(combined.bad) + '%';
+            document.getElementById('barGood').style.width = pct(combined.good) + '%';
+            document.getElementById('barNormal').style.width = pct(combined.normal) + '%';
+            document.getElementById('barBad').style.width = pct(combined.bad) + '%';
+
+            // Details
+            const comp = data.mood_components || {};
+            document.getElementById('detailTone').textContent = comp.tone || '—';
+            document.getElementById('detailText').textContent = comp.text || '—';
+
+            const langMap = { en: '🇺🇸 English', ar: '🇪🇬 Arabic', zh: '🇨🇳 Chinese', ja: '🇯🇵 Japanese', ko: '🇰🇷 Korean' };
+            document.getElementById('detailLang').textContent = langMap[data.detected_language] || data.detected_language || '—';
+
+            const pipelineEl = document.getElementById('detailPipeline');
+            pipelineEl.innerHTML = data.pipeline === 'sensevoice'
+                ? '<span class="tag pipeline">SenseVoice ✨</span>'
+                : '<span class="tag pipeline">Legacy (wav2vec2)</span>';
+
+            // Transcript
+            const tsSection = document.getElementById('transcriptSection');
+            if (data.transcript) {
+                tsSection.style.display = 'block';
+                document.getElementById('transcriptText').textContent = data.transcript;
+            } else {
+                tsSection.style.display = 'none';
+            }
+        }
+
+        // Upload form
         document.getElementById('uploadForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-
             const fileInput = document.getElementById('audioFile');
-            const file = fileInput && fileInput.files && fileInput.files[0];
-            if (!file) {
-                resultEl.innerText = 'Please choose an audio file first.';
-                return;
-            }
-
+            const file = fileInput?.files?.[0];
+            if (!file) { setStatus('Please choose an audio file first.', 'error'); return; }
             await sendForAnalysis(file, file.name || 'upload');
             fileInput.value = '';
         });
 
-        // Helpful hint on load
         if (!isSecureOrigin()) {
-            resultEl.innerText = 'Note: Microphone recording requires HTTPS (or localhost). Use the upload option instead.';
+            setStatus('Note: Microphone requires HTTPS (or localhost). Use the upload option instead.', 'info');
         }
     </script>
 </body>
