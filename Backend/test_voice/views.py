@@ -9,15 +9,14 @@ Pipeline overview
    • Language Identification
    ⇒  replaces the old wav2vec2 classifier + whisper ASR combo.
 
-2. **Text sentiment** — language-aware routing:
-   • Arabic / Egyptian  → CAMeL-Lab/bert-base-arabic-camelbert-da-sentiment
-   • English / other    → cardiffnlp/twitter-xlm-roberta-base-sentiment
+2. **Google Speech-to-Text v2** — paid, high-quality Arabic/English transcript
+    + language detection (optional, can be disabled).
 
-3. **Fusion** — weighted combination of voice-emotion + text-sentiment
+3. **Google Natural Language Sentiment** — paid sentiment analysis for the
+    transcript (optional, can be disabled).
+
+4. **Fusion** — weighted combination of voice-emotion + text-sentiment
    scores to produce a final mood (good / normal / bad).
-
-Fallback: if ``funasr`` is not installed the code falls back to the
-legacy wav2vec2 + whisper pipeline so nothing breaks.
 """
 
 import io
@@ -40,21 +39,6 @@ _sensevoice = None
 _sensevoice_lock = Lock()
 _sensevoice_error: str | None = None
 
-# Legacy fallback (wav2vec2 emotion classifier + whisper ASR)
-_classifier = None
-_classifier_model_id = None
-_classifier_lock = Lock()
-_asr = None
-_asr_model_id = None
-_asr_lock = Lock()
-
-# Sentiment pipelines (one per language family)
-_sentiment_ar = None
-_sentiment_ar_lock = Lock()
-_sentiment_en = None
-_sentiment_en_lock = Lock()
-_sentiment_load_errors: dict[str, str] = {}
-
 # Google Cloud clients (Speech-to-Text v2 + Natural Language sentiment)
 _google_speech_client = None
 _google_speech_lock = Lock()
@@ -66,15 +50,6 @@ _google_lang_error: str | None = None
 
 # ── Model IDs ─────────────────────────────────────────────────────────
 SENSEVOICE_MODEL_ID = "FunAudioLLM/SenseVoiceSmall"
-
-# Legacy fallback emotion models
-LEGACY_PRIMARY_MODEL_ID = "ehcalabres/wav2vec2-lg-xlsr-en-speech-emotion-recognition"
-LEGACY_FALLBACK_MODEL_ID = "superb/wav2vec2-base-superb-er"
-DEFAULT_ASR_MODEL_ID = "openai/whisper-small"
-
-# Sentiment models
-ARABIC_SENTIMENT_MODEL_ID = "CAMeL-Lab/bert-base-arabic-camelbert-da-sentiment"
-ENGLISH_SENTIMENT_MODEL_ID = "cardiffnlp/twitter-xlm-roberta-base-sentiment"
 
 DEFAULT_GOOGLE_STT_LANGUAGES = ("ar", "en")
 GOOGLE_SPEECH_MODEL_PREFIX = "google-speech-v2"
@@ -548,143 +523,6 @@ def _run_sensevoice(audio: np.ndarray, sample_rate: int) -> dict:
 
 
 # =====================================================================
-#  Sentiment pipelines (language-aware)
-# =====================================================================
-def _get_arabic_sentiment():
-    global _sentiment_ar
-    if _sentiment_ar is not None:
-        return _sentiment_ar
-
-    with _sentiment_ar_lock:
-        if _sentiment_ar is not None:
-            return _sentiment_ar
-
-        model_id = os.getenv("ARABIC_SENTIMENT_MODEL_ID", ARABIC_SENTIMENT_MODEL_ID)
-        try:
-            _sentiment_ar = _build_hf_pipeline("text-classification", model_id, top_k=None)
-            logger.info("Arabic sentiment loaded: %s", model_id)
-            return _sentiment_ar
-        except Exception as exc:
-            _sentiment_load_errors["ar"] = str(exc)
-            logger.exception("Failed to load Arabic sentiment model")
-            return None
-
-
-def _get_english_sentiment():
-    global _sentiment_en
-    if _sentiment_en is not None:
-        return _sentiment_en
-
-    with _sentiment_en_lock:
-        if _sentiment_en is not None:
-            return _sentiment_en
-
-        model_id = os.getenv("ENGLISH_SENTIMENT_MODEL_ID", ENGLISH_SENTIMENT_MODEL_ID)
-        try:
-            _sentiment_en = _build_hf_pipeline("text-classification", model_id, top_k=None)
-            logger.info("English sentiment loaded: %s", model_id)
-            return _sentiment_en
-        except Exception as exc:
-            _sentiment_load_errors["en"] = str(exc)
-            logger.exception("Failed to load English sentiment model")
-            return None
-
-
-def _build_hf_pipeline(task: str, model_id: str, **kwargs):
-    from transformers import pipeline
-
-    token = os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_HUB_TOKEN")
-    if token:
-        try:
-            return pipeline(task, model=model_id, token=token, **kwargs)
-        except TypeError:
-            return pipeline(task, model=model_id, use_auth_token=token, **kwargs)
-    return pipeline(task, model=model_id, **kwargs)
-
-
-def _is_arabic(text: str) -> bool:
-    """Heuristic: check if text contains Arabic characters."""
-    if not text:
-        return False
-    arabic_chars = sum(1 for c in text if "\u0600" <= c <= "\u06FF" or "\u0750" <= c <= "\u077F")
-    return arabic_chars / max(len(text.replace(" ", "")), 1) > 0.3
-
-
-def _run_sentiment(transcript: str, detected_lang: str | None) -> dict:
-    """Run the best sentiment model based on detected language.
-
-    Returns dict with keys: mood, scores, raw, model, error
-    """
-    result = {
-        "mood": None,
-        "scores": {"good": 0.0, "normal": 0.0, "bad": 0.0},
-        "raw": None,
-        "model": None,
-        "error": None,
-    }
-
-    if not transcript or not transcript.strip():
-        return result
-
-    # Pick the right model
-    use_arabic = (detected_lang in ("ar", "zn")) or _is_arabic(transcript)
-
-    if use_arabic:
-        pipe = _get_arabic_sentiment()
-        result["model"] = ARABIC_SENTIMENT_MODEL_ID
-        label_map = {
-            "positive": "good",
-            "negative": "bad",
-            "neutral": "normal",
-        }
-    else:
-        pipe = _get_english_sentiment()
-        result["model"] = ENGLISH_SENTIMENT_MODEL_ID
-        label_map = {
-            "positive": "good",
-            "pos": "good",
-            "negative": "bad",
-            "neg": "bad",
-            "neutral": "normal",
-            "neu": "normal",
-            # XLM-RoBERTa uses LABEL_0/1/2
-            "label_0": "bad",
-            "label_1": "normal",
-            "label_2": "good",
-        }
-
-    if pipe is None:
-        result["error"] = _sentiment_load_errors.get("ar" if use_arabic else "en", "Model not available")
-        return result
-
-    try:
-        out = pipe(transcript[:512])  # truncate to model max
-        result["raw"] = out
-
-        scores_list = None
-        if isinstance(out, list) and out and isinstance(out[0], list):
-            scores_list = out[0]
-        elif isinstance(out, list) and out and isinstance(out[0], dict):
-            scores_list = out
-
-        if scores_list:
-            for item in scores_list:
-                if not isinstance(item, dict):
-                    continue
-                label = str(item.get("label", "")).strip().lower().replace(" ", "_")
-                mood = label_map.get(label, "normal")
-                score = float(item.get("score", 0.0))
-                result["scores"][mood] += score
-
-            result["mood"] = max(result["scores"], key=result["scores"].get)
-    except Exception as exc:
-        logger.exception("Sentiment analysis failed")
-        result["error"] = str(exc)
-
-    return result
-
-
-# =====================================================================
 #  Mood mapping helpers
 # =====================================================================
 def _emotion_to_mood(emotion: str | None) -> str:
@@ -707,132 +545,6 @@ def _normalize_scores(scores: dict[str, float]) -> dict[str, float]:
     if total <= 0:
         return {k: 0.0 for k in scores}
     return {k: max(v, 0.0) / total for k, v in scores.items()}
-
-
-# =====================================================================
-#  Legacy fallback pipeline (wav2vec2 + whisper)
-# =====================================================================
-def _get_legacy_classifier():
-    global _classifier, _classifier_model_id
-    if _classifier is not None:
-        return _classifier
-
-    with _classifier_lock:
-        if _classifier is not None:
-            return _classifier
-
-        model_candidates = [
-            os.getenv("TEST_VOICE_MODEL_ID"),
-            LEGACY_PRIMARY_MODEL_ID,
-            LEGACY_FALLBACK_MODEL_ID,
-        ]
-        model_candidates = [m for m in model_candidates if m]
-
-        for model_id in model_candidates:
-            try:
-                _classifier = _build_hf_pipeline("audio-classification", model_id)
-                _classifier_model_id = model_id
-                logger.info("Legacy classifier loaded: %s", model_id)
-                return _classifier
-            except Exception:
-                logger.warning("Failed to load legacy model '%s'", model_id, exc_info=True)
-
-        return None
-
-
-def _get_legacy_asr():
-    global _asr, _asr_model_id
-    if _asr is not None:
-        return _asr
-
-    with _asr_lock:
-        if _asr is not None:
-            return _asr
-
-        model_id = os.getenv("TEST_VOICE_ASR_MODEL_ID", DEFAULT_ASR_MODEL_ID)
-        try:
-            _asr = _build_hf_pipeline("automatic-speech-recognition", model_id)
-            _asr_model_id = model_id
-            logger.info("Legacy ASR loaded: %s", model_id)
-            return _asr
-        except Exception:
-            logger.exception("Failed to load legacy ASR")
-            return None
-
-
-def _legacy_mood_from_predictions(predictions: list) -> tuple[str, dict[str, float]]:
-    """Map wav2vec2 emotion predictions to mood scores."""
-    scores = {"good": 0.0, "normal": 0.0, "bad": 0.0}
-    if not isinstance(predictions, list):
-        return "normal", scores
-
-    for item in predictions:
-        if not isinstance(item, dict):
-            continue
-        label = str(item.get("label", "")).strip().lower().replace("_", " ").replace("-", " ")
-        mood = _EMOTION_TO_MOOD.get(label, "normal")
-        score = float(item.get("score", 0.0))
-        scores[mood] += score
-
-    mood = max(scores, key=scores.get) if any(scores.values()) else "normal"
-    return mood, scores
-
-
-def _run_legacy_pipeline(
-    audio: np.ndarray, sample_rate: int, include_asr: bool = True
-) -> dict:
-    """Full legacy analysis: wav2vec2 emotion + whisper ASR."""
-    result = {
-        "tone_mood": "normal",
-        "tone_scores": {"good": 0.0, "normal": 0.0, "bad": 0.0},
-        "emotion_label": None,
-        "emotions": [],
-        "transcript": None,
-        "language": None,
-        "classifier_model": _classifier_model_id,
-        "asr_model": _asr_model_id,
-        "error": None,
-    }
-
-    classifier = _get_legacy_classifier()
-    if classifier is None:
-        result["error"] = "Emotion model not available"
-        return result
-
-    try:
-        predictions = classifier({"array": audio, "sampling_rate": sample_rate})
-        result["emotions"] = predictions
-        if predictions:
-            result["emotion_label"] = predictions[0].get("label")
-        result["tone_mood"], result["tone_scores"] = _legacy_mood_from_predictions(predictions)
-    except Exception:
-        logger.exception("Legacy emotion classification failed")
-        result["error"] = "Classification failed"
-        return result
-
-    # ASR
-    if include_asr:
-        asr = _get_legacy_asr()
-        if asr:
-            try:
-                asr_kwargs = {}
-                forced_lang = os.getenv("TEST_VOICE_ASR_LANGUAGE")
-                if forced_lang:
-                    asr_kwargs["generate_kwargs"] = {
-                        "language": forced_lang,
-                        "task": "transcribe",
-                    }
-                    result["language"] = forced_lang
-
-                asr_out = asr({"array": audio, "sampling_rate": sample_rate}, **asr_kwargs)
-                if isinstance(asr_out, dict):
-                    result["transcript"] = (asr_out.get("text") or "").strip() or None
-            except Exception:
-                logger.exception("Legacy ASR failed")
-    else:
-        result["asr_model"] = None
-
-    return result
 
 
 # =====================================================================
@@ -861,41 +573,18 @@ def analyze_emotion(request):
     using_sensevoice = bool(sv_result.get("transcript") or sv_result.get("emotion"))
     sensevoice_transcript = sv_result.get("transcript") if using_sensevoice else None
 
-    if using_sensevoice:
-        # SenseVoice gave us emotion + transcript + language
-        emotion = sv_result.get("emotion")
-        transcript = sv_result.get("transcript")
-        detected_lang = sv_result.get("language")
+    # SenseVoice gives emotion + optional transcript/language
+    emotion = sv_result.get("emotion") if using_sensevoice else None
+    transcript = sv_result.get("transcript") if using_sensevoice else None
+    detected_lang = sv_result.get("language") if using_sensevoice else None
 
-        tone_mood = _emotion_to_mood(emotion)
-        tone_scores = _emotion_to_scores(emotion)
-        emotion_label = emotion
-        emotions_raw = [{"label": emotion or "unknown", "source": "sensevoice"}]
-        classifier_model = SENSEVOICE_MODEL_ID
-        asr_model = SENSEVOICE_MODEL_ID
-        asr_error = None
-    else:
-        # ── Fallback to legacy pipeline ───────────────────────────
-        legacy = _run_legacy_pipeline(audio_data, sample_rate, include_asr=not use_google_stt)
-        tone_mood = legacy["tone_mood"]
-        tone_scores = legacy["tone_scores"]
-        emotion_label = legacy["emotion_label"]
-        emotions_raw = legacy["emotions"]
-        transcript = legacy["transcript"]
-        detected_lang = None
-        classifier_model = legacy["classifier_model"]
-        asr_model = legacy["asr_model"]
-        asr_error = legacy["error"]
-        legacy_transcript = legacy["transcript"]
-
-        if legacy["error"] and not legacy["emotions"]:
-            return JsonResponse(
-                {
-                    "error": legacy["error"],
-                    "hint": "Install funasr for SenseVoice (recommended) or torch+transformers for legacy pipeline.",
-                },
-                status=503,
-            )
+    tone_mood = _emotion_to_mood(emotion)
+    tone_scores = _emotion_to_scores(emotion)
+    emotion_label = emotion
+    emotions_raw = [{"label": emotion, "source": "sensevoice"}] if emotion else []
+    classifier_model = SENSEVOICE_MODEL_ID if using_sensevoice else None
+    asr_model = SENSEVOICE_MODEL_ID if transcript else None
+    asr_error = None
 
     # ── Google STT (optional override) ───────────────────────────
     google_asr_result = {}
@@ -908,6 +597,8 @@ def analyze_emotion(request):
             detected_lang = google_asr_result.get("language") or detected_lang
             asr_model = google_asr_result.get("model") or asr_model
             asr_error = google_asr_result.get("error") or asr_error
+        elif google_asr_error:
+            asr_error = google_asr_error
 
     # ── Text sentiment analysis ───────────────────────────────────
     enable_sentiment = os.getenv("TEST_VOICE_ENABLE_SENTIMENT", "true").lower() in {"1", "true", "yes"}
@@ -918,14 +609,8 @@ def analyze_emotion(request):
         if _google_sentiment_enabled():
             sentiment_result = _run_google_sentiment(transcript, detected_lang)
             google_sentiment_error = sentiment_result.get("error")
-            if sentiment_result.get("error"):
-                fallback = _run_sentiment(transcript, detected_lang)
-                if fallback.get("mood"):
-                    sentiment_result = fallback
-            elif sentiment_result.get("mood") is None:
-                sentiment_result = _run_sentiment(transcript, detected_lang)
         else:
-            sentiment_result = _run_sentiment(transcript, detected_lang)
+            sentiment_result["error"] = "Google sentiment disabled"
 
     # ── Fusion ────────────────────────────────────────────────────
     try:
@@ -955,8 +640,6 @@ def analyze_emotion(request):
         asr_source = "google"
     elif sensevoice_transcript:
         asr_source = "sensevoice"
-    elif not using_sensevoice and "legacy_transcript" in locals() and legacy_transcript:
-        asr_source = "legacy-whisper"
 
     logger.info(
         "ASR source=%s lang=%s model=%s",
@@ -964,6 +647,15 @@ def analyze_emotion(request):
         detected_lang or "unknown",
         asr_model or "unknown",
     )
+
+    if use_google_stt and using_sensevoice:
+        pipeline_name = "sensevoice+google"
+    elif use_google_stt:
+        pipeline_name = "google"
+    elif using_sensevoice:
+        pipeline_name = "sensevoice"
+    else:
+        pipeline_name = "none"
 
     return JsonResponse(
         {
@@ -987,9 +679,9 @@ def analyze_emotion(request):
             "transcript": transcript,
             "detected_language": detected_lang,
             "sentiment": sentiment_result["raw"],
-            "pipeline": "sensevoice" if using_sensevoice else "legacy",
+            "pipeline": pipeline_name,
             "errors": {
-                "asr": asr_error if not using_sensevoice else None,
+                "asr": asr_error,
                 "sentiment": sentiment_result["error"],
                 "google_asr": google_asr_error,
                 "google_sentiment": google_sentiment_error,
