@@ -149,11 +149,5 @@ pandas
 
 
 
-torch
-transformers
-librosa
 soundfile
 gunicorn
-
-sentencepiece
-funasr

@@ -521,9 +521,10 @@
             document.getElementById('detailLang').textContent = langMap[data.detected_language] || data.detected_language || '—';
 
             const pipelineEl = document.getElementById('detailPipeline');
-            pipelineEl.innerHTML = data.pipeline === 'sensevoice'
-                ? '<span class="tag pipeline">SenseVoice ✨</span>'
-                : '<span class="tag pipeline">Legacy (wav2vec2)</span>';
+            const pipelineLabel = data.pipeline === 'google'
+                ? 'Google STT'
+                : (data.pipeline || '—');
+            pipelineEl.innerHTML = `<span class="tag pipeline">${pipelineLabel}</span>`;
 
             // Transcript
             const tsSection = document.getElementById('transcriptSection');

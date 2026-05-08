@@ -1,29 +1,16 @@
 """
-Voice Mood Analysis — v2 (SenseVoice + language-aware sentiment)
+Voice Mood Analysis — v3 (Google STT + sentiment)
 
 Pipeline overview
 ─────────────────
-1. **SenseVoiceSmall** (FunAudioLLM) — single model that gives us:
-   • Multilingual ASR (Arabic, English, Chinese, Japanese, Korean, …)
-   • Speech Emotion Recognition (happy, sad, angry, neutral, …)
-   • Language Identification
-   ⇒  replaces the old wav2vec2 classifier + whisper ASR combo.
-
-2. **Google Speech-to-Text v2** — paid, high-quality Arabic/English transcript
-    + language detection (optional, can be disabled).
-
-3. **Google Natural Language Sentiment** — paid sentiment analysis for the
-    transcript (optional, can be disabled).
-
-4. **Fusion** — weighted combination of voice-emotion + text-sentiment
-   scores to produce a final mood (good / normal / bad).
+1. **Google Speech-to-Text v2** — paid Arabic/English transcript + language detection.
+2. **Google Natural Language Sentiment** — paid sentiment analysis on the transcript.
+3. **Fusion** — final mood derived from text sentiment.
 """
 
 import io
 import logging
 import os
-import re
-import tempfile
 from threading import Lock
 from typing import Any
 
@@ -35,10 +22,6 @@ from django.views.decorators.csrf import csrf_exempt
 logger = logging.getLogger(__name__)
 
 # ── Global singletons ────────────────────────────────────────────────
-_sensevoice = None
-_sensevoice_lock = Lock()
-_sensevoice_error: str | None = None
-
 # Google Cloud clients (Speech-to-Text v2 + Natural Language sentiment)
 _google_speech_client = None
 _google_speech_lock = Lock()
@@ -49,45 +32,11 @@ _google_lang_lock = Lock()
 _google_lang_error: str | None = None
 
 # ── Model IDs ─────────────────────────────────────────────────────────
-SENSEVOICE_MODEL_ID = "FunAudioLLM/SenseVoiceSmall"
-
 DEFAULT_GOOGLE_STT_LANGUAGES = ("ar", "en")
 GOOGLE_SPEECH_MODEL_PREFIX = "google-speech-v2"
 GOOGLE_LANGUAGE_MODEL_ID = "google-language-v1"
 
 TARGET_SAMPLE_RATE = 16000
-
-# ── SenseVoice emotion tags ──────────────────────────────────────────
-# SenseVoice wraps emotions in tags like <|HAPPY|>, <|SAD|>, <|ANGRY|>, <|NEUTRAL|>
-_SENSEVOICE_EMOTION_RE = re.compile(r"<\|(\w+)\|>")
-
-_EMOTION_TO_MOOD = {
-    # SenseVoice tags
-    "HAPPY": "good",
-    "NEUTRAL": "normal",
-    "SAD": "bad",
-    "ANGRY": "bad",
-    # Extended / alternate labels
-    "happy": "good",
-    "happiness": "good",
-    "joy": "good",
-    "positive": "good",
-    "excited": "good",
-    "surprise": "good",
-    "neutral": "normal",
-    "calm": "normal",
-    "normal": "normal",
-    "angry": "bad",
-    "anger": "bad",
-    "sad": "bad",
-    "sadness": "bad",
-    "fear": "bad",
-    "fearful": "bad",
-    "disgust": "bad",
-    "disgusted": "bad",
-    "frustrated": "bad",
-    "negative": "bad",
-}
 
 
 # =====================================================================
@@ -422,124 +371,8 @@ def _run_google_sentiment(text: str, detected_lang: str | None) -> dict:
 
 
 # =====================================================================
-#  SenseVoice (primary pipeline — ASR + SER + LID in one)
+#  Score helpers
 # =====================================================================
-def _get_sensevoice():
-    """Load the SenseVoiceSmall model via funasr. Returns None on failure."""
-    global _sensevoice, _sensevoice_error
-
-    if _sensevoice is not None:
-        return _sensevoice
-    if _sensevoice_error is not None:
-        return None  # already tried and failed
-
-    with _sensevoice_lock:
-        if _sensevoice is not None:
-            return _sensevoice
-        if _sensevoice_error is not None:
-            return None
-
-        try:
-            from funasr import AutoModel
-
-            model_id = os.getenv("SENSEVOICE_MODEL_ID", SENSEVOICE_MODEL_ID)
-            device = os.getenv("SENSEVOICE_DEVICE", "cpu")
-
-            _sensevoice = AutoModel(
-                model=model_id,
-                trust_remote_code=True,
-                device=device,
-                hub="hf",
-            )
-            logger.info("SenseVoice loaded: %s (device=%s)", model_id, device)
-            return _sensevoice
-        except ImportError:
-            _sensevoice_error = "funasr not installed — falling back to legacy pipeline"
-            logger.warning(_sensevoice_error)
-        except Exception as exc:
-            _sensevoice_error = str(exc)
-            logger.exception("Failed to load SenseVoice")
-
-    return None
-
-
-def _run_sensevoice(audio: np.ndarray, sample_rate: int) -> dict:
-    """Run SenseVoice inference and return parsed results.
-
-    Returns dict with keys: transcript, emotion, language, raw_text
-    """
-    model = _get_sensevoice()
-    if model is None:
-        return {}
-
-    # SenseVoice expects a file path or numpy array.
-    # We write to a temp WAV file for maximum compatibility.
-    import soundfile as sf
-
-    tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
-    try:
-        sf.write(tmp.name, audio, sample_rate)
-        tmp.close()
-
-        res = model.generate(
-            input=tmp.name,
-            cache={},
-            language="auto",
-            use_itn=True,
-            batch_size_s=60,
-        )
-    finally:
-        try:
-            os.unlink(tmp.name)
-        except OSError:
-            pass
-
-    if not res or not isinstance(res, list) or not res[0]:
-        return {}
-
-    raw_text = res[0].get("text", "") if isinstance(res[0], dict) else str(res[0])
-
-    # Parse emotion tags: <|HAPPY|>, <|SAD|>, <|ANGRY|>, <|NEUTRAL|>
-    tags = _SENSEVOICE_EMOTION_RE.findall(raw_text)
-    emotion = None
-    language = None
-    for tag in tags:
-        tag_upper = tag.upper()
-        if tag_upper in _EMOTION_TO_MOOD:
-            emotion = tag_upper
-        # Language tags: <|en|>, <|zh|>, <|ar|>, etc.
-        if len(tag) <= 3 and tag.lower() not in _EMOTION_TO_MOOD:
-            language = tag.lower()
-
-    # Clean transcript: remove all <|...|> tags
-    transcript = re.sub(r"<\|[^|]*\|>", "", raw_text).strip()
-
-    return {
-        "transcript": transcript or None,
-        "emotion": emotion,
-        "language": language,
-        "raw_text": raw_text,
-    }
-
-
-# =====================================================================
-#  Mood mapping helpers
-# =====================================================================
-def _emotion_to_mood(emotion: str | None) -> str:
-    if not emotion:
-        return "normal"
-    return _EMOTION_TO_MOOD.get(emotion, _EMOTION_TO_MOOD.get(emotion.lower(), "normal"))
-
-
-def _emotion_to_scores(emotion: str | None) -> dict[str, float]:
-    """Convert a single emotion label to soft scores."""
-    mood = _emotion_to_mood(emotion)
-    # Give 80% to detected mood, 10% to each other
-    scores = {"good": 0.1, "normal": 0.1, "bad": 0.1}
-    scores[mood] = 0.8
-    return scores
-
-
 def _normalize_scores(scores: dict[str, float]) -> dict[str, float]:
     total = float(sum(max(v, 0.0) for v in scores.values()))
     if total <= 0:
@@ -567,38 +400,42 @@ def analyze_emotion(request):
         )
 
     use_google_stt = _google_stt_enabled() and bool(audio_bytes)
+    if not use_google_stt:
+        return JsonResponse(
+            {
+                "error": "Google STT is disabled.",
+                "hint": "Set TEST_VOICE_USE_GOOGLE_STT=true and configure SPEECH_GCP_* in the environment.",
+            },
+            status=503,
+        )
 
-    # ── Try SenseVoice first (best quality) ───────────────────────
-    sv_result = _run_sensevoice(audio_data, sample_rate)
-    using_sensevoice = bool(sv_result.get("transcript") or sv_result.get("emotion"))
-    sensevoice_transcript = sv_result.get("transcript") if using_sensevoice else None
+    # ── Google STT (required) ────────────────────────────────────
+    google_asr_result = _run_google_stt(audio_bytes, sample_rate)
+    google_asr_error = google_asr_result.get("error")
+    transcript = google_asr_result.get("transcript")
+    detected_lang = google_asr_result.get("language")
+    asr_model = google_asr_result.get("model")
 
-    # SenseVoice gives emotion + optional transcript/language
-    emotion = sv_result.get("emotion") if using_sensevoice else None
-    transcript = sv_result.get("transcript") if using_sensevoice else None
-    detected_lang = sv_result.get("language") if using_sensevoice else None
+    if google_asr_error:
+        return JsonResponse(
+            {
+                "error": "Google STT failed.",
+                "details": google_asr_error,
+            },
+            status=503,
+        )
 
-    tone_mood = _emotion_to_mood(emotion)
-    tone_scores = _emotion_to_scores(emotion)
-    emotion_label = emotion
-    emotions_raw = [{"label": emotion, "source": "sensevoice"}] if emotion else []
-    classifier_model = SENSEVOICE_MODEL_ID if using_sensevoice else None
-    asr_model = SENSEVOICE_MODEL_ID if transcript else None
-    asr_error = None
+    if not transcript:
+        return JsonResponse(
+            {"error": "No transcript returned from Google STT."},
+            status=422,
+        )
 
-    # ── Google STT (optional override) ───────────────────────────
-    google_asr_result = {}
-    google_asr_error = None
-    if use_google_stt:
-        google_asr_result = _run_google_stt(audio_bytes, sample_rate)
-        google_asr_error = google_asr_result.get("error")
-        if google_asr_result.get("transcript"):
-            transcript = google_asr_result.get("transcript")
-            detected_lang = google_asr_result.get("language") or detected_lang
-            asr_model = google_asr_result.get("model") or asr_model
-            asr_error = google_asr_result.get("error") or asr_error
-        elif google_asr_error:
-            asr_error = google_asr_error
+    tone_mood = None
+    tone_scores = {"good": 0.0, "normal": 0.0, "bad": 0.0}
+    emotion_label = None
+    emotions_raw = []
+    classifier_model = None
 
     # ── Text sentiment analysis ───────────────────────────────────
     enable_sentiment = os.getenv("TEST_VOICE_ENABLE_SENTIMENT", "true").lower() in {"1", "true", "yes"}
@@ -613,49 +450,22 @@ def analyze_emotion(request):
             sentiment_result["error"] = "Google sentiment disabled"
 
     # ── Fusion ────────────────────────────────────────────────────
-    try:
-        tone_w = float(os.getenv("TEST_VOICE_TONE_WEIGHT", "0.6"))
-    except ValueError:
-        tone_w = 0.6
-    try:
-        text_w = float(os.getenv("TEST_VOICE_TEXT_WEIGHT", "0.4"))
-    except ValueError:
-        text_w = 0.4
-
-    tone_norm = _normalize_scores(tone_scores)
     text_norm = _normalize_scores(sentiment_result["scores"])
 
-    if not transcript or sentiment_result["mood"] is None:
-        final_mood = tone_mood
-        combined_scores = tone_norm
+    if sentiment_result["mood"] is None or not any(text_norm.values()):
+        final_mood = "normal"
+        combined_scores = {"good": 0.0, "normal": 1.0, "bad": 0.0}
     else:
-        combined_scores = {
-            k: tone_w * tone_norm.get(k, 0.0) + text_w * text_norm.get(k, 0.0)
-            for k in ("good", "normal", "bad")
-        }
-        final_mood = max(combined_scores, key=combined_scores.get)
-
-    asr_source = "none"
-    if google_asr_result.get("transcript"):
-        asr_source = "google"
-    elif sensevoice_transcript:
-        asr_source = "sensevoice"
+        final_mood = sentiment_result["mood"]
+        combined_scores = text_norm
 
     logger.info(
-        "ASR source=%s lang=%s model=%s",
-        asr_source,
+        "ASR source=google lang=%s model=%s",
         detected_lang or "unknown",
         asr_model or "unknown",
     )
 
-    if use_google_stt and using_sensevoice:
-        pipeline_name = "sensevoice+google"
-    elif use_google_stt:
-        pipeline_name = "google"
-    elif using_sensevoice:
-        pipeline_name = "sensevoice"
-    else:
-        pipeline_name = "none"
+    pipeline_name = "google"
 
     return JsonResponse(
         {
@@ -669,7 +479,7 @@ def analyze_emotion(request):
                 "text": sentiment_result["scores"],
                 "combined": combined_scores,
             },
-            "top_emotion": {"label": emotion_label, "source": "sensevoice" if using_sensevoice else "wav2vec2"},
+            "top_emotion": {"label": emotion_label, "source": None},
             "emotions": emotions_raw,
             "model": {
                 "tone": classifier_model,
@@ -681,11 +491,10 @@ def analyze_emotion(request):
             "sentiment": sentiment_result["raw"],
             "pipeline": pipeline_name,
             "errors": {
-                "asr": asr_error,
+                "asr": None,
                 "sentiment": sentiment_result["error"],
                 "google_asr": google_asr_error,
                 "google_sentiment": google_sentiment_error,
-                "sensevoice": _sensevoice_error if not using_sensevoice else None,
             },
         }
     )
