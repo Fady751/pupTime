@@ -812,7 +812,16 @@ def _run_legacy_pipeline(audio: np.ndarray, sample_rate: int) -> dict:
     asr = _get_legacy_asr()
     if asr:
         try:
-            asr_out = asr({"array": audio, "sampling_rate": sample_rate})
+            asr_kwargs = {}
+            forced_lang = os.getenv("TEST_VOICE_ASR_LANGUAGE")
+            if forced_lang:
+                asr_kwargs["generate_kwargs"] = {
+                    "language": forced_lang,
+                    "task": "transcribe",
+                }
+                result["language"] = forced_lang
+
+            asr_out = asr({"array": audio, "sampling_rate": sample_rate}, **asr_kwargs)
             if isinstance(asr_out, dict):
                 result["transcript"] = (asr_out.get("text") or "").strip() or None
         except Exception:
