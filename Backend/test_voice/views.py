@@ -55,6 +55,15 @@ _sentiment_en = None
 _sentiment_en_lock = Lock()
 _sentiment_load_errors: dict[str, str] = {}
 
+# Google Cloud clients (Speech-to-Text v2 + Natural Language sentiment)
+_google_speech_client = None
+_google_speech_lock = Lock()
+_google_speech_error: str | None = None
+
+_google_lang_client = None
+_google_lang_lock = Lock()
+_google_lang_error: str | None = None
+
 # ── Model IDs ─────────────────────────────────────────────────────────
 SENSEVOICE_MODEL_ID = "FunAudioLLM/SenseVoiceSmall"
 
@@ -66,6 +75,10 @@ DEFAULT_ASR_MODEL_ID = "openai/whisper-small"
 # Sentiment models
 ARABIC_SENTIMENT_MODEL_ID = "CAMeL-Lab/bert-base-arabic-camelbert-da-sentiment"
 ENGLISH_SENTIMENT_MODEL_ID = "cardiffnlp/twitter-xlm-roberta-base-sentiment"
+
+DEFAULT_GOOGLE_STT_LANGUAGES = ("ar", "en")
+GOOGLE_SPEECH_MODEL_PREFIX = "google-speech-v2"
+GOOGLE_LANGUAGE_MODEL_ID = "google-language-v1"
 
 TARGET_SAMPLE_RATE = 16000
 
@@ -190,6 +203,247 @@ def _ensure_target_sample_rate(
     target_x = np.linspace(0, audio.shape[0] - 1, num=target_length, dtype=np.float32)
     resampled = np.interp(target_x, orig_x, audio).astype(np.float32)
     return resampled, target_sample_rate
+
+
+def _bool_env(name: str, default: bool = False) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
+def _parse_language_codes(raw: str | None, default: tuple[str, ...]) -> list[str]:
+    if not raw:
+        return list(default)
+    codes = [c.strip() for c in raw.split(",") if c.strip()]
+    return codes or list(default)
+
+
+def _resolve_credentials_path(path: str | None) -> str | None:
+    if not path:
+        return None
+    if os.path.isabs(path):
+        return path
+    backend_root = os.path.dirname(os.path.dirname(__file__))
+    candidate = os.path.join(backend_root, path)
+    return candidate if os.path.exists(candidate) else path
+
+
+def _ensure_google_credentials() -> None:
+    creds = os.getenv("SPEECH_GCP_CREDENTIALS") or os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+    resolved = _resolve_credentials_path(creds)
+    if resolved:
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = resolved
+
+
+def _google_stt_enabled() -> bool:
+    flag = os.getenv("TEST_VOICE_USE_GOOGLE_STT")
+    if flag is not None:
+        return _bool_env("TEST_VOICE_USE_GOOGLE_STT", False)
+    return bool(os.getenv("SPEECH_GCP_PROJECT"))
+
+
+def _google_sentiment_enabled() -> bool:
+    flag = os.getenv("TEST_VOICE_USE_GOOGLE_SENTIMENT")
+    if flag is not None:
+        return _bool_env("TEST_VOICE_USE_GOOGLE_SENTIMENT", False)
+    return _google_stt_enabled()
+
+
+def _get_google_speech_client():
+    global _google_speech_client, _google_speech_error
+
+    if _google_speech_client is not None:
+        return _google_speech_client
+    if _google_speech_error is not None:
+        return None
+
+    with _google_speech_lock:
+        if _google_speech_client is not None:
+            return _google_speech_client
+        if _google_speech_error is not None:
+            return None
+
+        try:
+            from google.api_core.client_options import ClientOptions
+            from google.cloud import speech_v2
+
+            _ensure_google_credentials()
+
+            region = os.getenv("SPEECH_GCP_REGION") or os.getenv("LLM_GCP_REGION")
+            if region:
+                endpoint = f"{region}-speech.googleapis.com"
+                _google_speech_client = speech_v2.SpeechClient(
+                    client_options=ClientOptions(api_endpoint=endpoint)
+                )
+            else:
+                _google_speech_client = speech_v2.SpeechClient()
+
+            return _google_speech_client
+        except ImportError:
+            _google_speech_error = "google-cloud-speech not installed"
+            logger.warning(_google_speech_error)
+        except Exception as exc:
+            _google_speech_error = str(exc)
+            logger.exception("Failed to load Google Speech client")
+
+    return None
+
+
+def _get_google_language_client():
+    global _google_lang_client, _google_lang_error
+
+    if _google_lang_client is not None:
+        return _google_lang_client
+    if _google_lang_error is not None:
+        return None
+
+    with _google_lang_lock:
+        if _google_lang_client is not None:
+            return _google_lang_client
+        if _google_lang_error is not None:
+            return None
+
+        try:
+            from google.cloud import language_v1
+
+            _ensure_google_credentials()
+            _google_lang_client = language_v1.LanguageServiceClient()
+            return _google_lang_client
+        except ImportError:
+            _google_lang_error = "google-cloud-language not installed"
+            logger.warning(_google_lang_error)
+        except Exception as exc:
+            _google_lang_error = str(exc)
+            logger.exception("Failed to load Google Language client")
+
+    return None
+
+
+def _run_google_stt(audio_bytes: bytes, sample_rate: int) -> dict:
+    result = {
+        "transcript": None,
+        "language": None,
+        "model": GOOGLE_SPEECH_MODEL_PREFIX,
+        "error": None,
+    }
+
+    client = _get_google_speech_client()
+    if client is None:
+        result["error"] = _google_speech_error or "Google STT not available"
+        return result
+
+    try:
+        from google.cloud import speech_v2
+        from google.cloud.speech_v2.types import cloud_speech
+
+        project = os.getenv("SPEECH_GCP_PROJECT") or os.getenv("LLM_GCP_PROJECT")
+        region = os.getenv("SPEECH_GCP_REGION") or os.getenv("LLM_GCP_REGION") or "global"
+        if not project:
+            result["error"] = "SPEECH_GCP_PROJECT not set"
+            return result
+
+        recognizer = f"projects/{project}/locations/{region}/recognizers/_"
+        lang_codes = _parse_language_codes(
+            os.getenv("SPEECH_STT_LANGUAGES"), DEFAULT_GOOGLE_STT_LANGUAGES
+        )
+
+        config_kwargs = {
+            "auto_decoding_config": cloud_speech.AutoDetectDecodingConfig(),
+            "language_codes": lang_codes,
+        }
+
+        model = os.getenv("SPEECH_STT_MODEL")
+        if model:
+            config_kwargs["model"] = model
+            result["model"] = f"{GOOGLE_SPEECH_MODEL_PREFIX}:{model}"
+
+        config = cloud_speech.RecognitionConfig(**config_kwargs)
+        request = cloud_speech.RecognizeRequest(
+            recognizer=recognizer,
+            config=config,
+            content=audio_bytes,
+        )
+
+        response = client.recognize(request=request)
+        transcripts = []
+        detected_lang = None
+        for item in response.results:
+            if not detected_lang:
+                detected_lang = getattr(item, "language_code", None) or detected_lang
+            if item.alternatives:
+                transcripts.append(item.alternatives[0].transcript.strip())
+
+        result["transcript"] = " ".join(t for t in transcripts if t).strip() or None
+        result["language"] = detected_lang
+        return result
+    except Exception as exc:
+        logger.exception("Google STT failed")
+        result["error"] = str(exc)
+        return result
+
+
+def _run_google_sentiment(text: str, detected_lang: str | None) -> dict:
+    result = {
+        "mood": None,
+        "scores": {"good": 0.0, "normal": 0.0, "bad": 0.0},
+        "raw": None,
+        "model": GOOGLE_LANGUAGE_MODEL_ID,
+        "error": None,
+    }
+
+    if not text or not text.strip():
+        return result
+
+    client = _get_google_language_client()
+    if client is None:
+        result["error"] = _google_lang_error or "Google Language not available"
+        return result
+
+    try:
+        from google.cloud import language_v1
+
+        doc_kwargs = {
+            "content": text[:2000],
+            "type_": language_v1.Document.Type.PLAIN_TEXT,
+        }
+        if detected_lang:
+            doc_kwargs["language"] = detected_lang
+
+        document = language_v1.Document(**doc_kwargs)
+        response = client.analyze_sentiment(
+            request={
+                "document": document,
+                "encoding_type": language_v1.EncodingType.UTF8,
+            }
+        )
+
+        sentiment = response.document_sentiment
+        score = float(getattr(sentiment, "score", 0.0) or 0.0)
+        magnitude = float(getattr(sentiment, "magnitude", 0.0) or 0.0)
+
+        if score >= 0.25:
+            result["mood"] = "good"
+        elif score <= -0.25:
+            result["mood"] = "bad"
+        else:
+            result["mood"] = "normal"
+
+        result["scores"] = {
+            "good": max(score, 0.0) * max(magnitude, 0.5),
+            "bad": max(-score, 0.0) * max(magnitude, 0.5),
+            "normal": max(0.0, 1.0 - abs(score)),
+        }
+        result["raw"] = {
+            "score": score,
+            "magnitude": magnitude,
+            "language": getattr(response, "language", None),
+        }
+    except Exception as exc:
+        logger.exception("Google sentiment failed")
+        result["error"] = str(exc)
+
+    return result
 
 
 # =====================================================================
@@ -577,7 +831,8 @@ def analyze_emotion(request):
 
     audio_file = request.FILES["file"]
     try:
-        audio_data, sample_rate = _load_audio(audio_file.read())
+        audio_bytes = audio_file.read()
+        audio_data, sample_rate = _load_audio(audio_bytes)
     except Exception:
         logger.exception("Failed to decode uploaded audio")
         return JsonResponse(
@@ -624,12 +879,35 @@ def analyze_emotion(request):
                 status=503,
             )
 
+    # ── Google STT (optional override) ───────────────────────────
+    google_asr_result = {}
+    google_asr_error = None
+    if _google_stt_enabled() and audio_bytes:
+        google_asr_result = _run_google_stt(audio_bytes, sample_rate)
+        google_asr_error = google_asr_result.get("error")
+        if google_asr_result.get("transcript"):
+            transcript = google_asr_result.get("transcript")
+            detected_lang = google_asr_result.get("language") or detected_lang
+            asr_model = google_asr_result.get("model") or asr_model
+            asr_error = google_asr_result.get("error") or asr_error
+
     # ── Text sentiment analysis ───────────────────────────────────
     enable_sentiment = os.getenv("TEST_VOICE_ENABLE_SENTIMENT", "true").lower() in {"1", "true", "yes"}
 
     sentiment_result = {"mood": None, "scores": {"good": 0.0, "normal": 0.0, "bad": 0.0}, "raw": None, "model": None, "error": None}
+    google_sentiment_error = None
     if enable_sentiment and transcript:
-        sentiment_result = _run_sentiment(transcript, detected_lang)
+        if _google_sentiment_enabled():
+            sentiment_result = _run_google_sentiment(transcript, detected_lang)
+            google_sentiment_error = sentiment_result.get("error")
+            if sentiment_result.get("error"):
+                fallback = _run_sentiment(transcript, detected_lang)
+                if fallback.get("mood"):
+                    sentiment_result = fallback
+            elif sentiment_result.get("mood") is None:
+                sentiment_result = _run_sentiment(transcript, detected_lang)
+        else:
+            sentiment_result = _run_sentiment(transcript, detected_lang)
 
     # ── Fusion ────────────────────────────────────────────────────
     try:
@@ -680,6 +958,8 @@ def analyze_emotion(request):
             "errors": {
                 "asr": asr_error if not using_sensevoice else None,
                 "sentiment": sentiment_result["error"],
+                "google_asr": google_asr_error,
+                "google_sentiment": google_sentiment_error,
                 "sensevoice": _sensevoice_error if not using_sensevoice else None,
             },
         }
