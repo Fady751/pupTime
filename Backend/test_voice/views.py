@@ -778,7 +778,9 @@ def _legacy_mood_from_predictions(predictions: list) -> tuple[str, dict[str, flo
     return mood, scores
 
 
-def _run_legacy_pipeline(audio: np.ndarray, sample_rate: int) -> dict:
+def _run_legacy_pipeline(
+    audio: np.ndarray, sample_rate: int, include_asr: bool = True
+) -> dict:
     """Full legacy analysis: wav2vec2 emotion + whisper ASR."""
     result = {
         "tone_mood": "normal",
@@ -809,23 +811,26 @@ def _run_legacy_pipeline(audio: np.ndarray, sample_rate: int) -> dict:
         return result
 
     # ASR
-    asr = _get_legacy_asr()
-    if asr:
-        try:
-            asr_kwargs = {}
-            forced_lang = os.getenv("TEST_VOICE_ASR_LANGUAGE")
-            if forced_lang:
-                asr_kwargs["generate_kwargs"] = {
-                    "language": forced_lang,
-                    "task": "transcribe",
-                }
-                result["language"] = forced_lang
+    if include_asr:
+        asr = _get_legacy_asr()
+        if asr:
+            try:
+                asr_kwargs = {}
+                forced_lang = os.getenv("TEST_VOICE_ASR_LANGUAGE")
+                if forced_lang:
+                    asr_kwargs["generate_kwargs"] = {
+                        "language": forced_lang,
+                        "task": "transcribe",
+                    }
+                    result["language"] = forced_lang
 
-            asr_out = asr({"array": audio, "sampling_rate": sample_rate}, **asr_kwargs)
-            if isinstance(asr_out, dict):
-                result["transcript"] = (asr_out.get("text") or "").strip() or None
-        except Exception:
-            logger.exception("Legacy ASR failed")
+                asr_out = asr({"array": audio, "sampling_rate": sample_rate}, **asr_kwargs)
+                if isinstance(asr_out, dict):
+                    result["transcript"] = (asr_out.get("text") or "").strip() or None
+            except Exception:
+                logger.exception("Legacy ASR failed")
+    else:
+        result["asr_model"] = None
 
     return result
 
@@ -849,9 +854,12 @@ def analyze_emotion(request):
             status=400,
         )
 
+    use_google_stt = _google_stt_enabled() and bool(audio_bytes)
+
     # ── Try SenseVoice first (best quality) ───────────────────────
     sv_result = _run_sensevoice(audio_data, sample_rate)
     using_sensevoice = bool(sv_result.get("transcript") or sv_result.get("emotion"))
+    sensevoice_transcript = sv_result.get("transcript") if using_sensevoice else None
 
     if using_sensevoice:
         # SenseVoice gave us emotion + transcript + language
@@ -868,7 +876,7 @@ def analyze_emotion(request):
         asr_error = None
     else:
         # ── Fallback to legacy pipeline ───────────────────────────
-        legacy = _run_legacy_pipeline(audio_data, sample_rate)
+        legacy = _run_legacy_pipeline(audio_data, sample_rate, include_asr=not use_google_stt)
         tone_mood = legacy["tone_mood"]
         tone_scores = legacy["tone_scores"]
         emotion_label = legacy["emotion_label"]
@@ -878,6 +886,7 @@ def analyze_emotion(request):
         classifier_model = legacy["classifier_model"]
         asr_model = legacy["asr_model"]
         asr_error = legacy["error"]
+        legacy_transcript = legacy["transcript"]
 
         if legacy["error"] and not legacy["emotions"]:
             return JsonResponse(
@@ -891,7 +900,7 @@ def analyze_emotion(request):
     # ── Google STT (optional override) ───────────────────────────
     google_asr_result = {}
     google_asr_error = None
-    if _google_stt_enabled() and audio_bytes:
+    if use_google_stt:
         google_asr_result = _run_google_stt(audio_bytes, sample_rate)
         google_asr_error = google_asr_result.get("error")
         if google_asr_result.get("transcript"):
@@ -940,6 +949,21 @@ def analyze_emotion(request):
             for k in ("good", "normal", "bad")
         }
         final_mood = max(combined_scores, key=combined_scores.get)
+
+    asr_source = "none"
+    if google_asr_result.get("transcript"):
+        asr_source = "google"
+    elif sensevoice_transcript:
+        asr_source = "sensevoice"
+    elif not using_sensevoice and "legacy_transcript" in locals() and legacy_transcript:
+        asr_source = "legacy-whisper"
+
+    logger.info(
+        "ASR source=%s lang=%s model=%s",
+        asr_source,
+        detected_lang or "unknown",
+        asr_model or "unknown",
+    )
 
     return JsonResponse(
         {
