@@ -62,7 +62,7 @@ class ChatService:
         override_last_user_content: str = None,
     ) -> List[ChatMessage]:
         history = list(
-            conversation.messages.order_by('created_at').values_list('role', 'content')
+            conversation.messages.order_by('created_at').values_list('role', 'content', 'voice_s3_key')
         )
         current_time = timezone.now().isoformat()
 
@@ -107,7 +107,13 @@ class ChatService:
             ),
         )
 
-        messages = [ChatMessage(role=r, content=c) for r, c in history]
+        messages = []
+        for role, content, voice_s3_key in history:
+            # Voice messages with no text context are stored with empty content.
+            # AI APIs reject empty-string messages, so substitute a placeholder.
+            if not content and voice_s3_key:
+                content = '[Voice message]'
+            messages.append(ChatMessage(role=role, content=content))
 
         if override_last_user_content is not None:
             for i in range(len(messages) - 1, -1, -1):
