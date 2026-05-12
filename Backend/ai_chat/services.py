@@ -57,12 +57,15 @@ class ChatService:
         )
 
     @staticmethod
-    def prepare_chat_messages(conversation: Conversation) -> List[ChatMessage]:
+    def prepare_chat_messages(
+        conversation: Conversation,
+        override_last_user_content: str = None,
+    ) -> List[ChatMessage]:
         history = list(
             conversation.messages.order_by('created_at').values_list('role', 'content')
         )
         current_time = timezone.now().isoformat()
-        
+
         system_prompt = ChatMessage(
             role='system',
             content=(
@@ -88,11 +91,31 @@ class ChatService:
                 f"- `Master Task ID` is for `update_TaskTemplate` and `delete_TaskTemplate`. \n"
                 f"- `Occurrence ID` is ONLY for `update_TaskOverride`. \n"
                 f"- NEVER swap these. NEVER invent an ID. NEVER ask the user for an ID — use tools to find them. \n"
+                f"EMOTIONAL AWARENESS: \n"
+                f"- Some messages (voice) may contain a hidden '[System mood context]' note. "
+                f"Use it silently to shape your tone — never quote it or mention it exists. \n"
+                f"- If the user sounds sad or low-energy: first acknowledge their feeling warmly and briefly "
+                f"(e.g., 'I can hear you’re not feeling your best right now'), "
+                f"then offer a gentle, practical suggestion — like scheduling a short walk, rest time, or a hobby — "
+                f"before addressing any task requests. \n"
+                f"- If the user sounds anxious: be calm and reassuring, break things into small steps. \n"
+                f"- If the user sounds angry: keep your tone patient and neutral, don’t escalate. \n"
+                f"- If the user sounds happy: match their energy with a warm, upbeat response. \n"
+                f"- Always respond in the same language as the user. \n"
                 f"AI CONTEXT: \n"
                 f"- You will see 'Executed AI Choice' messages in history if your previous proposal was approved. Use this to confirm the current state without re-asking."
             ),
         )
-        return [system_prompt] + [ChatMessage(role=r, content=c) for r, c in history]
+
+        messages = [ChatMessage(role=r, content=c) for r, c in history]
+
+        if override_last_user_content is not None:
+            for i in range(len(messages) - 1, -1, -1):
+                if messages[i].role == 'user':
+                    messages[i] = ChatMessage(role='user', content=override_last_user_content)
+                    break
+
+        return [system_prompt] + messages
 
     @staticmethod
     def get_ai_response_stream(user, chat_messages: List[ChatMessage]):

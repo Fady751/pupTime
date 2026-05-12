@@ -51,6 +51,13 @@ class Message(models.Model):
         max_length=50, blank=True, null=True,
         help_text="MIME type of the uploaded voice file (e.g. audio/webm, audio/m4a).",
     )
+    voice_mood = models.JSONField(
+        null=True, blank=True,
+        help_text=(
+            "Mood analysis result from acoustic features of the voice message. "
+            "Contains: mood label, confidence, raw feature dict, and ai_hint string."
+        ),
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
 
