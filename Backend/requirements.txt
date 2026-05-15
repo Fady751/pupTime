@@ -148,6 +148,7 @@ scikit-learn
 pandas
 
 
-
 soundfile
 gunicorn
+
+asyncio

@@ -10,7 +10,8 @@ from pydantic import BaseModel, Field
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 
-
+#to-do 
+import asyncio
 
 class AIResponseParser(BaseModel):
     category: str = Field(..., description="The category of the fact, e.g., 'personal_info', 'preference', 'habit', or 'other'.")
@@ -29,7 +30,7 @@ For each fact you identify, categorize it into one of the following categories: 
 I'll also send the existing facts we have about the user, so you can avoid repeating information we already know.
 """
 
-def check_facts_in_conversation(conversation_id: str, user_id: int) -> bool:
+async def check_facts_in_conversation(conversation_id: str, user_id: int) -> bool:
     messages = Message.objects.filter(conversation_id=conversation_id).order_by('created_at')
 
     provider = get_ai_provider()
