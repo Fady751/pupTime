@@ -454,10 +454,9 @@ class ChatView(APIView):
 
         #to-do : fix this line and implemnt the better approach 
         last_conversation = Conversation.objects.filter(user=request.user).order_by('-created_at').first()
-        import asyncio
         from .facts_service import check_facts_in_conversation
         if last_conversation and not conversation_id:
-            asyncio.run(check_facts_in_conversation(str(last_conversation.id), request.user.id))
+            check_facts_in_conversation(str(last_conversation.id), request.user.id)
         try:
             conversation = ChatService.get_or_create_conversation(
                 user=request.user, 
