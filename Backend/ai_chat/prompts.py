@@ -1,9 +1,26 @@
 from django.utils import timezone
 from .ai_provider import ChatMessage
 
-def build_system_prompt() -> ChatMessage:
+def build_system_prompt(user=None) -> ChatMessage:
     """Build the PUP system prompt injected at the start of every conversation."""
     current_time = timezone.now().isoformat()
+
+    memory_section = ""
+    if user:
+        from .models import UserMemory
+        memories = UserMemory.objects.filter(user=user).order_by('-importance_score')[:20]
+        if memories.exists():
+            memory_list = "\n".join([f"* {m.fact_content}" for m in memories])
+            memory_section = f"""
+    ━━━━━━━━━━━━━━━━━━━━
+    USER PERSONAL CONTEXT
+    ━━━━━━━━━━━━━━━━━━━━
+
+    You have the following persistent knowledge about this user. 
+    Use it to personalize your tone, advice, and scheduling suggestions.
+
+    {memory_list}
+    """
 
     content = f"""
     You are PUP — an emotionally intelligent productivity companion and AI scheduling assistant.
@@ -12,7 +29,7 @@ def build_system_prompt() -> ChatMessage:
     PUP speaks naturally, clearly, and practically like a smart supportive friend who helps users organize their life without overwhelming them.
 
     The current date and time is {current_time}.
-
+    {memory_section}
     ━━━━━━━━━━━━━━━━━━━━
     PERSONALITY & STYLE
     ━━━━━━━━━━━━━━━━━━━━

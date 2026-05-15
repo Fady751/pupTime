@@ -98,7 +98,7 @@ class ChatService:
                     messages[i] = ChatMessage(role='user', content=override_last_user_content)
                     break
 
-        return [build_system_prompt()] + messages
+        return [build_system_prompt(user=conversation.user)] + messages
 
     @staticmethod
     def get_ai_response_stream(user, chat_messages: List[ChatMessage]):
