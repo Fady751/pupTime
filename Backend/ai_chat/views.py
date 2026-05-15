@@ -458,6 +458,7 @@ class ChatView(APIView):
         if last_conversation and not conversation_id:
             check_facts_in_conversation(str(last_conversation.id), request.user.id)
         try:
+            
             conversation = ChatService.get_or_create_conversation(
                 user=request.user, 
                 conversation_id=conversation_id, 
