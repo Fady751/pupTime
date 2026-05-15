@@ -2,7 +2,7 @@ from typing import Iterable, List
 
 from django.db import transaction
 
-from Backend.ai_chat.ai_provider import get_ai_provider
+from .ai_provider import get_ai_provider
 
 from .models import Conversation, Message , UserMemory
 
@@ -37,9 +37,14 @@ async def check_facts_in_conversation(conversation_id: str, user_id: int) -> boo
     structured_llm = provider._llm.with_structured_output(FactExtractionResponse)
     
     existing_facts = list(UserMemory.objects.filter(user_id=user_id).values_list('fact_content', flat=True))
+    existing_facts_prompt = ""
     if existing_facts:
         existing_facts_text = "\n".join(existing_facts)
-        existing_facts_prompt = f"Here are some facts we already know about the user:\n{existing_facts_text}\nOnly extract new facts that are not mentioned above."
+        existing_facts_prompt = (
+            "Here are some facts we already know about the user:\n"
+            f"{existing_facts_text}\n"
+            "Only extract new facts that are not mentioned above."
+        )
 
     conversation_history_text = "\n".join([f"{message.role}: {message.content}" for message in messages])
 
