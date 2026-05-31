@@ -22,6 +22,7 @@ jobs:
           username: ${{ secrets.GCP_VM_USERNAME }}
           key: ${{ secrets.GCP_SSH_PRIVATE_KEY }}
           script: |
+            set -e
             echo "Navigating to the Backend directory..."
             # Using the correct case-sensitive path
             cd ~/pupTime/Backend

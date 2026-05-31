@@ -2,7 +2,6 @@ import uuid
 from django.db import models
 from django.conf import settings
 
-
 class Conversation(models.Model):
     """A chat conversation between a user and the AI assistant"""
 
@@ -51,6 +50,13 @@ class Message(models.Model):
         max_length=50, blank=True, null=True,
         help_text="MIME type of the uploaded voice file (e.g. audio/webm, audio/m4a).",
     )
+    voice_mood = models.JSONField(
+        null=True, blank=True,
+        help_text=(
+            "Mood analysis result from acoustic features of the voice message. "
+            "Contains: mood label, confidence, raw feature dict, and ai_hint string."
+        ),
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -83,3 +89,24 @@ class AIChoice(models.Model):
     def __str__(self):
         return f"Choice {self.choice_id_string} for Message {self.message.id} (Executed: {self.is_executed})"
 
+class UserMemory(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    CATEGORY_CHOICES = [
+            ('preference', 'Preference'),
+            ('personal_info', 'Personal Info'),
+            ('habit', 'Habit'),
+            ('other', 'Other'),
+    ]
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    fact_content = models.TextField()
+    
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
+    
+    importance_score = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Memory of {self.user.username} at {self.created_at.strftime('%Y-%m-%d %H:%M:%S')}"

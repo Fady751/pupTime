@@ -13,8 +13,14 @@ import firebase_admin
 from firebase_admin import credentials
 from pathlib import Path
 from decouple import config, Csv
+try:
+    from dotenv import load_dotenv
+except ImportError:  # pragma: no cover - optional dependency
+    load_dotenv = None
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+if load_dotenv:
+    load_dotenv(BASE_DIR / ".env")
 
 
 
@@ -60,6 +66,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'drf_yasg',
+    'test_voice',
 ]
 
 REST_FRAMEWORK = {

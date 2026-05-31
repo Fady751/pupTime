@@ -36,11 +36,11 @@ class MessageSerializer(serializers.ModelSerializer):
         model = Message
         fields = [
             'id', 'role', 'content', 'created_at', 'choices',
-            'voice_url', 'voice_duration_seconds', 'voice_mime_type',
+            'voice_url', 'voice_duration_seconds', 'voice_mime_type', 'voice_mood',
         ]
         read_only_fields = [
             'id', 'role', 'created_at', 'choices',
-            'voice_url', 'voice_duration_seconds', 'voice_mime_type',
+            'voice_url', 'voice_duration_seconds', 'voice_mime_type', 'voice_mood',
         ]
 
 
