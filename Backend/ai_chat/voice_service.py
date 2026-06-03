@@ -8,6 +8,15 @@ logger = logging.getLogger(__name__)
 def analyze_audio(audio_path: str) -> dict:
     y, sr = librosa.load(audio_path, sr=16000)
 
+    # Peak-normalize so loudness/mic-gain doesn't dominate the features.
+    # Without this, RMS energy is an absolute amplitude that varies wildly with mic
+    # distance and input gain — the same "tired" voice reads loud on one device and
+    # soft on another. After peak normalization, RMS reflects vocal *fullness/dynamics*
+    # (crest factor) rather than how loud the recording happens to be.
+    peak = float(np.max(np.abs(y))) if y.size else 0.0
+    if peak > 1e-5:
+        y = y / peak
+
     rms = float(
         np.mean(
             librosa.feature.rms(y=y)
@@ -86,58 +95,68 @@ def analyze_audio(audio_path: str) -> dict:
     return features
 
 
+def _clamp01(x: float) -> float:
+    return max(0.0, min(1.0, x))
+
+
 def classify_mood(features: dict) -> dict:
-    rms        = features.get("rms_energy", 0)
-    pitch_mean = features.get("average_pitch", 0)
-    pitch_std  = features.get("pitch_variation", 0)
-    silence    = features.get("silence_ratio", 0)
-    zcr        = features.get("zero_crossing_rate", 0)
+    """Classify mood from acoustic features using gain-independent scoring.
 
-    HIGH_RMS     = 0.05
-    LOW_RMS      = 0.015
-    HIGH_SILENCE = 0.55
-    HIGH_ZCR     = 0.12
-    HIGH_PITCH_STD  = 40.0
-    HIGH_PITCH_MEAN = 180.0
+    The previous version gated each mood behind absolute RMS thresholds, which made
+    ``tired`` unreachable on any device with normal mic gain (RMS stayed above the
+    cutoff no matter how tired the speaker sounded). This version scores every mood
+    from features that are robust to loudness — pitch variation, pauses, and pitch
+    register — and picks the highest. RMS (now peak-normalized in ``analyze_audio``)
+    is only a secondary signal.
+    """
+    rms        = float(features.get("rms_energy", 0.0))
+    pitch_mean = float(features.get("average_pitch", 0.0))
+    pitch_std  = float(features.get("pitch_variation", 0.0))
+    silence    = float(features.get("silence_ratio", 0.0))
+    zcr        = float(features.get("zero_crossing_rate", 0.0))
 
-    mood = "neutral"
-    confidence = "medium"
+    # ── Gain-independent descriptors, each normalized to 0..1 ──────────────
+    # Pitch variation: low => monotone (tired/sad), high => expressive (happy/anxious/angry).
+    expressive = _clamp01(pitch_std / 45.0)
+    monotone   = 1.0 - expressive
+    # Pauses: more silence => withdrawn (tired/sad).
+    pausey     = _clamp01((silence - 0.20) / 0.45)        # ~0 at 20%, ~1 at 65%
+    continuous = 1.0 - pausey
+    # Pitch register: high => anxious/excited, low => tired/sad/calm.
+    high_pitch = _clamp01((pitch_mean - 150.0) / 100.0)
+    low_pitch  = _clamp01((170.0 - pitch_mean) / 120.0)
+    # Energy from peak-normalized RMS (crest factor): low => soft/withdrawn, high => animated.
+    loud       = _clamp01((rms - 0.08) / 0.17)            # ~0 at .08, ~1 at .25
+    soft       = 1.0 - loud
+    # Fricative/tense energy.
+    tense      = _clamp01((zcr - 0.06) / 0.10)
 
-    if rms >= HIGH_RMS and zcr >= HIGH_ZCR and pitch_std >= HIGH_PITCH_STD:
-        # Loud, noisy, erratic — likely angry or highly stressed
-        mood = "angry"
-        confidence = "high" if (rms > HIGH_RMS * 1.5 and zcr > HIGH_ZCR * 1.3) else "medium"
+    # ── Mood scores (weights sum to 1.0 per mood) ──────────────────────────
+    scores = {
+        "tired":   0.45 * monotone + 0.30 * pausey + 0.15 * soft + 0.10 * low_pitch,
+        "sad":     0.30 * soft + 0.30 * pausey + 0.20 * low_pitch + 0.20 * monotone,
+        "happy":   0.45 * expressive + 0.30 * loud + 0.15 * continuous + 0.10 * (1.0 - tense),
+        "anxious": 0.40 * expressive + 0.35 * high_pitch + 0.25 * tense,
+        "angry":   0.40 * loud + 0.30 * tense + 0.30 * expressive,
+        "neutral": 0.0,  # baseline — wins only when no mood scores clearly
+    }
 
-    elif pitch_std >= HIGH_PITCH_STD and pitch_mean >= HIGH_PITCH_MEAN:
-        # Wide pitch swings at higher register — anxious / excited
-        mood = "anxious"
-        confidence = "high" if pitch_std > HIGH_PITCH_STD * 1.4 else "medium"
+    # Neutral is the fallback: it scores just below whatever the strongest emotion is,
+    # so a clear emotional signal beats it but a weak/ambiguous one doesn't.
+    NEUTRAL_FLOOR = 0.50
+    scores["neutral"] = NEUTRAL_FLOOR
 
-    elif (
-        rms < HIGH_RMS
-        and pitch_std < HIGH_PITCH_STD * 0.70
-        and silence >= 0.30
-        and not (rms <= LOW_RMS and silence >= HIGH_SILENCE)
-    ):
-        # Soft, moderately monotone, with pauses — tired / fatigued.
-        # Thresholds are intentionally wider (pitch_std < 28 Hz, silence ≥ 30%) because real
-        # tired voices still have some pitch movement — only purely-sad voices (very low RMS +
-        # very high silence) are excluded via the guard above.
-        mood = "tired"
-        confidence = "high" if (silence > 0.50 and pitch_std < HIGH_PITCH_STD * 0.40) else "medium"
+    ranked = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
+    mood, top_score = ranked[0]
+    runner_up_score = ranked[1][1]
 
-    elif rms <= LOW_RMS and silence >= HIGH_SILENCE:
-        # Quiet voice, lots of silence — sad / low energy
-        mood = "sad"
-        confidence = "high" if (rms < LOW_RMS * 0.6 and silence > 0.70) else "medium"
-
-    elif rms >= HIGH_RMS and pitch_std < HIGH_PITCH_STD * 0.6:
-        # Energetic but stable pitch — upbeat / happy
-        mood = "happy"
+    # Confidence from the margin between the top two moods.
+    margin = top_score - runner_up_score
+    if margin >= 0.15:
+        confidence = "high"
+    elif margin >= 0.06:
         confidence = "medium"
-
     else:
-        mood = "neutral"
         confidence = "low"
 
     _hints = {
@@ -171,12 +190,15 @@ def classify_mood(features: dict) -> dict:
         "mood": mood,
         "confidence": confidence,
         "features": features,
+        "scores": {k: round(v, 3) for k, v in scores.items()},
         "ai_hint": _hints[mood],
     }
 
     logger.info(
-        "Mood classified | mood=%s confidence=%s rms=%.4f silence=%.2f pitch_std=%.1f",
-        mood, confidence, rms, silence, pitch_std,
+        "Mood classified | mood=%s conf=%s margin=%.2f | rms=%.3f silence=%.2f "
+        "pitch_mean=%.0f pitch_std=%.1f zcr=%.3f | scores=%s",
+        mood, confidence, margin, rms, silence, pitch_mean, pitch_std, zcr,
+        {k: round(v, 2) for k, v in scores.items()},
     )
 
     return result
