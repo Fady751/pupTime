@@ -468,19 +468,30 @@ def analyze_emotion(request):
     detected_lang = google_asr_result.get("language")
     asr_model = google_asr_result.get("model")
 
-    if google_asr_error:
+    if google_asr_error or not transcript:
+        # STT failed at runtime (e.g. permission denied) — fall back to acoustic if available
+        logger.warning("Google STT unavailable (%s), falling back to acoustic-only result", google_asr_error)
+        if acoustic_result is None:
+            return JsonResponse(
+                {"error": "Google STT failed and acoustic analysis also failed.", "details": google_asr_error},
+                status=503,
+            )
+        _ACOUSTIC_TO_VALENCE = {
+            "happy": "good", "neutral": "normal",
+            "tired": "tired", "sad": "bad", "angry": "bad", "anxious": "bad",
+        }
+        acoustic_mood = acoustic_result.get("mood", "neutral")
         return JsonResponse(
             {
-                "error": "Google STT failed.",
-                "details": google_asr_error,
-            },
-            status=503,
-        )
-
-    if not transcript:
-        return JsonResponse(
-            {"error": "No transcript returned from Google STT."},
-            status=422,
+                "mood": _ACOUSTIC_TO_VALENCE.get(acoustic_mood, "normal"),
+                "acoustic_mood": acoustic_result,
+                "fatigue_detected": fatigue_detected,
+                "transcript": None,
+                "detected_language": None,
+                "pipeline": "acoustic_only",
+                "note": f"Google STT failed ({google_asr_error or 'no transcript'}) — showing acoustic analysis only.",
+                "errors": {"google_asr": google_asr_error},
+            }
         )
 
     tone_mood = None
