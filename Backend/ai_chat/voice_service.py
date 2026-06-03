@@ -13,7 +13,7 @@ def analyze_audio(audio_path: str) -> dict:
             librosa.feature.rms(y=y)
         )
     )
-    f0, voiced_flag, voiced_probs = librosa.pyin(
+    f0, _, _ = librosa.pyin(
         y,
         fmin=75,
         fmax=500
@@ -113,11 +113,18 @@ def classify_mood(features: dict) -> dict:
         mood = "anxious"
         confidence = "high" if pitch_std > HIGH_PITCH_STD * 1.4 else "medium"
 
-    elif rms < HIGH_RMS and pitch_std < HIGH_PITCH_STD * 0.45 and silence >= 0.40:
-        # Soft, monotone, slow speech — fatigued / mentally drained
-        # Key: low pitch variation distinguishes tired from sad (which can still be expressive)
+    elif (
+        rms < HIGH_RMS
+        and pitch_std < HIGH_PITCH_STD * 0.70
+        and silence >= 0.30
+        and not (rms <= LOW_RMS and silence >= HIGH_SILENCE)
+    ):
+        # Soft, moderately monotone, with pauses — tired / fatigued.
+        # Thresholds are intentionally wider (pitch_std < 28 Hz, silence ≥ 30%) because real
+        # tired voices still have some pitch movement — only purely-sad voices (very low RMS +
+        # very high silence) are excluded via the guard above.
         mood = "tired"
-        confidence = "high" if (silence > 0.55 and pitch_std < HIGH_PITCH_STD * 0.3) else "medium"
+        confidence = "high" if (silence > 0.50 and pitch_std < HIGH_PITCH_STD * 0.40) else "medium"
 
     elif rms <= LOW_RMS and silence >= HIGH_SILENCE:
         # Quiet voice, lots of silence — sad / low energy

@@ -371,6 +371,30 @@ def _run_google_sentiment(text: str, detected_lang: str | None) -> dict:
 
 
 # =====================================================================
+#  Lexical tired detection (transcript-based)
+# =====================================================================
+_TIRED_EN = {
+    "tired", "exhausted", "sleepy", "fatigue", "fatigued",
+    "drowsy", "drained", "weary", "worn",
+}
+_TIRED_AR = {
+    "تعبان", "تعبانة", "تعب", "تعبة",
+    "نعسان", "نعسانة", "نعاس",
+    "مرهق", "مرهقة", "إرهاق", "منهك", "منهكة",
+}
+
+
+def _lexical_tired(transcript: str | None) -> bool:
+    """Return True if the transcript contains explicit tiredness vocabulary."""
+    if not transcript or not transcript.strip():
+        return False
+    words = set(transcript.lower().split())
+    if words & _TIRED_EN:
+        return True
+    return any(kw in transcript for kw in _TIRED_AR)
+
+
+# =====================================================================
 #  Score helpers
 # =====================================================================
 def _normalize_scores(scores: dict[str, float]) -> dict[str, float]:
@@ -522,8 +546,12 @@ def analyze_emotion(request):
         final_mood = sentiment_result["mood"]
         combined_scores = text_norm
 
-    # Acoustic tired signal overrides text sentiment — tiredness is in the voice, not the words
-    if fatigue_detected:
+    # Acoustic tired signal overrides text sentiment — tiredness is in the voice, not the words.
+    # Lexical check covers the case where someone explicitly says "I'm tired" but doesn't
+    # acoustically sound tired enough to cross the threshold (e.g. short clip, light accent).
+    acoustic_mood = acoustic_result.get("mood") if acoustic_result else None
+    lexical_tired = _lexical_tired(transcript)
+    if fatigue_detected or (lexical_tired and acoustic_mood not in ("angry", "happy")):
         final_mood = "tired"
 
     logger.info(
