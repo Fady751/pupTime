@@ -12,9 +12,7 @@
             --surface-2: #1c1c3a;
             --border: #2a2a50;
             --primary: #7c5cfc;
-            --primary-glow: rgba(124, 92, 252, 0.25);
             --accent: #00d9a3;
-            --accent-glow: rgba(0, 217, 163, 0.2);
             --danger: #ff5c72;
             --warning: #ffb347;
             --text: #e8e6f0;
@@ -23,6 +21,9 @@
             --good: #00d9a3;
             --normal: #7c5cfc;
             --bad: #ff5c72;
+            --tired: #ffb347;
+            --tired-bg: rgba(255,179,71,0.12);
+            --tired-border: rgba(255,179,71,0.4);
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -50,7 +51,7 @@
             border-radius: var(--radius);
             padding: 24px;
             width: 100%;
-            max-width: 640px;
+            max-width: 680px;
             margin-bottom: 20px;
             transition: border-color 0.3s;
         }
@@ -63,6 +64,14 @@
             display: flex;
             align-items: center;
             gap: 8px;
+        }
+        .section-title {
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin: 20px 0 10px;
         }
 
         /* Buttons */
@@ -86,10 +95,7 @@
             box-shadow: 0 4px 24px rgba(255, 92, 114, 0.3);
         }
         #recordBtn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 30px rgba(255, 92, 114, 0.4); }
-        #recordBtn.recording {
-            background: linear-gradient(135deg, #ff3355, #cc0033);
-            animation: pulse 1.2s infinite;
-        }
+        #recordBtn.recording { background: linear-gradient(135deg, #ff3355, #cc0033); animation: pulse 1.2s infinite; }
         @keyframes pulse {
             0%, 100% { box-shadow: 0 0 0 0 rgba(255, 92, 114, 0.5); }
             50% { box-shadow: 0 0 0 16px rgba(255, 92, 114, 0); }
@@ -155,7 +161,6 @@
         .divider::before { left: 0; }
         .divider::after { right: 0; }
 
-        /* Status */
         #status {
             padding: 14px 16px;
             border-radius: 12px;
@@ -171,25 +176,46 @@
         /* Result panel */
         .result-panel { display: none; }
         .result-panel.visible { display: block; }
+
+        /* Fatigue alert banner */
+        .fatigue-banner {
+            display: none;
+            align-items: center;
+            gap: 12px;
+            background: var(--tired-bg);
+            border: 1px solid var(--tired-border);
+            border-radius: 12px;
+            padding: 14px 18px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+        }
+        .fatigue-banner.visible { display: flex; }
+        .fatigue-banner .icon { font-size: 1.6rem; }
+        .fatigue-banner strong { color: var(--tired); display: block; font-size: 0.95rem; }
+        .fatigue-banner span { color: var(--text-muted); font-size: 0.82rem; }
+
+        /* Mood badge */
         .mood-badge {
             display: inline-flex;
             align-items: center;
             gap: 10px;
             padding: 12px 28px;
             border-radius: 50px;
-            font-size: 1.6rem;
+            font-size: 1.5rem;
             font-weight: 700;
             margin: 8px auto 20px;
         }
-        .mood-badge.good { background: rgba(0,217,163,0.15); color: var(--good); border: 2px solid var(--good); }
-        .mood-badge.normal { background: rgba(124,92,252,0.15); color: var(--normal); border: 2px solid var(--normal); }
-        .mood-badge.bad { background: rgba(255,92,114,0.15); color: var(--bad); border: 2px solid var(--bad); }
+        .mood-badge.good    { background: rgba(0,217,163,0.15);  color: var(--good);   border: 2px solid var(--good); }
+        .mood-badge.normal  { background: rgba(124,92,252,0.15); color: var(--normal); border: 2px solid var(--normal); }
+        .mood-badge.bad     { background: rgba(255,92,114,0.15); color: var(--bad);    border: 2px solid var(--bad); }
+        .mood-badge.tired   { background: var(--tired-bg);       color: var(--tired);  border: 2px solid var(--tired); }
 
+        /* Scores grid (text-sentiment scores) */
         .scores-grid {
             display: grid;
             grid-template-columns: 1fr 1fr 1fr;
             gap: 12px;
-            margin-bottom: 20px;
+            margin-bottom: 8px;
         }
         .score-item {
             background: var(--bg);
@@ -205,15 +231,45 @@
             margin-top: 8px;
             overflow: hidden;
         }
-        .score-bar-fill {
-            height: 100%;
-            border-radius: 3px;
-            transition: width 0.6s ease;
-        }
-        .score-bar-fill.good { background: var(--good); }
+        .score-bar-fill { height: 100%; border-radius: 3px; transition: width 0.6s ease; }
+        .score-bar-fill.good   { background: var(--good); }
         .score-bar-fill.normal { background: var(--normal); }
-        .score-bar-fill.bad { background: var(--bad); }
+        .score-bar-fill.bad    { background: var(--bad); }
 
+        /* Acoustic features grid */
+        .features-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+        .feat-item {
+            background: var(--bg);
+            border-radius: 10px;
+            padding: 12px 10px;
+            text-align: center;
+        }
+        .feat-item .feat-label { font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 4px; }
+        .feat-item .feat-value { font-size: 1rem; font-weight: 700; color: var(--text); }
+
+        /* Acoustic mood badge (compact) */
+        .acoustic-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 14px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        .acoustic-badge.angry   { background: rgba(255,92,114,0.15); color: var(--bad); border: 1px solid rgba(255,92,114,0.3); }
+        .acoustic-badge.anxious { background: rgba(255,179,71,0.15); color: var(--warning); border: 1px solid rgba(255,179,71,0.3); }
+        .acoustic-badge.tired   { background: var(--tired-bg); color: var(--tired); border: 1px solid var(--tired-border); }
+        .acoustic-badge.sad     { background: rgba(100,149,237,0.15); color: #6495ed; border: 1px solid rgba(100,149,237,0.3); }
+        .acoustic-badge.happy   { background: rgba(0,217,163,0.15); color: var(--good); border: 1px solid rgba(0,217,163,0.3); }
+        .acoustic-badge.neutral { background: rgba(123,121,160,0.15); color: var(--text-muted); border: 1px solid rgba(123,121,160,0.3); }
+
+        /* Detail rows */
         .detail-row {
             display: flex;
             justify-content: space-between;
@@ -225,15 +281,30 @@
         .detail-row:last-child { border-bottom: none; }
         .detail-label { color: var(--text-muted); }
         .detail-value { font-weight: 600; }
+
+        /* Hint box */
+        .hint-box {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px 16px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
+            line-height: 1.6;
+            font-style: italic;
+        }
+
+        /* Transcript */
         .transcript-box {
             background: var(--bg);
             border-radius: 12px;
             padding: 16px;
-            margin-top: 12px;
             font-size: 0.9rem;
             line-height: 1.6;
             border: 1px solid var(--border);
         }
+
+        /* Tags */
         .tag {
             display: inline-flex;
             align-items: center;
@@ -245,23 +316,34 @@
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
-        .tag.pipeline { background: rgba(124,92,252,0.2); color: var(--primary); }
-        .tag.lang { background: rgba(0,217,163,0.2); color: var(--accent); }
+        .tag.pipeline       { background: rgba(124,92,252,0.2); color: var(--primary); }
+        .tag.acoustic-only  { background: rgba(0,217,163,0.15); color: var(--accent); }
+        .tag.lang           { background: rgba(0,217,163,0.2); color: var(--accent); }
+        .tag.conf-high      { background: rgba(0,217,163,0.15); color: var(--good); }
+        .tag.conf-medium    { background: rgba(255,179,71,0.15); color: var(--warning); }
+        .tag.conf-low       { background: rgba(123,121,160,0.15); color: var(--text-muted); }
+
+        /* Pipeline note */
+        .pipeline-note {
+            background: rgba(0,217,163,0.07);
+            border: 1px solid rgba(0,217,163,0.2);
+            border-radius: 10px;
+            padding: 10px 14px;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-top: 12px;
+        }
     </style>
 </head>
 <body>
     <h1>🎤 Voice Mood Analyzer</h1>
-    <p class="subtitle">Speak or upload audio — supports Arabic, Egyptian, & English</p>
+    <p class="subtitle">Speak or upload audio — Arabic &amp; English supported</p>
 
     <!-- Input Card -->
     <div class="card">
         <h2>🎙️ Voice Input</h2>
-        <button id="recordBtn" class="btn" onclick="startRecording()">
-            🎤 Start Talking
-        </button>
-        <button id="stopBtn" class="btn" onclick="stopRecording()">
-            ⏹ Stop & Analyze
-        </button>
+        <button id="recordBtn" class="btn" onclick="startRecording()">🎤 Start Talking</button>
+        <button id="stopBtn" class="btn" onclick="stopRecording()">⏹ Stop &amp; Analyze</button>
         <div id="timerDisplay" class="timer">00:00</div>
 
         <div class="divider">or upload a file</div>
@@ -269,7 +351,7 @@
         <form id="uploadForm">
             <div class="upload-row">
                 <input id="audioFile" type="file" accept="audio/*" />
-                <button type="submit" class="btn">Upload & Analyze</button>
+                <button type="submit" class="btn">Upload &amp; Analyze</button>
             </div>
         </form>
 
@@ -280,36 +362,109 @@
     <div class="card result-panel" id="resultPanel">
         <h2>📊 Analysis Results</h2>
 
+        <!-- Fatigue banner (shows only when tired is detected) -->
+        <div class="fatigue-banner" id="fatigueBanner">
+            <div class="icon">😴</div>
+            <div>
+                <strong>Fatigue Detected</strong>
+                <span>Voice sounds flat and slow — monotone pitch with frequent pauses</span>
+            </div>
+        </div>
+
+        <!-- Final mood -->
         <div style="text-align: center;">
             <div id="moodBadge" class="mood-badge good">😊 Good</div>
         </div>
 
-        <div id="scoresGrid" class="scores-grid">
-            <div class="score-item">
-                <div class="label">Good 😊</div>
-                <div id="scoreGood" style="font-size: 1.3rem; font-weight: 700; color: var(--good);">0%</div>
-                <div class="score-bar"><div class="score-bar-fill good" id="barGood" style="width: 0%"></div></div>
-            </div>
-            <div class="score-item">
-                <div class="label">Normal 😐</div>
-                <div id="scoreNormal" style="font-size: 1.3rem; font-weight: 700; color: var(--normal);">0%</div>
-                <div class="score-bar"><div class="score-bar-fill normal" id="barNormal" style="width: 0%"></div></div>
-            </div>
-            <div class="score-item">
-                <div class="label">Bad 😠</div>
-                <div id="scoreBad" style="font-size: 1.3rem; font-weight: 700; color: var(--bad);">0%</div>
-                <div class="score-bar"><div class="score-bar-fill bad" id="barBad" style="width: 0%"></div></div>
+        <!-- Text sentiment scores (hidden in acoustic-only mode) -->
+        <div id="scoresSection">
+            <div class="section-title">Text Sentiment Scores</div>
+            <div class="scores-grid">
+                <div class="score-item">
+                    <div class="label">Good 😊</div>
+                    <div id="scoreGood" style="font-size:1.3rem;font-weight:700;color:var(--good)">0%</div>
+                    <div class="score-bar"><div class="score-bar-fill good" id="barGood" style="width:0%"></div></div>
+                </div>
+                <div class="score-item">
+                    <div class="label">Normal 😐</div>
+                    <div id="scoreNormal" style="font-size:1.3rem;font-weight:700;color:var(--normal)">0%</div>
+                    <div class="score-bar"><div class="score-bar-fill normal" id="barNormal" style="width:0%"></div></div>
+                </div>
+                <div class="score-item">
+                    <div class="label">Bad 😠</div>
+                    <div id="scoreBad" style="font-size:1.3rem;font-weight:700;color:var(--bad)">0%</div>
+                    <div class="score-bar"><div class="score-bar-fill bad" id="barBad" style="width:0%"></div></div>
+                </div>
             </div>
         </div>
 
+        <!-- Acoustic Analysis -->
+        <div id="acousticSection" style="display:none">
+            <div class="section-title">Acoustic Analysis (Language-Agnostic)</div>
+
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+                <div>
+                    <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:4px">Acoustic Mood</div>
+                    <div id="acousticBadge" class="acoustic-badge neutral">— neutral</div>
+                </div>
+                <div>
+                    <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:4px">Confidence</div>
+                    <div id="acousticConfTag" class="tag conf-medium">medium</div>
+                </div>
+            </div>
+
+            <div class="section-title" style="margin-top:0">Voice Features</div>
+            <div class="features-grid">
+                <div class="feat-item">
+                    <div class="feat-label">RMS Energy</div>
+                    <div class="feat-value" id="featRms">—</div>
+                </div>
+                <div class="feat-item">
+                    <div class="feat-label">Avg Pitch</div>
+                    <div class="feat-value" id="featPitch">—</div>
+                </div>
+                <div class="feat-item">
+                    <div class="feat-label">Pitch Variation</div>
+                    <div class="feat-value" id="featPitchStd">—</div>
+                </div>
+                <div class="feat-item">
+                    <div class="feat-label">Silence Ratio</div>
+                    <div class="feat-value" id="featSilence">—</div>
+                </div>
+                <div class="feat-item">
+                    <div class="feat-label">Zero Cross Rate</div>
+                    <div class="feat-value" id="featZcr">—</div>
+                </div>
+                <div class="feat-item">
+                    <div class="feat-label">Duration</div>
+                    <div class="feat-value" id="featDuration">—</div>
+                </div>
+            </div>
+
+            <div id="hintSection" style="display:none;margin-top:12px">
+                <div class="section-title">AI Hint (sent to PUP)</div>
+                <div class="hint-box" id="hintText"></div>
+            </div>
+        </div>
+
+        <!-- Meta details -->
+        <div class="section-title">Details</div>
         <div id="detailsSection">
             <div class="detail-row">
-                <span class="detail-label">Tone (voice)</span>
-                <span class="detail-value" id="detailTone">—</span>
+                <span class="detail-label">Final Mood</span>
+                <span class="detail-value" id="detailFinalMood">—</span>
             </div>
             <div class="detail-row">
-                <span class="detail-label">Text sentiment</span>
+                <span class="detail-label">Acoustic Mood</span>
+                <span class="detail-value" id="detailAcousticMood">—</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Text Sentiment</span>
                 <span class="detail-value" id="detailText">—</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Fatigue Detected</span>
+                <span class="detail-value" id="detailFatigue">—</span>
             </div>
             <div class="detail-row">
                 <span class="detail-label">Language</span>
@@ -319,28 +474,34 @@
                 <span class="detail-label">Pipeline</span>
                 <span class="detail-value" id="detailPipeline">—</span>
             </div>
+            <div id="sentimentRawRow" class="detail-row" style="display:none">
+                <span class="detail-label">Sentiment Score / Magnitude</span>
+                <span class="detail-value" id="detailSentimentRaw">—</span>
+            </div>
+            <div id="errorsRow" class="detail-row" style="display:none">
+                <span class="detail-label">Errors</span>
+                <span class="detail-value" id="detailErrors" style="color:var(--danger);font-size:0.8rem;text-align:right;max-width:60%">—</span>
+            </div>
         </div>
 
-        <div id="transcriptSection" style="display: none; margin-top: 16px;">
-            <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 6px;">📝 Transcript</div>
+        <!-- Pipeline note (shown for acoustic-only) -->
+        <div id="pipelineNote" class="pipeline-note" style="display:none"></div>
+
+        <!-- Transcript -->
+        <div id="transcriptSection" style="display:none;margin-top:16px">
+            <div class="section-title">Transcript</div>
             <div class="transcript-box" id="transcriptText"></div>
         </div>
     </div>
 
     <script>
-        let audioContext = null;
-        let mediaStream = null;
-        let sourceNode = null;
-        let processorNode = null;
-        let silenceNode = null;
-        let chunks = [];
-        let recordedLength = 0;
-        let recordingSampleRate = 48000;
-        let timerInterval = null;
-        let recordingSeconds = 0;
+        let audioContext = null, mediaStream = null, sourceNode = null;
+        let processorNode = null, silenceNode = null, chunks = [];
+        let recordedLength = 0, recordingSampleRate = 48000;
+        let timerInterval = null, recordingSeconds = 0;
 
         const recordBtn = document.getElementById('recordBtn');
-        const stopBtn = document.getElementById('stopBtn');
+        const stopBtn   = document.getElementById('stopBtn');
 
         function isSecureOrigin() {
             return window.isSecureContext || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
@@ -372,7 +533,7 @@
 
         function encodeWav(samples, sampleRate) {
             const buffer = new ArrayBuffer(44 + samples.length * 2);
-            const view = new DataView(buffer);
+            const view   = new DataView(buffer);
             writeString(view, 0, 'RIFF');
             view.setUint32(4, 36 + samples.length * 2, true);
             writeString(view, 8, 'WAVE');
@@ -391,28 +552,17 @@
         }
 
         async function startRecording() {
-            if (!isSecureOrigin()) {
-                setStatus('Microphone requires HTTPS or localhost.', 'error');
-                return;
-            }
-            if (!navigator.mediaDevices?.getUserMedia) {
-                setStatus('Microphone API not available in this browser.', 'error');
-                return;
-            }
-            try {
-                mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            } catch {
-                setStatus('Microphone permission denied.', 'error');
-                return;
-            }
+            if (!isSecureOrigin()) { setStatus('Microphone requires HTTPS or localhost.', 'error'); return; }
+            if (!navigator.mediaDevices?.getUserMedia) { setStatus('Microphone API not available in this browser.', 'error'); return; }
+            try { mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+            catch { setStatus('Microphone permission denied.', 'error'); return; }
 
-            chunks = [];
-            recordedLength = 0;
+            chunks = []; recordedLength = 0;
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
             recordingSampleRate = audioContext.sampleRate;
-            sourceNode = audioContext.createMediaStreamSource(mediaStream);
+            sourceNode    = audioContext.createMediaStreamSource(mediaStream);
             processorNode = audioContext.createScriptProcessor(4096, 1, 1);
-            silenceNode = audioContext.createGain();
+            silenceNode   = audioContext.createGain();
             silenceNode.gain.value = 0;
 
             processorNode.onaudioprocess = (e) => {
@@ -426,7 +576,7 @@
             silenceNode.connect(audioContext.destination);
 
             recordBtn.style.display = 'none';
-            stopBtn.style.display = 'block';
+            stopBtn.style.display   = 'block';
             const timer = document.getElementById('timerDisplay');
             timer.style.display = 'block';
             recordingSeconds = 0;
@@ -437,7 +587,6 @@
                 const s = String(recordingSeconds % 60).padStart(2, '0');
                 timer.textContent = `${m}:${s}`;
             }, 1000);
-
             setStatus('🎤 Listening...', 'info');
         }
 
@@ -450,14 +599,13 @@
             if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
             try { await audioContext.close(); } catch {}
 
-            const pcm = flattenChunks(chunks, recordedLength);
+            const pcm     = flattenChunks(chunks, recordedLength);
             const wavBlob = encodeWav(pcm, recordingSampleRate);
 
             audioContext = null; mediaStream = null; sourceNode = null;
             processorNode = null; silenceNode = null; chunks = []; recordedLength = 0;
-
             recordBtn.style.display = 'block';
-            stopBtn.style.display = 'none';
+            stopBtn.style.display   = 'none';
 
             await sendForAnalysis(wavBlob, 'rec.wav');
         }
@@ -465,7 +613,6 @@
         async function sendForAnalysis(audioBlob, filename = 'rec.wav') {
             const formData = new FormData();
             formData.append('file', audioBlob, filename);
-
             setStatus('⏳ Analyzing voice — this may take a moment...', 'info');
 
             try {
@@ -476,10 +623,7 @@
                 });
                 const data = await response.json();
 
-                if (data.error) {
-                    setStatus(`❌ ${data.error}`, 'error');
-                    return;
-                }
+                if (data.error) { setStatus(`❌ ${data.error}`, 'error'); return; }
 
                 displayResults(data);
                 setStatus('✅ Analysis complete!', 'success');
@@ -488,43 +632,136 @@
             }
         }
 
+        // ── Helpers ──────────────────────────────────────────────────────────
+        const MOOD_EMOJI = { good: '😊', normal: '😐', bad: '😠', tired: '😴' };
+        const MOOD_LABEL = { good: 'Good', normal: 'Normal', bad: 'Bad', tired: 'Tired' };
+        const ACOUSTIC_EMOJI = { angry: '😠', anxious: '😰', tired: '😴', sad: '😢', happy: '😊', neutral: '😐' };
+
+        function fmt2(n) { return (n == null) ? '—' : Number(n).toFixed(2); }
+        function fmt0(n) { return (n == null) ? '—' : Math.round(Number(n)) + ' Hz'; }
+        function fmtPct(n) { return (n == null) ? '—' : Math.round(Number(n) * 100) + '%'; }
+        function fmtSec(n) { return (n == null) ? '—' : Number(n).toFixed(1) + 's'; }
+
+        // ── Main display function ─────────────────────────────────────────────
         function displayResults(data) {
-            const panel = document.getElementById('resultPanel');
-            panel.classList.add('visible');
+            document.getElementById('resultPanel').classList.add('visible');
 
-            // Mood badge
-            const mood = data.mood || 'normal';
+            const mood       = data.mood || 'normal';
+            const acoustic   = data.acoustic_mood || null;
+            const fatigue    = !!data.fatigue_detected;
+            const pipeline   = data.pipeline || '—';
+            const isAcousticOnly = pipeline === 'acoustic_only';
+
+            // Fatigue banner
+            document.getElementById('fatigueBanner').classList.toggle('visible', fatigue);
+
+            // Final mood badge
             const badge = document.getElementById('moodBadge');
-            const moodEmoji = { good: '😊', normal: '😐', bad: '😠' };
-            const moodLabel = { good: 'Good', normal: 'Normal', bad: 'Bad' };
             badge.className = `mood-badge ${mood}`;
-            badge.textContent = `${moodEmoji[mood] || '😐'} ${moodLabel[mood] || 'Normal'}`;
+            badge.textContent = `${MOOD_EMOJI[mood] || '😐'} ${MOOD_LABEL[mood] || mood}`;
 
-            // Scores
-            const combined = data.mood_scores?.combined || {};
-            const total = (combined.good || 0) + (combined.normal || 0) + (combined.bad || 0) || 1;
-            const pct = (v) => Math.round(((v || 0) / total) * 100);
+            // Text sentiment scores (hide for acoustic-only)
+            const scoresSection = document.getElementById('scoresSection');
+            scoresSection.style.display = isAcousticOnly ? 'none' : 'block';
+            if (!isAcousticOnly) {
+                const combined = data.mood_scores?.combined || {};
+                const total = (combined.good || 0) + (combined.normal || 0) + (combined.bad || 0) || 1;
+                const pct = v => Math.round(((v || 0) / total) * 100);
+                document.getElementById('scoreGood').textContent   = pct(combined.good) + '%';
+                document.getElementById('scoreNormal').textContent = pct(combined.normal) + '%';
+                document.getElementById('scoreBad').textContent    = pct(combined.bad) + '%';
+                document.getElementById('barGood').style.width     = pct(combined.good) + '%';
+                document.getElementById('barNormal').style.width   = pct(combined.normal) + '%';
+                document.getElementById('barBad').style.width      = pct(combined.bad) + '%';
+            }
 
-            document.getElementById('scoreGood').textContent = pct(combined.good) + '%';
-            document.getElementById('scoreNormal').textContent = pct(combined.normal) + '%';
-            document.getElementById('scoreBad').textContent = pct(combined.bad) + '%';
-            document.getElementById('barGood').style.width = pct(combined.good) + '%';
-            document.getElementById('barNormal').style.width = pct(combined.normal) + '%';
-            document.getElementById('barBad').style.width = pct(combined.bad) + '%';
+            // Acoustic section
+            const acousticSection = document.getElementById('acousticSection');
+            if (acoustic) {
+                acousticSection.style.display = 'block';
+                const acMood = acoustic.mood || 'neutral';
+                const acConf = acoustic.confidence || 'low';
+                const acBadge = document.getElementById('acousticBadge');
+                acBadge.className = `acoustic-badge ${acMood}`;
+                acBadge.textContent = `${ACOUSTIC_EMOJI[acMood] || '😐'} ${acMood}`;
 
-            // Details
-            const comp = data.mood_components || {};
-            document.getElementById('detailTone').textContent = comp.tone || '—';
-            document.getElementById('detailText').textContent = comp.text || '—';
+                const confTag = document.getElementById('acousticConfTag');
+                confTag.className = `tag conf-${acConf}`;
+                confTag.textContent = acConf;
+
+                const f = acoustic.features || {};
+                document.getElementById('featRms').textContent      = fmt2(f.rms_energy);
+                document.getElementById('featPitch').textContent    = fmt0(f.average_pitch);
+                document.getElementById('featPitchStd').textContent = fmt0(f.pitch_variation);
+                document.getElementById('featSilence').textContent  = fmtPct(f.silence_ratio);
+                document.getElementById('featZcr').textContent      = fmt2(f.zero_crossing_rate);
+                document.getElementById('featDuration').textContent = fmtSec(f.duration_seconds);
+
+                const hintSection = document.getElementById('hintSection');
+                const hint = acoustic.ai_hint;
+                if (hint) {
+                    hintSection.style.display = 'block';
+                    document.getElementById('hintText').textContent = hint;
+                } else {
+                    hintSection.style.display = 'none';
+                }
+            } else {
+                acousticSection.style.display = 'none';
+            }
+
+            // Details rows
+            document.getElementById('detailFinalMood').textContent    = mood;
+            document.getElementById('detailAcousticMood').textContent = acoustic?.mood || '—';
+            document.getElementById('detailText').textContent         = data.mood_components?.text || '—';
+            document.getElementById('detailFatigue').innerHTML        = fatigue
+                ? '<span style="color:var(--tired);font-weight:700">Yes 😴</span>'
+                : '<span style="color:var(--text-muted)">No</span>';
 
             const langMap = { en: '🇺🇸 English', ar: '🇪🇬 Arabic', zh: '🇨🇳 Chinese', ja: '🇯🇵 Japanese', ko: '🇰🇷 Korean' };
             document.getElementById('detailLang').textContent = langMap[data.detected_language] || data.detected_language || '—';
 
             const pipelineEl = document.getElementById('detailPipeline');
-            const pipelineLabel = data.pipeline === 'google'
-                ? 'Google STT'
-                : (data.pipeline || '—');
-            pipelineEl.innerHTML = `<span class="tag pipeline">${pipelineLabel}</span>`;
+            const pipelineClass = isAcousticOnly ? 'acoustic-only' : 'pipeline';
+            const pipelineText = {
+                acoustic_only:    'Acoustic Only',
+                google:           'Google STT',
+                'google+acoustic': 'Google + Acoustic',
+            }[pipeline] || pipeline;
+            pipelineEl.innerHTML = `<span class="tag ${pipelineClass}">${pipelineText}</span>`;
+
+            // Sentiment raw scores
+            const sentRow = document.getElementById('sentimentRawRow');
+            const raw     = data.sentiment;
+            if (raw && (raw.score != null || raw.magnitude != null)) {
+                sentRow.style.display = 'flex';
+                document.getElementById('detailSentimentRaw').textContent =
+                    `score ${Number(raw.score).toFixed(3)}  /  magnitude ${Number(raw.magnitude).toFixed(3)}`;
+            } else {
+                sentRow.style.display = 'none';
+            }
+
+            // Errors
+            const errorsRow = document.getElementById('errorsRow');
+            const errs      = data.errors || {};
+            const errMsgs   = Object.entries(errs)
+                .filter(([, v]) => v)
+                .map(([k, v]) => `${k}: ${v}`)
+                .join(' | ');
+            if (errMsgs) {
+                errorsRow.style.display = 'flex';
+                document.getElementById('detailErrors').textContent = errMsgs;
+            } else {
+                errorsRow.style.display = 'none';
+            }
+
+            // Pipeline note
+            const noteEl = document.getElementById('pipelineNote');
+            if (data.note) {
+                noteEl.style.display = 'block';
+                noteEl.textContent   = data.note;
+            } else {
+                noteEl.style.display = 'none';
+            }
 
             // Transcript
             const tsSection = document.getElementById('transcriptSection');
@@ -540,7 +777,7 @@
         document.getElementById('uploadForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const fileInput = document.getElementById('audioFile');
-            const file = fileInput?.files?.[0];
+            const file      = fileInput?.files?.[0];
             if (!file) { setStatus('Please choose an audio file first.', 'error'); return; }
             await sendForAnalysis(file, file.name || 'upload');
             fileInput.value = '';

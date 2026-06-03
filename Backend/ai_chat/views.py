@@ -630,14 +630,25 @@ class VoiceChatView(APIView):
             mood_data = classify_mood(features)
             os.unlink(mood_tmp_path)
 
-            mood_context_note = (
-                f"\n\n[System mood context — do not read aloud or mention this note directly: "
-                f"Based on the user's voice, they appear to be feeling {mood_data['mood']} "
-                f"(confidence: {mood_data['confidence']}). "
-                f"{mood_data['ai_hint']} "
-                f"Respond with emotional awareness. If they are sad or anxious, warmly acknowledge "
-                f"their feeling first, then gently suggest a helpful activity or task if appropriate.]"
-            )
+            if mood_data['mood'] == 'tired':
+                mood_context_note = (
+                    f"\n\n[System mood context — do not read aloud or mention this note directly: "
+                    f"Based on the user's voice, they appear to be tired or fatigued "
+                    f"(confidence: {mood_data['confidence']}). "
+                    f"{mood_data['ai_hint']} "
+                    f"Briefly and naturally acknowledge their tiredness — one sentence is enough. "
+                    f"Suggest a short rest or break if it fits the context. "
+                    f"Keep any suggestions minimal and low-effort. Do not push complex tasks or heavy planning.]"
+                )
+            else:
+                mood_context_note = (
+                    f"\n\n[System mood context — do not read aloud or mention this note directly: "
+                    f"Based on the user's voice, they appear to be feeling {mood_data['mood']} "
+                    f"(confidence: {mood_data['confidence']}). "
+                    f"{mood_data['ai_hint']} "
+                    f"Respond with emotional awareness. If they are sad or anxious, warmly acknowledge "
+                    f"their feeling first, then gently suggest a helpful activity or task if appropriate.]"
+                )
             logger.info(
                 "Voice mood analysis complete | mood=%s confidence=%s user=%s",
                 mood_data['mood'], mood_data['confidence'], request.user.id,

@@ -113,6 +113,12 @@ def classify_mood(features: dict) -> dict:
         mood = "anxious"
         confidence = "high" if pitch_std > HIGH_PITCH_STD * 1.4 else "medium"
 
+    elif rms < HIGH_RMS and pitch_std < HIGH_PITCH_STD * 0.45 and silence >= 0.40:
+        # Soft, monotone, slow speech — fatigued / mentally drained
+        # Key: low pitch variation distinguishes tired from sad (which can still be expressive)
+        mood = "tired"
+        confidence = "high" if (silence > 0.55 and pitch_std < HIGH_PITCH_STD * 0.3) else "medium"
+
     elif rms <= LOW_RMS and silence >= HIGH_SILENCE:
         # Quiet voice, lots of silence — sad / low energy
         mood = "sad"
@@ -136,9 +142,14 @@ def classify_mood(features: dict) -> dict:
             "User's voice has rapid pitch swings at a higher register — they may be feeling "
             "nervous, overwhelmed, or stressed."
         ),
+        "tired": (
+            "User's voice is flat and slow — soft volume, monotone pitch, with frequent pauses. "
+            "They appear physically or mentally fatigued. Gently acknowledge the tiredness and "
+            "suggest taking a short break before continuing with tasks."
+        ),
         "sad": (
             "User's voice is quiet and subdued with long pauses — they sound low-energy "
-            "and possibly feeling down or tired."
+            "and possibly feeling down."
         ),
         "happy": (
             "User's voice sounds energetic and steady — they seem to be in a good, "

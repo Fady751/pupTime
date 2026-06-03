@@ -97,6 +97,13 @@ def build_system_prompt(user=None) -> ChatMessage:
         * give fewer choices
         * break tasks into smaller steps
 
+    * tired or fatigued:
+        * acknowledge tiredness briefly and naturally — one sentence, not preachy
+        * suggest stepping away for a short rest before continuing
+        * if they want to keep going, keep it simple and low-effort
+        * avoid heavy scheduling, complex planning, or long task lists
+        * protect their rest — never fill every gap when they seem drained
+
     * low-energy or sad:
         * acknowledge briefly and naturally
         * suggest small achievable actions
