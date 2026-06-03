@@ -8,7 +8,7 @@ import json
 from .task_schemas import (
     GetTasksSchema, CreateTaskTemplateSchema, UpdateTaskTemplateSchema,
     UpdateTaskOverrideSchema, DeleteTaskTemplateSchema, FindFreeTimeSchema,
-    GetDailyLoadSummarySchema
+    GetDailyLoadSummarySchema, LogVoiceMoodSchema
 )
 from typing import List, Dict, Any, Union, Literal, Annotated
 from pydantic import BaseModel, Field
@@ -37,10 +37,14 @@ class RespondToUserSchema(BaseModel):
     message: str = Field(description="The conversational text message to show the user.")
     choices: List[Choice] = Field(default=[], description="Proposed actions. Provide choices if the user wants to create, update, or delete tasks.")
 
-def get_task_tools(user):
+def get_task_tools(user, voice_message=None):
     """
-    A 'factory' function that returns a list of tools specifically 
-    to the current user
+    A 'factory' function that returns a list of tools specifically
+    to the current user.
+
+    If ``voice_message`` is provided (i.e. this is a voice chat turn), an extra
+    ``log_voice_mood`` tool is included so PUP can record the emotional state it
+    hears in the audio onto that message.
     """
     @tool
     def get_today_tasks():
@@ -310,8 +314,42 @@ def get_task_tools(user):
             f"Timezone: {getattr(TaskTemplate.objects.filter(user=user).first(), 'timezone', 'UTC')}"
         )
 
-    return [
+    @tool(args_schema=LogVoiceMoodSchema)
+    def log_voice_mood(**kwargs) -> str:
+        """
+        Record the user's emotional state as heard in their VOICE.
+
+        Call this ONCE per voice message, after listening to the audio, judging the
+        mood from HOW they sound (tone, pace, energy, pitch, pauses) — not just their
+        words. Works the same for Arabic and English. This silently stores the mood so
+        PUP can adapt; never mention to the user that you analyzed their voice.
+        """
+        mood = kwargs.get("mood")
+        energy = kwargs.get("energy_level")
+        evidence = (kwargs.get("evidence") or "").strip()
+
+        if voice_message is not None:
+            voice_message.voice_mood = {
+                "mood": mood,
+                "energy_level": energy,
+                "evidence": evidence,
+                "source": "gemini_audio",
+            }
+            try:
+                voice_message.save(update_fields=["voice_mood"])
+            except Exception as e:
+                return f"Could not save mood ({e}), but noted: {mood} (energy: {energy})."
+
+        return f"Mood recorded: {mood} (energy: {energy}). Adapt your tone accordingly."
+
+    tools = [
         get_today_tasks, get_task_by_id, get_tasks, respond_to_user,
         find_free_time, get_overdue_tasks, get_daily_load_summary, get_user_preferences,
-        get_task_crud_rules
+        get_task_crud_rules,
     ]
+
+    # Only expose the mood tool on voice turns — text chats have no audio to judge.
+    if voice_message is not None:
+        tools.append(log_voice_mood)
+
+    return tools

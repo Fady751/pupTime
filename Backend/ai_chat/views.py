@@ -31,7 +31,6 @@ from .serializers import (
     VoiceChatSerializer,
 )
 from .s3_storage import ALLOWED_MIME_TYPES, MAX_VOICE_FILE_SIZE, upload_voice_file, generate_presigned_url
-from .voice_service import analyze_audio, classify_mood
 from task.models import TaskTemplate, TaskOverride
 from task.serializers import TaskSerializer, TaskOverrideSerializer
 from task.views import _parse_iso
@@ -619,45 +618,11 @@ class VoiceChatView(APIView):
             return Response({'error': 'Failed to process audio format.'}, status=status.HTTP_400_BAD_REQUEST)
 
 
-        mood_data = None
-        mood_context_note = ''
-        try:
-            with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as mood_tmp:
-                mood_tmp.write(audio_bytes)
-                mood_tmp_path = mood_tmp.name
-
-            features = analyze_audio(mood_tmp_path)
-            mood_data = classify_mood(features)
-            os.unlink(mood_tmp_path)
-
-            if mood_data['mood'] == 'tired':
-                mood_context_note = (
-                    f"\n\n[System mood context — do not read aloud or mention this note directly: "
-                    f"Based on the user's voice, they appear to be tired or fatigued "
-                    f"(confidence: {mood_data['confidence']}). "
-                    f"{mood_data['ai_hint']} "
-                    f"Briefly and naturally acknowledge their tiredness — one sentence is enough. "
-                    f"Suggest a short rest or break if it fits the context. "
-                    f"Keep any suggestions minimal and low-effort. Do not push complex tasks or heavy planning.]"
-                )
-            else:
-                mood_context_note = (
-                    f"\n\n[System mood context — do not read aloud or mention this note directly: "
-                    f"Based on the user's voice, they appear to be feeling {mood_data['mood']} "
-                    f"(confidence: {mood_data['confidence']}). "
-                    f"{mood_data['ai_hint']} "
-                    f"Respond with emotional awareness. If they are sad or anxious, warmly acknowledge "
-                    f"their feeling first, then gently suggest a helpful activity or task if appropriate.]"
-                )
-            logger.info(
-                "Voice mood analysis complete | mood=%s confidence=%s user=%s",
-                mood_data['mood'], mood_data['confidence'], request.user.id,
-            )
-        except Exception as mood_err:
-            logger.warning(
-                "Mood analysis failed, continuing without mood context | error=%s",
-                mood_err,
-            )
+        # NOTE: Voice mood is no longer derived from the brittle librosa rule-based
+        # classifier. Gemini receives the raw audio and judges the user's tone directly
+        # (see the VOICE & TONE AWARENESS section of the system prompt), recording its
+        # verdict via the `log_voice_mood` tool. That is far more reliable than absolute
+        # acoustic thresholds, which couldn't distinguish tired from normal across devices.
 
         try:
             title = text_context[:80] if text_context else "Voice message"
@@ -668,9 +633,6 @@ class VoiceChatView(APIView):
             )
             current_conversation_id = str(conversation.id)
 
-
-            message_with_mood = text_context + mood_context_note
-
             voice_message = ChatService.save_voice_message(
                 conversation=conversation,
                 s3_key='',  # placeholder — updated after S3 upload
@@ -679,18 +641,10 @@ class VoiceChatView(APIView):
                 text_content=text_context,
             )
 
-            if mood_data is not None:
-                voice_message.voice_mood = mood_data
-                voice_message.save(update_fields=['voice_mood'])
-                logger.debug(
-                    "Stored mood data on message | message_id=%s mood=%s",
-                    voice_message.id, mood_data['mood'],
-                )
-
             from concurrent.futures import ThreadPoolExecutor, Future
 
             chat_messages = ChatService.prepare_chat_messages(
-                conversation, override_last_user_content=message_with_mood
+                conversation, override_last_user_content=text_context or None
             )
 
             with ThreadPoolExecutor(max_workers=1) as executor:
@@ -707,6 +661,7 @@ class VoiceChatView(APIView):
                     chat_messages=chat_messages,
                     audio_bytes=audio_bytes,
                     audio_mime_type=mime_type,
+                    voice_message=voice_message,
                 ):
                     full_response_parts.append(chunk)
 

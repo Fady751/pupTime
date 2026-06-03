@@ -170,3 +170,36 @@ class GetDailyLoadSummarySchema(BaseModel):
     end_date: str = Field(
         description="ISO 8601 end date of the summary range."
     )
+
+
+MoodType = Literal[
+    "happy", "content", "neutral", "tired",
+    "stressed", "anxious", "sad", "frustrated", "angry",
+]
+EnergyLevel = Literal["high", "medium", "low"]
+
+
+class LogVoiceMoodSchema(BaseModel):
+    model_config = {"extra": "ignore"}
+    """Schema for recording the emotional state PUP perceived from the user's VOICE.
+
+    This is judged by listening to the actual audio (tone, pace, energy, pitch,
+    pauses, breathiness) — NOT inferred from the words alone.
+    """
+
+    mood: MoodType = Field(
+        description=(
+            "The user's emotional state as heard in their voice. MUST be exactly one of: "
+            "happy, content, neutral, tired, stressed, anxious, sad, frustrated, angry."
+        )
+    )
+    energy_level: EnergyLevel = Field(
+        description="Overall vocal energy: 'high', 'medium', or 'low'."
+    )
+    evidence: str = Field(
+        description=(
+            "One short phrase describing the vocal cues you heard that led to this judgment "
+            "(e.g. 'slow, flat delivery with long pauses', 'fast and high-pitched'). "
+            "Base this on how they SOUND, not what they said."
+        )
+    )

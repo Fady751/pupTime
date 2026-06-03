@@ -113,10 +113,15 @@ class ChatService:
         chat_messages: List[ChatMessage],
         audio_bytes: bytes,
         audio_mime_type: str,
+        voice_message: Optional[Message] = None,
     ):
-        """Return a streaming response from the AI provider (text + audio)."""
+        """Return a streaming response from the AI provider (text + audio).
+
+        ``voice_message`` is passed to the tool factory so PUP can record the mood
+        it hears in the audio (via the ``log_voice_mood`` tool) onto that message.
+        """
         provider = get_ai_provider()
-        tools    = get_task_tools(user)
+        tools    = get_task_tools(user, voice_message=voice_message)
         return provider.stream_with_tools_and_audio(
             chat_messages, tools, audio_bytes, audio_mime_type, user=user
         )
