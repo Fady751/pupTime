@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, Literal
+from typing import Optional, Literal, List
 
 
 PriorityType = Literal["none", "low", "medium", "high"]
@@ -202,4 +202,37 @@ class LogVoiceMoodSchema(BaseModel):
             "(e.g. 'slow, flat delivery with long pauses', 'fast and high-pitched'). "
             "Base this on how they SOUND, not what they said."
         )
+    )
+
+
+class SubTaskInputSchema(BaseModel):
+    model_config = {"extra": "ignore"}
+    title: str = Field(description="Title of the sub-task.")
+    duration_minutes: int = Field(description="Duration in minutes.", ge=1)
+    scheduled_at: Optional[str] = Field(
+        default=None,
+        description="ISO 8601 datetime. Null if this sub-task has no fixed time.",
+    )
+    description: str = Field(default="", description="Optional description.")
+
+
+class InviteFriendToTaskSchema(BaseModel):
+    model_config = {"extra": "ignore"}
+    friend_id: int = Field(
+        description="The integer user ID of the friend to invite. Must already be your friend."
+    )
+    title: str = Field(description="Title of the shared task.")
+    duration_minutes: int = Field(description="Duration in minutes.", ge=1)
+    scheduled_at: Optional[str] = Field(
+        default=None,
+        description=(
+            "ISO 8601 datetime for when the task is scheduled. "
+            "Null if this is a container task whose sub-tasks each have their own time. "
+            "Use find_free_time first to choose a good slot."
+        ),
+    )
+    description: str = Field(default="", description="Optional description.")
+    sub_tasks: List[SubTaskInputSchema] = Field(
+        default=[],
+        description="Sub-tasks (1-level deep). Each can have its own scheduled_at.",
     )
