@@ -4,6 +4,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
+from drf_yasg import openapi
+from drf_yasg.utils import swagger_auto_schema
 
 from .models import SocialTask, SocialTaskParticipant, ParticipantStatus
 from .serializers import (
@@ -24,6 +26,11 @@ class _Pagination(PageNumberPagination):
 class SocialTaskListCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(
+        operation_summary='List social tasks',
+        operation_description='Returns all social tasks (root only) where the authenticated user is a participant.',
+        responses={200: SocialTaskListSerializer(many=True)},
+    )
     def get(self, request):
         tasks = (
             SocialTask.objects
@@ -38,6 +45,18 @@ class SocialTaskListCreateView(APIView):
             SocialTaskListSerializer(page, many=True, context={'request': request}).data
         )
 
+    @swagger_auto_schema(
+        operation_summary='Create a social task',
+        operation_description=(
+            'Create a shared task and optionally invite friends and add sub-tasks in one request. '
+            'All participant_ids must be accepted friends of the caller.'
+        ),
+        request_body=SocialTaskCreateSerializer,
+        responses={
+            201: SocialTaskDetailSerializer,
+            400: openapi.Response('Validation error — bad fields or non-friend participant'),
+        },
+    )
     def post(self, request):
         serializer = SocialTaskCreateSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
@@ -71,6 +90,14 @@ class SocialTaskDetailView(APIView):
     def _get_node(self, pk):
         return get_object_or_404(SocialTask, pk=pk, is_deleted=False)
 
+    @swagger_auto_schema(
+        operation_summary='Get social task detail',
+        operation_description='Returns root task with participants and sub-tasks. Only accessible by participants.',
+        responses={
+            200: SocialTaskDetailSerializer,
+            403: openapi.Response('Not a participant'),
+        },
+    )
     def get(self, request, pk):
         node = self._get_node(pk)
         root = node.root
@@ -78,6 +105,18 @@ class SocialTaskDetailView(APIView):
             return Response({'detail': 'Not a participant.'}, status=status.HTTP_403_FORBIDDEN)
         return Response(SocialTaskDetailSerializer(root).data)
 
+    @swagger_auto_schema(
+        operation_summary='Update social task or sub-task',
+        operation_description=(
+            'Initiator-only. pk can be a root task or a sub-task. '
+            'Changing scheduled_at on a confirmed task propagates to all participants\' TaskTemplates.'
+        ),
+        request_body=SocialTaskUpdateSerializer,
+        responses={
+            200: SocialTaskDetailSerializer,
+            403: openapi.Response('Not the initiator'),
+        },
+    )
     def patch(self, request, pk):
         node = self._get_node(pk)
         root = node.root
@@ -89,6 +128,18 @@ class SocialTaskDetailView(APIView):
         root.refresh_from_db()
         return Response(SocialTaskDetailSerializer(root).data)
 
+    @swagger_auto_schema(
+        operation_summary='Cancel social task',
+        operation_description=(
+            'Initiator-only. Soft-deletes the root task, all sub-tasks, '
+            'and all participants\' personal TaskTemplates.'
+        ),
+        responses={
+            204: openapi.Response('Cancelled'),
+            400: openapi.Response('Cannot cancel a sub-task directly'),
+            403: openapi.Response('Not the initiator'),
+        },
+    )
     def delete(self, request, pk):
         node = self._get_node(pk)
         root = node.root
@@ -106,6 +157,23 @@ class SocialTaskDetailView(APIView):
 class SocialTaskAcceptView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(
+        operation_summary='Accept a social task invite',
+        operation_description=(
+            'Mark the caller\'s participation as accepted. '
+            'When all invitees have accepted, the task moves to confirmed and personal TaskTemplates are created.'
+        ),
+        responses={
+            200: openapi.Response('Accepted', schema=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'status': openapi.Schema(type=openapi.TYPE_STRING),
+                    'participant_status': openapi.Schema(type=openapi.TYPE_STRING),
+                },
+            )),
+            400: openapi.Response('No pending invite found'),
+        },
+    )
     def post(self, request, pk):
         task = get_object_or_404(SocialTask, pk=pk, parent__isnull=True, is_deleted=False)
         try:
@@ -122,6 +190,19 @@ class SocialTaskAcceptView(APIView):
 class SocialTaskDeclineView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(
+        operation_summary='Decline a social task invite',
+        operation_description='Mark the caller\'s participation as declined. The initiator is notified.',
+        responses={
+            200: openapi.Response('Declined', schema=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'participant_status': openapi.Schema(type=openapi.TYPE_STRING),
+                },
+            )),
+            400: openapi.Response('No pending invite found'),
+        },
+    )
     def post(self, request, pk):
         task = get_object_or_404(SocialTask, pk=pk, parent__isnull=True, is_deleted=False)
         try:
@@ -137,6 +218,11 @@ class SocialTaskDeclineView(APIView):
 class SocialTaskInvitesView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(
+        operation_summary='List pending invites',
+        operation_description='Returns social tasks where the caller has a pending (invited) status.',
+        responses={200: SocialTaskListSerializer(many=True)},
+    )
     def get(self, request):
         tasks = (
             SocialTask.objects
@@ -160,6 +246,20 @@ class SocialTaskInvitesView(APIView):
 class SocialTaskAddSubTaskView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(
+        operation_summary='Add a sub-task',
+        operation_description=(
+            'Initiator-only. pk must be a root task. '
+            'If the root is already confirmed and the sub-task has a scheduled_at, '
+            'personal TaskTemplates are created immediately for all participants.'
+        ),
+        request_body=AddSubTaskSerializer,
+        responses={
+            201: SubTaskSerializer,
+            400: openapi.Response('pk is a sub-task, not a root'),
+            403: openapi.Response('Not the initiator'),
+        },
+    )
     def post(self, request, pk):
         root = get_object_or_404(SocialTask, pk=pk, is_deleted=False)
         if root.parent is not None:
