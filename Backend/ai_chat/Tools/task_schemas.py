@@ -207,7 +207,7 @@ class LogVoiceMoodSchema(BaseModel):
 
 class SubTaskInputSchema(BaseModel):
     model_config = {"extra": "ignore"}
-    title: str = Field(description="Title of the sub-task.")
+    task_title: str = Field(description="Title of the sub-task.")
     duration_minutes: int = Field(description="Duration in minutes.", ge=1)
     scheduled_at: Optional[str] = Field(
         default=None,
@@ -221,7 +221,7 @@ class InviteFriendToTaskSchema(BaseModel):
     friend_id: int = Field(
         description="The integer user ID of the friend to invite. Must already be your friend."
     )
-    title: str = Field(description="Title of the shared task.")
+    task_title: str = Field(description="Title of the shared task.")
     duration_minutes: int = Field(description="Duration in minutes.", ge=1)
     scheduled_at: Optional[str] = Field(
         default=None,

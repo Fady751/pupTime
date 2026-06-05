@@ -367,7 +367,7 @@ def get_task_tools(user, voice_message=None):
 
         sub_tasks_data = [
             {
-                'title': st.title,
+                'title': st.task_title,
                 'duration_minutes': st.duration_minutes,
                 'scheduled_at': _parse_iso(st.scheduled_at),
                 'description': st.description,
@@ -378,7 +378,7 @@ def get_task_tools(user, voice_message=None):
         task = create_social_task(
             initiator=user,
             data={
-                'title': kwargs['title'],
+                'title': kwargs['task_title'],
                 'description': kwargs.get('description', ''),
                 'duration_minutes': kwargs['duration_minutes'],
                 'scheduled_at': _parse_iso(kwargs.get('scheduled_at')),
