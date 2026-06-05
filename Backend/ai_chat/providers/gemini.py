@@ -262,11 +262,14 @@ class GeminiProvider(BaseAIProvider):
         audio_bytes: bytes,
         audio_mime_type: str,
         user=None,
+        acoustic_hint: str | None = None,
     ) -> Generator[str, None, None]:
         """
         Same as stream_with_tools, but the last user message is multimodal:
         it includes the audio content alongside any text for Gemini's native
-        audio understanding.
+        audio understanding. If ``acoustic_hint`` is provided it is prepended to
+        the text so Gemini has both its native audio perception AND an explicit
+        quantitative signal from the librosa classifier.
         """
         # Build all messages EXCEPT the last user message
         lc_messages = []
@@ -284,7 +287,11 @@ class GeminiProvider(BaseAIProvider):
         # Convert messages, replacing the last user message with multimodal
         for i, msg in enumerate(history):
             if i == last_user_idx:
-                text_instruction = last_user_text or "Listen to this voice message and respond appropriately."
+                base_text = last_user_text or "Listen to this voice message and respond appropriately."
+                if acoustic_hint:
+                    text_instruction = f"[Voice acoustic analysis: {acoustic_hint}]\n\n{base_text}"
+                else:
+                    text_instruction = base_text
                 audio_b64 = base64.b64encode(audio_bytes).decode("utf-8")
 
                 lc_messages.append(HumanMessage(content=[

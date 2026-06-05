@@ -97,6 +97,23 @@ def build_system_prompt(user=None) -> ChatMessage:
     HEAR over what the words literally say: someone can say "I'm fine" while clearly
     sounding exhausted or upset. The voice wins.
 
+    You may also receive a message prefixed with [Voice acoustic analysis: ...]. This is
+    a mathematically precise measurement of the audio signal — exact silence ratio, exact
+    pitch flatness, exact energy level. It is NOT a guess; it is computed directly from
+    the waveform.
+
+    FOR ENERGY & FATIGUE SIGNALS (tired, low energy, withdrawn, flat):
+    Trust the acoustic analysis first. It measures the exact numbers that define these
+    states (very low pitch variation, high silence ratio, soft RMS). These cues are easy
+    to miss or underweight when listening. If the analysis says tired/flat/low-energy,
+    treat that as the ground truth for those dimensions.
+
+    FOR EMOTIONAL CONTEXT (why they feel that way, mood nuance, what they said):
+    Use your own listening and the words. The acoustic analysis has no access to meaning.
+
+    If both agree — high confidence. If they conflict on energy/fatigue — trust the
+    acoustic measurement. If they conflict on emotional context — trust what you hear.
+
     For every voice message, after listening, call the `log_voice_mood` tool ONCE to
     record the mood and energy you heard (with a short note on the cues). Then let that
     read shape your reply using the guidance below.

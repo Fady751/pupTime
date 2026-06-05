@@ -618,11 +618,41 @@ class VoiceChatView(APIView):
             return Response({'error': 'Failed to process audio format.'}, status=status.HTTP_400_BAD_REQUEST)
 
 
-        # NOTE: Voice mood is no longer derived from the brittle librosa rule-based
-        # classifier. Gemini receives the raw audio and judges the user's tone directly
-        # (see the VOICE & TONE AWARENESS section of the system prompt), recording its
-        # verdict via the `log_voice_mood` tool. That is far more reliable than absolute
-        # acoustic thresholds, which couldn't distinguish tired from normal across devices.
+        # Run librosa acoustic analysis to extract quantitative features (RMS, silence,
+        # pitch variation, etc.) and produce a plain-English hint. The hint is injected
+        # alongside the raw audio so Gemini has both its native audio understanding AND
+        # an explicit acoustic signal — it still makes the final emotional judgement.
+        acoustic_hint: str | None = None
+        try:
+            import io as _io
+            import tempfile as _tempfile
+            import soundfile as _sf
+            import numpy as _np
+            from .voice_service import analyze_audio as _analyze_audio, classify_mood as _classify_mood
+
+            def _load_bytes_as_float32(b: bytes):
+                try:
+                    data, sr = _sf.read(_io.BytesIO(b), dtype="float32", always_2d=False)
+                    if data.ndim == 2:
+                        data = data.mean(axis=1)
+                    return _np.asarray(data, dtype=_np.float32), int(sr)
+                except Exception:
+                    return None, None
+
+            wav_data, wav_sr = _load_bytes_as_float32(audio_bytes)
+            if wav_data is not None:
+                with _tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as _tmp:
+                    _sf.write(_tmp.name, wav_data, wav_sr)
+                    _features = _analyze_audio(_tmp.name)
+                import os as _os
+                try:
+                    _os.unlink(_tmp.name)
+                except OSError:
+                    pass
+                _acoustic = _classify_mood(_features)
+                acoustic_hint = _acoustic.get("ai_hint")
+        except Exception as _e:
+            logger.debug("Acoustic analysis skipped: %s", _e)
 
         try:
             title = text_context[:80] if text_context else "Voice message"
@@ -662,6 +692,7 @@ class VoiceChatView(APIView):
                     audio_bytes=audio_bytes,
                     audio_mime_type=mime_type,
                     voice_message=voice_message,
+                    acoustic_hint=acoustic_hint,
                 ):
                     full_response_parts.append(chunk)
 
