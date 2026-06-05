@@ -23,9 +23,9 @@ class SocialTaskCreateSerializer(serializers.Serializer):
     duration_minutes = serializers.IntegerField(min_value=1)
     scheduled_at = serializers.DateTimeField(required=False, allow_null=True, default=None)
     participant_ids = serializers.ListField(
-        child=serializers.IntegerField(), required=False, default=list
+        child=serializers.IntegerField(), required=False
     )
-    sub_tasks = SubTaskInputSerializer(many=True, required=False, default=list)
+    sub_tasks = SubTaskInputSerializer(many=True, required=False)
 
     def validate_participant_ids(self, value):
         from django.db.models import Q
