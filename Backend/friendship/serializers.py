@@ -4,7 +4,6 @@ from django.db.models import Q
 from django.utils import timezone
 from .models import Friendship, Status
 from user.models import User
-from .services import delete_cancelled_friendship
 
 
 class FriendshipRequestSerializer(serializers.ModelSerializer):

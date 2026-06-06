@@ -15,8 +15,7 @@ from django.db.models import Q
 
 from .services import (
     check_existing_friendship , 
-    get_user_by_id ,
-    get_friendship_by_id
+    get_user_by_id 
 )
 
 from user.models import User

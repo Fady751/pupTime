@@ -153,3 +153,5 @@ gunicorn
 librosa
 
 asyncio
+
+celery
