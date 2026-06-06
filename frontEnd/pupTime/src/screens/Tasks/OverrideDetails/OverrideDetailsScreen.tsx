@@ -453,12 +453,21 @@ const OverrideDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
         {/* ── View Template Button ──────── */}
         <View style={styles.saveContainer}>
           <TouchableOpacity
-            style={[styles.saveBtn, { backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.primary }]}
+            style={[styles.saveBtn, { backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.primary, marginBottom: 12 }]}
             onPress={() => navigation.navigate("TemplateDetails", { templateId })}
             activeOpacity={0.85}
           >
             <Text style={[styles.saveBtnText, { color: colors.primary }]}>
               📌  View Hobby Details
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.saveBtn, { backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.secondaryText }]}
+            onPress={() => navigation.navigate("EditTask", { taskId: templateId })}
+            activeOpacity={0.85}
+          >
+            <Text style={[styles.saveBtnText, { color: colors.secondaryText }]}>
+              ✏️  Edit Hobby Configuration
             </Text>
           </TouchableOpacity>
         </View>
