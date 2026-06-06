@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import SocialTask, SocialTaskParticipant
+from .models import SocialTask, SocialTaskParticipant, SocialTaskNodeTask
 from user.models import User
 
 
@@ -62,22 +62,10 @@ class SocialTaskUpdateSerializer(serializers.Serializer):
 
 class ParticipantSerializer(serializers.ModelSerializer):
     user = UserMiniSerializer()
-    personal_tasks = serializers.SerializerMethodField()
 
     class Meta:
         model = SocialTaskParticipant
-        fields = ['id', 'user', 'status', 'rsvp_at', 'personal_tasks']
-
-    def get_personal_tasks(self, obj):
-        return [
-            {
-                'id': str(nt.task.id),
-                'title': nt.task.title,
-                'start_datetime': nt.task.start_datetime.isoformat() if nt.task.start_datetime else None,
-                'duration_minutes': nt.task.duration_minutes,
-            }
-            for nt in obj.node_tasks.select_related('task').filter(task__is_deleted=False)
-        ]
+        fields = ['id', 'user', 'status', 'rsvp_at']
 
 
 class SubTaskSerializer(serializers.ModelSerializer):
@@ -90,12 +78,13 @@ class SocialTaskDetailSerializer(serializers.ModelSerializer):
     initiator = UserMiniSerializer()
     participants = ParticipantSerializer(many=True)
     sub_tasks = serializers.SerializerMethodField()
+    my_tasks = serializers.SerializerMethodField()
 
     class Meta:
         model = SocialTask
         fields = [
             'id', 'title', 'description', 'duration_minutes', 'scheduled_at',
-            'status', 'initiator', 'participants', 'sub_tasks',
+            'status', 'initiator', 'participants', 'sub_tasks', 'my_tasks',
             'created_at', 'updated_at',
         ]
 
@@ -103,6 +92,27 @@ class SocialTaskDetailSerializer(serializers.ModelSerializer):
         return SubTaskSerializer(
             obj.sub_tasks.filter(is_deleted=False), many=True
         ).data
+
+    def get_my_tasks(self, obj):
+        request = self.context.get('request')
+        if request is None or not request.user.is_authenticated:
+            return []
+        node_ids = [obj.id] + list(
+            obj.sub_tasks.filter(is_deleted=False).values_list('id', flat=True)
+        )
+        return [
+            {
+                'id': str(nt.task.id),
+                'title': nt.task.title,
+                'start_datetime': nt.task.start_datetime.isoformat() if nt.task.start_datetime else None,
+                'duration_minutes': nt.task.duration_minutes,
+            }
+            for nt in SocialTaskNodeTask.objects.filter(
+                node_id__in=node_ids,
+                participant__user=request.user,
+                task__is_deleted=False,
+            ).select_related('task')
+        ]
 
 
 class SocialTaskListSerializer(serializers.ModelSerializer):

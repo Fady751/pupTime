@@ -81,7 +81,7 @@ class SocialTaskListCreateView(APIView):
                 for s in vd.get('sub_tasks', [])
             ],
         )
-        return Response(SocialTaskDetailSerializer(task).data, status=status.HTTP_201_CREATED)
+        return Response(SocialTaskDetailSerializer(task, context={'request': request}).data, status=status.HTTP_201_CREATED)
 
 
 class SocialTaskDetailView(APIView):
@@ -103,7 +103,7 @@ class SocialTaskDetailView(APIView):
         root = node.root
         if not root.participants.filter(user=request.user).exists():
             return Response({'detail': 'Not a participant.'}, status=status.HTTP_403_FORBIDDEN)
-        return Response(SocialTaskDetailSerializer(root).data)
+        return Response(SocialTaskDetailSerializer(root, context={'request': request}).data)
 
     @swagger_auto_schema(
         operation_summary='Update social task or sub-task',
@@ -126,7 +126,7 @@ class SocialTaskDetailView(APIView):
         serializer.is_valid(raise_exception=True)
         update_node(node, serializer.validated_data)
         root.refresh_from_db()
-        return Response(SocialTaskDetailSerializer(root).data)
+        return Response(SocialTaskDetailSerializer(root, context={'request': request}).data)
 
     @swagger_auto_schema(
         operation_summary='Cancel social task',

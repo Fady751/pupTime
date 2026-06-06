@@ -84,12 +84,13 @@ class SocialTaskE2E(LiveServerTestCase):
         self.assertEqual(r.status_code, 200, r.text)
         self.assertEqual(r.json()['status'], 'confirmed')
 
-        # --- detail shows confirmed + personal tasks for everyone ---
+        # --- detail shows confirmed + my_tasks for each user ---
         r = self.GET(f'/social-task/{task_id}/', self.tok_alice)
         self.assertEqual(r.json()['status'], 'confirmed')
-        for p in r.json()['participants']:
-            self.assertEqual(len(p['personal_tasks']), 1,
-                             f"{p['user']['username']} missing personal task")
+        self.assertEqual(len(r.json()['my_tasks']), 1, 'alice missing personal task')
+
+        r = self.GET(f'/social-task/{task_id}/', self.tok_bob)
+        self.assertEqual(len(r.json()['my_tasks']), 1, 'bob missing personal task')
 
         # --- invite inbox is now empty ---
         r = self.GET('/social-task/invites/', self.tok_bob)
@@ -114,9 +115,10 @@ class SocialTaskE2E(LiveServerTestCase):
         self.POST(f'/social-task/{task_id}/accept/', self.tok_bob)
 
         r = self.GET(f'/social-task/{task_id}/', self.tok_alice)
-        for p in r.json()['participants']:
-            self.assertEqual(len(p['personal_tasks']), 2,
-                             f"{p['user']['username']} should have 2 personal tasks")
+        self.assertEqual(len(r.json()['my_tasks']), 2, 'alice should have 2 personal tasks')
+
+        r = self.GET(f'/social-task/{task_id}/', self.tok_bob)
+        self.assertEqual(len(r.json()['my_tasks']), 2, 'bob should have 2 personal tasks')
 
     def test_03_untimed_sub_task_generates_no_personal_task(self):
         """1 timed sub + 1 untimed sub → 1 personal task per person (not 2)."""
@@ -134,8 +136,10 @@ class SocialTaskE2E(LiveServerTestCase):
         self.POST(f'/social-task/{task_id}/accept/', self.tok_bob)
 
         r = self.GET(f'/social-task/{task_id}/', self.tok_alice)
-        for p in r.json()['participants']:
-            self.assertEqual(len(p['personal_tasks']), 1)
+        self.assertEqual(len(r.json()['my_tasks']), 1)
+
+        r = self.GET(f'/social-task/{task_id}/', self.tok_bob)
+        self.assertEqual(len(r.json()['my_tasks']), 1)
 
     def test_04_decline_keeps_task_in_draft(self):
         """Bob declines → participant_status=declined → task stays draft."""
@@ -215,9 +219,10 @@ class SocialTaskE2E(LiveServerTestCase):
         self.assertEqual(r.status_code, 201, r.text)
 
         r = self.GET(f'/social-task/{task_id}/', self.tok_alice)
-        for p in r.json()['participants']:
-            self.assertEqual(len(p['personal_tasks']), 1,
-                             f"{p['user']['username']} missing personal task for new sub-task")
+        self.assertEqual(len(r.json()['my_tasks']), 1, 'alice missing personal task for new sub-task')
+
+        r = self.GET(f'/social-task/{task_id}/', self.tok_bob)
+        self.assertEqual(len(r.json()['my_tasks']), 1, 'bob missing personal task for new sub-task')
 
     def test_08_participant_can_view_detail(self):
         """Bob (invitee, not yet accepted) can GET detail."""
@@ -321,6 +326,6 @@ class SocialTaskE2E(LiveServerTestCase):
         self.assertEqual(r.json()['status'], 'confirmed')
 
         # All 3 have personal tasks
-        for p in r.json()['participants']:
-            self.assertEqual(len(p['personal_tasks']), 1,
-                             f"{p['user']['username']} missing personal task")
+        for tok in [self.tok_alice, self.tok_bob, self.tok_charlie]:
+            r = self.GET(f'/social-task/{task_id}/', tok)
+            self.assertEqual(len(r.json()['my_tasks']), 1, 'user missing personal task')
