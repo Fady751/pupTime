@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Shapes } from "lucide-react-native";
 import { Swipeable } from "react-native-gesture-handler";
 import { createStyles } from "./Tasks.styles";
 import { useNavigation } from "@react-navigation/native";
@@ -218,17 +219,17 @@ const TasksScreen: React.FC = () => {
     };
 
     const getStatusLabel = () => {
-      if (isToggling) return "•••";
-      if (isCompleted) return "✓ Done";
-      if (isSkipped) return "Skipped";
-      return "Mark ✓";
+      if (isToggling) return "⟳";
+      if (isCompleted) return "✓";
+      if (isSkipped) return "✕";
+      return " ";
     };
 
     return (
       <Swipeable renderRightActions={() => renderRightActions(template.id, override.id)}>
         <Pressable
           style={[styles.taskCard, { borderLeftColor: priorityColor }]}
-          onPress={() => navigation.navigate("EditTask", { taskId: template.id })}
+          onPress={() => navigation.navigate("OverrideDetails", { templateId: template.id, overrideId: override.id })}
         >
           <Text style={styles.taskEmoji}>{template.emoji || "📌"}</Text>
           <View style={styles.taskContent}>
@@ -271,11 +272,13 @@ const TasksScreen: React.FC = () => {
       <View style={styles.heroContainer}>
         <View style={styles.heroTopRow}>
           <View>
-            <Text style={styles.heroTitle}>My Tasks</Text>
-            <Text style={styles.heroSubtitle}>Stay organized, stay ahead</Text>
+            <Text style={styles.heroTitle}>Good morning</Text>
+            <Text style={styles.heroSubtitle}>
+              you have {todayOverrides.length} task{todayOverrides.length !== 1 ? "s" : ""} to do!
+            </Text>
           </View>
-          <Pressable style={styles.backBtn} onPress={() => navigation.goBack()}>
-            <Text style={styles.backBtnText}>←</Text>
+          <Pressable style={styles.backBtn} onPress={() => navigation.navigate("TemplatesList")}>
+            <Shapes color={colors.primaryDark} size={22} strokeWidth={2.5} />
           </Pressable>
         </View>
 

@@ -15,8 +15,7 @@ from django.db.models import Q
 
 from .services import (
     check_existing_friendship , 
-    get_user_by_id ,
-    get_friendship_by_id
+    get_user_by_id 
 )
 
 from user.models import User
@@ -114,7 +113,7 @@ class FriendshipCancelRequestView(APIView):
             400: openapi.Response('Bad request - validation errors or not authorized to cancel this request'),
         }
     )
-    def delete(self, request, friendship_id):
+    def post(self, request, friendship_id):
         friendship = get_object_or_404(Friendship, id=friendship_id)
 
         if friendship.sender != request.user:
@@ -123,10 +122,8 @@ class FriendshipCancelRequestView(APIView):
         if friendship.status != Status.PENDING:
             return Response({"error": "Only pending requests can be cancelled"}, status=400)
 
-        friendship.delete()
-
-        return Response(status=204)
-        
+        serializer = FriendshipCancelRequestSerializer(friendship, data=request.data, partial=True, context={'request': request})
+        return Response(serializer.data , status=200)
 
 
 class BlockFriendshipView(APIView):

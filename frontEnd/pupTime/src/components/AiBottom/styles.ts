@@ -1,30 +1,34 @@
 import { StyleSheet } from "react-native";
+import { AppColors } from "../../constants/colors";
 
-const styles = StyleSheet.create({
-  container: {
-    position: "absolute",
-    zIndex: 999,
-  },
-  button: {
-    width: 65,
-    height: 65,
-    borderRadius: 32.5,
-    backgroundColor: "#FFFFFF",
-    alignItems: "center",
-    justifyContent: "center",
-    elevation: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    borderWidth: 2,
-    borderColor: "#3B82F6",
-  },
-  icon: {
-    width: 65,
-    height: 65,
-    borderRadius: 32.5,
-  },
-});
+const createStyles = (colors: AppColors) =>
+  StyleSheet.create({
+    container: {
+      width: 65,
+      height: 65,
+      alignItems: "center",
+      justifyContent: "center",
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.3,
+      shadowRadius: 15,
+      elevation: 12,
+    },
+    button: {
+      width: 65,
+      height: 65,
+      borderRadius: 32.5,
+      backgroundColor: colors.surface,
+      alignItems: "center",
+      justifyContent: "center",
+      overflow: "hidden",
+      borderWidth: 2,
+      borderColor: colors.surface,
+    },
+    icon: {
+      width: 65,
+      height: 65,
+    },
+  });
 
-export default styles;
+export default createStyles;

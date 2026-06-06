@@ -25,6 +25,7 @@ urlpatterns = [
     path('task/', include('task.urls')),
     path('ai/', include('ai_chat.urls')),
     path('friendship/', include('friendship.urls')),
+    path('hobby/', include('hobby.urls')),
     path('notification/', include('notification.urls')),
     path('social-task/', include('social_task.urls')),
     path('chat/', include('chat.urls')),

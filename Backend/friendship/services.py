@@ -1,18 +1,9 @@
-
-from requests import Response
+from rest_framework.response import Response
 from django.db.models import Q
 from .models import User
-from .models import Friendship
+from .models import Friendship, Status
 
 
-def delete_cancelled_friendship(friendship_id):
-    try:
-        f = Friendship.objects.get(id=friendship_id)
-        if f.status == f.Status.CANCELLED:
-            f.delete()
-    except Friendship.DoesNotExist:
-        pass
-  
 def get_user_by_id(user_id):    
     try:
         user = User.objects.get(id=user_id)

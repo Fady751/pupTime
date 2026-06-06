@@ -78,3 +78,5 @@ CLAUDE.md
 
 # AI Agent Onboarding
 .aiagent/
+.claude/
+skills-lock.json

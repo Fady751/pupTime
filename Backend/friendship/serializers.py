@@ -4,7 +4,6 @@ from django.db.models import Q
 from django.utils import timezone
 from .models import Friendship, Status
 from user.models import User
-from .services import delete_cancelled_friendship
 
 
 class FriendshipRequestSerializer(serializers.ModelSerializer):
@@ -67,7 +66,7 @@ class FriendshipCancelRequestSerializer(serializers.ModelSerializer):
         
         instance.status = Status.CANCELLED
         instance.save()
-        delete_cancelled_friendship.apply_async(args=[instance.id], countdown=60)
+        
         return instance
     
 class BlockFriendshipSerializer(serializers.ModelSerializer):
