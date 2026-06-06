@@ -329,3 +329,113 @@ class SocialTaskE2E(LiveServerTestCase):
         for tok in [self.tok_alice, self.tok_bob, self.tok_charlie]:
             r = self.GET(f'/social-task/{task_id}/', tok)
             self.assertEqual(len(r.json()['my_tasks']), 1, 'user missing personal task')
+
+    def test_15_invite_friend_after_creation_draft(self):
+        """Alice creates task with Bob → invites Charlie via /invite/ → both accept → confirmed."""
+        Friendship.objects.create(
+            sender=self.alice, receiver=self.charlie, status=FriendshipStatus.ACCEPTED
+        )
+
+        r = self.POST('/social-task/', self.tok_alice, {
+            'title': 'Camping trip',
+            'duration_minutes': 120,
+            'scheduled_at': _future(2),
+            'participant_ids': [self.bob.id],
+        })
+        self.assertEqual(r.status_code, 201)
+        task_id = r.json()['id']
+
+        r = self.POST(f'/social-task/{task_id}/invite/', self.tok_alice, {
+            'participant_ids': [self.charlie.id],
+        })
+        self.assertEqual(r.status_code, 200, r.text)
+        participant_users = [p['user']['username'] for p in r.json()['participants']]
+        self.assertIn('charlie', participant_users)
+
+        # Bob accepts — still draft (Charlie pending)
+        self.POST(f'/social-task/{task_id}/accept/', self.tok_bob)
+        r = self.GET(f'/social-task/{task_id}/', self.tok_alice)
+        self.assertEqual(r.json()['status'], 'draft')
+
+        # Charlie accepts — confirmed
+        self.POST(f'/social-task/{task_id}/accept/', self.tok_charlie)
+        r = self.GET(f'/social-task/{task_id}/', self.tok_alice)
+        self.assertEqual(r.json()['status'], 'confirmed')
+
+    def test_16_invite_after_confirmed_creates_personal_tasks_on_accept(self):
+        """Solo task (auto-confirmed) → invite Bob → task stays confirmed → Bob accepts → Bob gets personal tasks."""
+        r = self.POST('/social-task/', self.tok_alice, {
+            'title': 'Study session',
+            'duration_minutes': 60,
+            'scheduled_at': _future(1),
+        })
+        self.assertEqual(r.status_code, 201)
+        task_id = r.json()['id']
+        self.assertEqual(r.json()['status'], 'confirmed')
+
+        r = self.POST(f'/social-task/{task_id}/invite/', self.tok_alice, {
+            'participant_ids': [self.bob.id],
+        })
+        self.assertEqual(r.status_code, 200, r.text)
+
+        # Task stays confirmed
+        r = self.GET(f'/social-task/{task_id}/', self.tok_alice)
+        self.assertEqual(r.json()['status'], 'confirmed')
+
+        # Bob has no personal tasks yet
+        r = self.GET(f'/social-task/{task_id}/', self.tok_bob)
+        self.assertEqual(len(r.json()['my_tasks']), 0)
+
+        self.POST(f'/social-task/{task_id}/accept/', self.tok_bob)
+
+        # Bob now has personal task, task still confirmed
+        r = self.GET(f'/social-task/{task_id}/', self.tok_bob)
+        self.assertEqual(len(r.json()['my_tasks']), 1)
+        r = self.GET(f'/social-task/{task_id}/', self.tok_alice)
+        self.assertEqual(r.json()['status'], 'confirmed')
+
+    def test_17_invite_non_friend_rejected(self):
+        """Inviting a non-friend after creation → 400."""
+        r = self.POST('/social-task/', self.tok_alice, {
+            'title': 'Private meeting',
+            'duration_minutes': 30,
+        })
+        task_id = r.json()['id']
+
+        r = self.POST(f'/social-task/{task_id}/invite/', self.tok_alice, {
+            'participant_ids': [self.charlie.id],
+        })
+        self.assertEqual(r.status_code, 400)
+        self.assertIn('participant_ids', r.json())
+
+    def test_18_invite_by_non_initiator_rejected(self):
+        """Non-initiator cannot invite → 403."""
+        r = self.POST('/social-task/', self.tok_alice, {
+            'title': "Alice's task",
+            'duration_minutes': 30,
+            'participant_ids': [self.bob.id],
+        })
+        task_id = r.json()['id']
+
+        Friendship.objects.create(
+            sender=self.bob, receiver=self.charlie, status=FriendshipStatus.ACCEPTED
+        )
+        r = self.POST(f'/social-task/{task_id}/invite/', self.tok_bob, {
+            'participant_ids': [self.charlie.id],
+        })
+        self.assertEqual(r.status_code, 403)
+
+    def test_19_invite_already_participant_rejected(self):
+        """Inviting someone already in the task → 400."""
+        r = self.POST('/social-task/', self.tok_alice, {
+            'title': 'Double invite test',
+            'duration_minutes': 30,
+            'participant_ids': [self.bob.id],
+        })
+        task_id = r.json()['id']
+
+        r = self.POST(f'/social-task/{task_id}/invite/', self.tok_alice, {
+            'participant_ids': [self.bob.id],
+        })
+        self.assertEqual(r.status_code, 400)
+        self.assertIn('participant_ids', r.json())

@@ -99,12 +99,26 @@ def add_sub_task(root: SocialTask, data: dict) -> SocialTask:
     return sub
 
 
+def invite_participant(root: SocialTask, user) -> SocialTaskParticipant:
+    participant = SocialTaskParticipant.objects.create(social_task=root, user=user)
+    # TODO: notify user of invite
+    return participant
+
+
 def accept_invite(root: SocialTask, user) -> SocialTaskParticipant:
     participant = root.participants.get(user=user, status=ParticipantStatus.INVITED)
     participant.status = ParticipantStatus.ACCEPTED
     participant.rsvp_at = tz.now()
     participant.save(update_fields=['status', 'rsvp_at'])
-    _try_confirm(root)
+
+    if root.status == SocialTaskStatus.CONFIRMED:
+        nodes = [root] + list(root.sub_tasks.filter(is_deleted=False))
+        for node in nodes:
+            if node.scheduled_at:
+                _create_personal_task(node, participant)
+    else:
+        _try_confirm(root)
+
     return participant
 
 

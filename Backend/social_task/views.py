@@ -7,14 +7,16 @@ from django.shortcuts import get_object_or_404
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 
-from .models import SocialTask, SocialTaskParticipant, ParticipantStatus
+from user.models import User
+from .models import SocialTask, SocialTaskParticipant, SocialTaskStatus, ParticipantStatus
 from .serializers import (
     SocialTaskCreateSerializer, AddSubTaskSerializer, SocialTaskUpdateSerializer,
     SocialTaskDetailSerializer, SocialTaskListSerializer, SubTaskSerializer,
+    InviteParticipantSerializer,
 )
 from .services import (
     create_social_task, add_sub_task, accept_invite, decline_invite,
-    cancel_social_task, update_node,
+    cancel_social_task, update_node, invite_participant,
 )
 
 
@@ -241,6 +243,42 @@ class SocialTaskInvitesView(APIView):
         return paginator.get_paginated_response(
             SocialTaskListSerializer(page, many=True, context={'request': request}).data
         )
+
+
+class SocialTaskInviteView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_summary='Invite participants',
+        operation_description=(
+            'Initiator-only. Invite one or more friends to an existing social task. '
+            'If the task is already confirmed, each invitee\'s personal TaskTemplates are created '
+            'immediately when they accept.'
+        ),
+        request_body=InviteParticipantSerializer,
+        responses={
+            200: SocialTaskDetailSerializer,
+            400: openapi.Response('Validation error — non-friend or already a participant'),
+            403: openapi.Response('Not the initiator'),
+        },
+    )
+    def post(self, request, pk):
+        root = get_object_or_404(SocialTask, pk=pk, parent__isnull=True, is_deleted=False)
+        if root.initiator != request.user:
+            return Response({'detail': 'Only the initiator can invite.'}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = InviteParticipantSerializer(
+            data=request.data,
+            context={'request': request, 'root': root},
+        )
+        serializer.is_valid(raise_exception=True)
+
+        for uid in serializer.validated_data['participant_ids']:
+            user = User.objects.get(id=uid)
+            invite_participant(root, user)
+
+        root.refresh_from_db()
+        return Response(SocialTaskDetailSerializer(root, context={'request': request}).data)
 
 
 class SocialTaskAddSubTaskView(APIView):

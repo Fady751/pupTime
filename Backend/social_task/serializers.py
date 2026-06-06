@@ -46,6 +46,37 @@ class SocialTaskCreateSerializer(serializers.Serializer):
         return value
 
 
+class InviteParticipantSerializer(serializers.Serializer):
+    participant_ids = serializers.ListField(
+        child=serializers.IntegerField(), min_length=1
+    )
+
+    def validate_participant_ids(self, value):
+        from django.db.models import Q
+        from friendship.models import Friendship, Status
+
+        request_user = self.context['request'].user
+        root = self.context['root']
+
+        if request_user.id in value:
+            raise serializers.ValidationError("You cannot invite yourself.")
+        if len(value) != len(set(value)):
+            raise serializers.ValidationError("Duplicate participant IDs.")
+
+        existing_ids = set(root.participants.values_list('user_id', flat=True))
+
+        for uid in value:
+            if uid in existing_ids:
+                raise serializers.ValidationError(f"User {uid} is already a participant.")
+            is_friend = Friendship.objects.filter(
+                Q(sender=request_user, receiver_id=uid) | Q(sender_id=uid, receiver=request_user),
+                status=Status.ACCEPTED,
+            ).exists()
+            if not is_friend:
+                raise serializers.ValidationError(f"User {uid} is not your friend.")
+        return value
+
+
 class AddSubTaskSerializer(serializers.Serializer):
     title = serializers.CharField(max_length=255)
     description = serializers.CharField(required=False, default='', allow_blank=True)
