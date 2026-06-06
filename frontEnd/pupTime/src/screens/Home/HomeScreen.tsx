@@ -235,8 +235,8 @@ const HomeScreen: React.FC = () => {
             <Text style={styles.headerTitle}>{user?.username || "Hany"}</Text>
           </View>
           <View style={styles.headerIcons}>
-            <Pressable style={styles.iconButton} onPress={() => navigation.navigate("AiConversations")}>
-              <Text style={styles.iconText}>💬</Text>
+            <Pressable style={styles.iconButton} onPress={() => navigation.navigate("Friends")}>
+              <Text style={styles.iconText}>👥</Text>
             </Pressable>
             <Pressable style={styles.pillButton}>
               <Text style={styles.pillText}>🔥 {user?.streak_cnt ?? 0}</Text>
