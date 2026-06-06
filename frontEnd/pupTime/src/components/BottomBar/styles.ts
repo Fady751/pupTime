@@ -1,25 +1,45 @@
-import { StyleSheet } from "react-native";
+import { StyleSheet, Platform } from "react-native";
 import { AppColors } from "../../constants/colors";
 
 const createStyles = (colors: AppColors) =>
   StyleSheet.create({
+    container: {
+      position: 'absolute',
+      bottom: Platform.OS === 'ios' ? 25 : 15,
+      left: 15,
+      right: 15,
+      alignItems: 'center',
+      zIndex: 10,
+    },
     bottomBar: {
+      width: '100%',
       height: 70,
       backgroundColor: colors.surface,
       flexDirection: "row",
-      justifyContent: "space-around",
+      justifyContent: "space-between",
       alignItems: "center",
-      borderTopLeftRadius: 25,
-      borderTopRightRadius: 25,
-      elevation: 15,
+      borderRadius: 35,
+      paddingHorizontal: 20,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.12,
+      shadowRadius: 20,
+      elevation: 10,
     },
-
-    icon: {
-      fontSize: 20,
-      opacity: 0.5,
+    tabItem: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      minWidth: 50,
+      height: 50,
     },
-    iconActive: {
-      fontSize: 24,
+    centerSpace: {
+      width: 70,
+    },
+    tabText: {
+      fontSize: 10,
+      marginTop: 4,
+      color: colors.secondaryText,
+      fontWeight: '500',
     },
   });
 

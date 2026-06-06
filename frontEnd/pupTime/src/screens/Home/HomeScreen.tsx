@@ -53,7 +53,7 @@ const FEATURE_CARDS = [
   { key: "tasks", icon: "✅", title: "My Tasks", desc: "Manage your daily tasks and stay organized", route: "Tasks", color: "#DBEAFE" },
   { key: "templates", icon: "📋", title: "Hobbies", desc: "Browse and manage all hobbies", route: "TemplatesList", color: "#E0F2FE" },
   { key: "schedule", icon: "📅", title: "Schedule", desc: "View calendar and upcoming events", route: "Schedule", color: "#FEF3C7" },
-  { key: "timer", icon: "⏱", title: "Focus Timer", desc: "Start Pomodoro sessions, build streaks", route: "Timer", color: "#D1FAE5" },
+  // { key: "timer", icon: "⏱", title: "Focus Timer", desc: "Start Pomodoro sessions, build streaks", route: "Timer", color: "#D1FAE5" },
   { key: "friends", icon: "👥", title: "Friends", desc: "Connect with your accountability partners", route: "Friends", color: "#F3E8FF" },
   { key: "notifications", icon: "🔔", title: "Notifications", desc: "Review activity and friend updates", route: "Notifications", color: "#DDEAFE" },
   { key: "profile", icon: "👤", title: "Profile", desc: "View and edit your personal info", route: "Profile", color: "#FCE7F3" },
@@ -229,256 +229,93 @@ const HomeScreen: React.FC = () => {
         contentContainerStyle={styles.scrollContent}
       >
         {/* ========== HERO HEADER ========== */}
-        <View style={styles.heroContainer}>
-          <View style={styles.heroTopRow}>
-            <View style={styles.heroGreeting}>
-              <Text style={styles.heroSubtitle}>{getGreeting()}</Text>
-              <Text style={styles.heroTitle}>
-                {user?.username || "Welcome back"} 👋
-              </Text>
-            </View>
-            <Pressable
-              style={styles.avatarContainer}
-              onPress={() => navigation.navigate("Profile")}
-            >
-              <Text style={styles.avatarText}>{avatarContent}</Text>
-              <View style={styles.avatarOnlineDot} />
+        <View style={styles.headerRow}>
+          <View>
+            <Text style={styles.headerGreeting}>{getGreeting()} ☀️</Text>
+            <Text style={styles.headerTitle}>{user?.username || "Hany"}</Text>
+          </View>
+          <View style={styles.headerIcons}>
+            <Pressable style={styles.iconButton} onPress={() => navigation.navigate("Friends")}>
+              <Text style={styles.iconText}>👥</Text>
+            </Pressable>
+            <Pressable style={styles.pillButton}>
+              <Text style={styles.pillText}>🔥 {user?.streak_cnt ?? 0}</Text>
             </Pressable>
           </View>
+        </View>
 
-          {/* Stats Row */}
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{user?.streak_cnt ?? 0}🔥</Text>
-              <Text style={styles.statLabel}>Day Streak</Text>
+        {/* ========== PUP COMPANION CARD ========== */}
+        <View style={styles.companionCard}>
+          <View style={styles.companionHeader}>
+            <View style={styles.companionDogAvatar}>
+               <Text style={styles.dogAvatarText}>🐶</Text>
             </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{pendingCount}</Text>
-              <Text style={styles.statLabel}>Pending</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{completedCount}</Text>
-              <Text style={styles.statLabel}>Completed</Text>
+            <View>
+              <Text style={styles.companionTitle}>PUP</Text>
+              <Text style={styles.companionSubtitle}>your companion</Text>
             </View>
           </View>
-
-          <Pressable
-            style={({ pressed }) => [
-              styles.chatSpotlightCard,
-              { opacity: pressed ? 0.92 : 1, transform: [{ scale: pressed ? 0.985 : 1 }] },
-            ]}
-            onPress={() => navigation.navigate("ChatRooms")}
-          >
-            {/* Decorative background orbs */}
-            <View style={styles.chatSpotlightOrb1} />
-            <View style={styles.chatSpotlightOrb2} />
-
-            {/* Top row: icon badge + kicker */}
-            <View style={styles.chatSpotlightTopRow}>
-              <View style={styles.chatSpotlightBadge}>
-                <Text style={styles.chatSpotlightBadgeIcon}>💬</Text>
-              </View>
-              <View style={styles.chatSpotlightKickerPill}>
-                <Text style={styles.chatSpotlightKicker}>MESSAGES</Text>
-              </View>
-            </View>
-
-            {/* Main copy */}
-            <Text style={styles.chatSpotlightTitle}>
-              Chat with friends
+          
+          <View style={styles.companionBodyRow}>
+            <Text style={styles.companionMessage}>
+              Nice work so far! Next up is your team standup — want a hand getting started?
             </Text>
-            <Text style={styles.chatSpotlightSubtitle}>
-              {chatSpotlight
-                ? chatSpotlight.preview
-                : "Start a conversation with your friends"}
-            </Text>
-
-            {/* Bottom row: avatar stack / meta + CTA */}
-            <View style={styles.chatSpotlightBottom}>
-              <View style={styles.chatSpotlightMetaRow}>
-                {chatSpotlight ? (
-                  <>
-                    <View style={styles.chatSpotlightDot} />
-                    <Text style={styles.chatSpotlightMeta} numberOfLines={1}>
-                      {chatSpotlight.title} · {chatSpotlight.memberLabel}
-                    </Text>
-                  </>
-                ) : (
-                  <Text style={styles.chatSpotlightMeta}>
-                    No active chats
-                  </Text>
-                )}
-              </View>
-
-              <View style={styles.chatSpotlightCTA}>
-                <Text style={styles.chatSpotlightCTAText}>
-                  {chatSpotlightLoading ? "..." : "Open →"}
-                </Text>
-              </View>
+            
+            <View style={styles.progressCircle}>
+               <Text style={styles.progressText}>{completedCount}/{completedCount + pendingCount}</Text>
+               <Text style={styles.progressLabel}>DONE</Text>
             </View>
+          </View>
+          
+          <Pressable style={styles.chatButton} onPress={() => navigation.navigate("AiConversations")}>
+            <Text style={styles.chatButtonText}>💬 Chat with PUP</Text>
           </Pressable>
         </View>
 
-        {/* ========== QUICK ACTIONS ========== */}
-        <View style={styles.quickActionsContainer}>
-          <View style={styles.quickActionsCard}>
-            {[
-              { icon: "✅", label: "Tasks", route: "Tasks" },
-              { icon: "📋", label: "Hobbies", route: "TemplatesList" },
-              { icon: "📅", label: "Schedule", route: "Schedule" },
-              { icon: "⏱", label: "Focus", route: "Timer" },
-              { icon: "👥", label: "Friends", route: "Friends" },
-            ].map((action, idx) => (
-              <Pressable
-                key={action.route}
-                style={styles.quickActionItem}
-                onPress={() => navigation.navigate(action.route)}
-              >
-                <View
-                  style={[
-                    styles.quickActionIcon,
-                    { backgroundColor: QUICK_ACTION_COLORS[idx].bg },
-                  ]}
-                >
-                  <Text style={styles.quickActionEmoji}>{action.icon}</Text>
-                </View>
-                <Text style={styles.quickActionLabel}>{action.label}</Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-
-        {/* ========== TODAY'S TASKS ========== */}
+        {/* ========== TODAY TASKS ========== */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Today's Tasks</Text>
+            <Text style={styles.sectionTitle}>Today</Text>
             <Pressable onPress={() => navigation.navigate("Tasks")}>
-              <Text style={styles.sectionAction}>See All →</Text>
+              <Text style={styles.sectionAction}>See all</Text>
             </Pressable>
           </View>
 
           {loading ? (
-            <View style={styles.emptyTasksCard}>
-              <ActivityIndicator size="large" color={colors.primary} />
-            </View>
+            <ActivityIndicator size="large" color={colors.primary} />
           ) : todayOverrides.length > 0 ? (
-            todayOverrides.slice(0, 5).map(({ template, override }) => {
-              const priorityColor =
-                PRIORITY_COLORS[template.priority ?? "none"] ?? PRIORITY_COLORS.none;
-              const isCompleted = override.status === "COMPLETED";
-              const isSkipped = override.status === "SKIPPED";
-              const isDone = isCompleted || isSkipped;
-              const statusColor = STATUS_COLORS[override.status] ?? STATUS_COLORS.PENDING;
+            todayOverrides.map(({ template, override }) => {
+              const priorityColor = PRIORITY_COLORS[template.priority ?? "none"] ?? PRIORITY_COLORS.none;
+              const isDone = override.status === "COMPLETED" || override.status === "SKIPPED";
 
               return (
                 <Pressable
                   key={override.id}
-                  style={[
-                    styles.taskPreviewCard,
-                    { borderLeftColor: priorityColor },
-                  ]}
-                  onPress={() =>
-                    navigation.navigate("EditTask", { taskId: template.id })
-                  }
+                  style={styles.taskCard}
+                  onPress={() => navigation.navigate("EditTask", { taskId: template.id })}
                 >
-                  <Text style={styles.taskPreviewEmoji}>
-                    {template.emoji || "📌"}
-                  </Text>
-                  <View style={styles.taskPreviewContent}>
-                    <Text
-                      style={[
-                        styles.taskPreviewTitle,
-                        isDone && {
-                          textDecorationLine: "line-through",
-                          color: colors.secondaryText,
-                        },
-                      ]}
-                      numberOfLines={1}
-                    >
+                  <View style={[styles.taskCheckbox, isDone && styles.taskCheckboxDone]}>
+                    {isDone && <Text style={styles.taskCheckIcon}>✓</Text>}
+                  </View>
+                  <View style={styles.taskInfo}>
+                    <Text style={[styles.taskTitle, isDone && styles.taskTitleDone]}>
                       {template.title}
                     </Text>
-                    <Text style={styles.taskPreviewMeta}>
-                      {formatTime(override.instance_datetime)} •{" "}
-                      {(template.priority ?? "none").charAt(0).toUpperCase() +
-                        (template.priority ?? "none").slice(1)}{" "}
-                      priority
+                    <Text style={styles.taskTime}>
+                      {formatTime(override.instance_datetime)} • {template.category || "Task"}
                     </Text>
                   </View>
-                  <View
-                    style={[
-                      styles.taskPreviewStatus,
-                      { backgroundColor: statusColor },
-                    ]}
-                  />
+                  <View style={[styles.taskDot, { backgroundColor: priorityColor }]} />
                 </Pressable>
               );
             })
           ) : (
             <View style={styles.emptyTasksCard}>
-              <Text style={styles.emptyTasksEmoji}>🌤️</Text>
-              <Text style={styles.emptyTasksText}>
-                No tasks for today. Tap the button below to add one!
-              </Text>
+              <Text style={styles.emptyTasksText}>All caught up for today!</Text>
             </View>
           )}
         </View>
 
-        {/* ========== FOCUS BANNER ========== */}
-        <Pressable
-          style={[styles.focusBanner, styles.focusBannerGradient]}
-          onPress={() => navigation.navigate("Timer")}
-        >
-          <View style={styles.focusBannerContent}>
-            <Text style={styles.focusBannerTitle}>Ready to focus? 🎯</Text>
-            <Text style={styles.focusBannerSubtitle}>
-              Start a Pomodoro session and build your streak
-            </Text>
-          </View>
-          <View style={styles.focusBannerButton}>
-            <Text style={styles.focusBannerButtonText}>START</Text>
-          </View>
-        </Pressable>
-
-        {/* ========== EXPLORE FEATURES ========== */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Explore</Text>
-          </View>
-          <View style={styles.featureCardsGrid}>
-            {FEATURE_CARDS.map((card) => (
-              <Pressable
-                key={card.key}
-                style={({ pressed }) => [
-                  styles.featureCard,
-                  { opacity: pressed ? 0.9 : 1 },
-                ]}
-                onPress={() => navigation.navigate(card.route)}
-              >
-                <View
-                  style={[
-                    styles.featureCardIconContainer,
-                    { backgroundColor: card.color },
-                  ]}
-                >
-                  <Text style={styles.featureCardIcon}>{card.icon}</Text>
-                </View>
-                <Text style={styles.featureCardTitle}>{card.title}</Text>
-                <Text style={styles.featureCardDesc}>{card.desc}</Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-
-        {/* ========== MOTIVATIONAL QUOTE ========== */}
-        <View style={styles.quoteCard}>
-          <Text style={styles.quoteIcon}>💡</Text>
-          <Text style={styles.quoteText}>"{quote.text}"</Text>
-          <Text style={styles.quoteAuthor}>— {quote.author}</Text>
-        </View>
-
-        {/* Bottom spacer for bottom bar */}
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
