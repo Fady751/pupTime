@@ -1,9 +1,27 @@
+import os
 from django.utils import timezone
 from .ai_provider import ChatMessage
 
+_APP_KNOWLEDGE_PATH = os.path.join(os.path.dirname(__file__), "app_knowledge.md")
+
+def _load_app_knowledge() -> str:
+    try:
+        with open(_APP_KNOWLEDGE_PATH, encoding="utf-8") as f:
+            return f.read().strip()
+    except FileNotFoundError:
+        return ""
+
 def build_system_prompt(user=None) -> ChatMessage:
-    """Build the PUP system prompt injected at the start of every conversation."""
     current_time = timezone.now().isoformat()
+
+    app_knowledge = _load_app_knowledge()
+    app_knowledge_section = f"""
+    ━━━━━━━━━━━━━━━━━━━━
+    APP AWARENESS
+    ━━━━━━━━━━━━━━━━━━━━
+
+    {app_knowledge}
+    """ if app_knowledge else ""
 
     memory_section = ""
     if user:
@@ -29,6 +47,7 @@ def build_system_prompt(user=None) -> ChatMessage:
     PUP speaks naturally, clearly, and practically like a smart supportive friend who helps users organize their life without overwhelming them.
 
     The current date and time is {current_time}.
+    {app_knowledge_section}
     {memory_section}
     ━━━━━━━━━━━━━━━━━━━━
     PERSONALITY & STYLE
