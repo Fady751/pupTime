@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, Literal
+from typing import Optional, Literal, List
 
 
 PriorityType = Literal["none", "low", "medium", "high"]
@@ -169,4 +169,70 @@ class GetDailyLoadSummarySchema(BaseModel):
     )
     end_date: str = Field(
         description="ISO 8601 end date of the summary range."
+    )
+
+
+MoodType = Literal[
+    "happy", "content", "neutral", "tired",
+    "stressed", "anxious", "sad", "frustrated", "angry",
+]
+EnergyLevel = Literal["high", "medium", "low"]
+
+
+class LogVoiceMoodSchema(BaseModel):
+    model_config = {"extra": "ignore"}
+    """Schema for recording the emotional state PUP perceived from the user's VOICE.
+
+    This is judged by listening to the actual audio (tone, pace, energy, pitch,
+    pauses, breathiness) — NOT inferred from the words alone.
+    """
+
+    mood: MoodType = Field(
+        description=(
+            "The user's emotional state as heard in their voice. MUST be exactly one of: "
+            "happy, content, neutral, tired, stressed, anxious, sad, frustrated, angry."
+        )
+    )
+    energy_level: EnergyLevel = Field(
+        description="Overall vocal energy: 'high', 'medium', or 'low'."
+    )
+    evidence: str = Field(
+        description=(
+            "One short phrase describing the vocal cues you heard that led to this judgment "
+            "(e.g. 'slow, flat delivery with long pauses', 'fast and high-pitched'). "
+            "Base this on how they SOUND, not what they said."
+        )
+    )
+
+
+class SubTaskInputSchema(BaseModel):
+    model_config = {"extra": "ignore"}
+    task_title: str = Field(description="Title of the sub-task.")
+    duration_minutes: int = Field(description="Duration in minutes.", ge=1)
+    scheduled_at: Optional[str] = Field(
+        default=None,
+        description="ISO 8601 datetime. Null if this sub-task has no fixed time.",
+    )
+    description: str = Field(default="", description="Optional description.")
+
+
+class InviteFriendToTaskSchema(BaseModel):
+    model_config = {"extra": "ignore"}
+    friend_id: int = Field(
+        description="The integer user ID of the friend to invite. Must already be your friend."
+    )
+    task_title: str = Field(description="Title of the shared task.")
+    duration_minutes: int = Field(description="Duration in minutes.", ge=1)
+    scheduled_at: Optional[str] = Field(
+        default=None,
+        description=(
+            "ISO 8601 datetime for when the task is scheduled. "
+            "Null if this is a container task whose sub-tasks each have their own time. "
+            "Use find_free_time first to choose a good slot."
+        ),
+    )
+    description: str = Field(default="", description="Optional description.")
+    sub_tasks: List[SubTaskInputSchema] = Field(
+        default=[],
+        description="Sub-tasks (1-level deep). Each can have its own scheduled_at.",
     )

@@ -57,10 +57,13 @@ class BaseAIProvider(abc.ABC):
         audio_bytes: bytes,
         audio_mime_type: List[str],
         user=None,
+        acoustic_hint: str | None = None,
     ) -> Generator[str, None, None]:
         """
         Like stream_with_tools, but the last user message includes audio content.
         Override in providers that support multimodal input (e.g. Gemini).
+        ``acoustic_hint`` is an optional plain-English string from librosa analysis
+        that can be prepended to the message to give the model an explicit emotional signal.
         """
         raise NotImplementedError(
             f"{self.__class__.__name__} does not support audio input."

@@ -371,6 +371,30 @@ def _run_google_sentiment(text: str, detected_lang: str | None) -> dict:
 
 
 # =====================================================================
+#  Lexical tired detection (transcript-based)
+# =====================================================================
+_TIRED_EN = {
+    "tired", "exhausted", "sleepy", "fatigue", "fatigued",
+    "drowsy", "drained", "weary", "worn",
+}
+_TIRED_AR = {
+    "تعبان", "تعبانة", "تعب", "تعبة",
+    "نعسان", "نعسانة", "نعاس",
+    "مرهق", "مرهقة", "إرهاق", "منهك", "منهكة",
+}
+
+
+def _lexical_tired(transcript: str | None) -> bool:
+    """Return True if the transcript contains explicit tiredness vocabulary."""
+    if not transcript or not transcript.strip():
+        return False
+    words = set(transcript.lower().split())
+    if words & _TIRED_EN:
+        return True
+    return any(kw in transcript for kw in _TIRED_AR)
+
+
+# =====================================================================
 #  Score helpers
 # =====================================================================
 def _normalize_scores(scores: dict[str, float]) -> dict[str, float]:
@@ -378,6 +402,35 @@ def _normalize_scores(scores: dict[str, float]) -> dict[str, float]:
     if total <= 0:
         return {k: 0.0 for k in scores}
     return {k: max(v, 0.0) / total for k, v in scores.items()}
+
+
+# =====================================================================
+#  Acoustic analysis helper (language-agnostic, no cloud needed)
+# =====================================================================
+def _run_acoustic_analysis(audio_data, sample_rate: int) -> dict | None:
+    """Run librosa-based mood classification on already-decoded audio."""
+    tmp_path = None
+    try:
+        import tempfile
+        import soundfile as sf
+        from ai_chat.voice_service import analyze_audio, classify_mood
+
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+            tmp_path = tmp.name
+            sf.write(tmp_path, audio_data, sample_rate)
+
+        features = analyze_audio(tmp_path)
+        return classify_mood(features)
+    except Exception as exc:
+        logger.warning("Acoustic analysis failed: %s", exc)
+        return None
+    finally:
+        if tmp_path:
+            import os
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
 
 
 # =====================================================================
@@ -399,36 +452,70 @@ def analyze_emotion(request):
             status=400,
         )
 
+    # ── Acoustic analysis (always runs — language-agnostic, works for Arabic) ──
+    acoustic_result = _run_acoustic_analysis(audio_data, sample_rate)
+    fatigue_detected = acoustic_result is not None and acoustic_result.get("mood") == "tired"
+
     use_google_stt = _google_stt_enabled() and bool(audio_bytes)
     if not use_google_stt:
+        # Acoustic-only fallback — no cloud credentials needed
+        if acoustic_result is None:
+            return JsonResponse(
+                {
+                    "error": "Google STT is disabled and acoustic analysis also failed.",
+                    "hint": "Set TEST_VOICE_USE_GOOGLE_STT=true and configure SPEECH_GCP_* in the environment.",
+                },
+                status=503,
+            )
+
+        _ACOUSTIC_TO_VALENCE = {
+            "happy": "good", "neutral": "normal",
+            "tired": "tired", "sad": "bad", "angry": "bad", "anxious": "bad",
+        }
+        acoustic_mood = acoustic_result.get("mood", "neutral")
         return JsonResponse(
             {
-                "error": "Google STT is disabled.",
-                "hint": "Set TEST_VOICE_USE_GOOGLE_STT=true and configure SPEECH_GCP_* in the environment.",
-            },
-            status=503,
+                "mood": _ACOUSTIC_TO_VALENCE.get(acoustic_mood, "normal"),
+                "acoustic_mood": acoustic_result,
+                "fatigue_detected": fatigue_detected,
+                "transcript": None,
+                "detected_language": None,
+                "pipeline": "acoustic_only",
+                "note": "Google STT disabled — acoustic analysis only (language-agnostic, works for Arabic/English).",
+            }
         )
 
-    # ── Google STT (required) ────────────────────────────────────
+    # ── Google STT (required for text-sentiment path) ────────────────
     google_asr_result = _run_google_stt(audio_bytes, sample_rate)
     google_asr_error = google_asr_result.get("error")
     transcript = google_asr_result.get("transcript")
     detected_lang = google_asr_result.get("language")
     asr_model = google_asr_result.get("model")
 
-    if google_asr_error:
+    if google_asr_error or not transcript:
+        # STT failed at runtime (e.g. permission denied) — fall back to acoustic if available
+        logger.warning("Google STT unavailable (%s), falling back to acoustic-only result", google_asr_error)
+        if acoustic_result is None:
+            return JsonResponse(
+                {"error": "Google STT failed and acoustic analysis also failed.", "details": google_asr_error},
+                status=503,
+            )
+        _ACOUSTIC_TO_VALENCE = {
+            "happy": "good", "neutral": "normal",
+            "tired": "tired", "sad": "bad", "angry": "bad", "anxious": "bad",
+        }
+        acoustic_mood = acoustic_result.get("mood", "neutral")
         return JsonResponse(
             {
-                "error": "Google STT failed.",
-                "details": google_asr_error,
-            },
-            status=503,
-        )
-
-    if not transcript:
-        return JsonResponse(
-            {"error": "No transcript returned from Google STT."},
-            status=422,
+                "mood": _ACOUSTIC_TO_VALENCE.get(acoustic_mood, "normal"),
+                "acoustic_mood": acoustic_result,
+                "fatigue_detected": fatigue_detected,
+                "transcript": None,
+                "detected_language": None,
+                "pipeline": "acoustic_only",
+                "note": f"Google STT failed ({google_asr_error or 'no transcript'}) — showing acoustic analysis only.",
+                "errors": {"google_asr": google_asr_error},
+            }
         )
 
     tone_mood = None
@@ -459,20 +546,32 @@ def analyze_emotion(request):
         final_mood = sentiment_result["mood"]
         combined_scores = text_norm
 
+    # Acoustic tired signal overrides text sentiment — tiredness is in the voice, not the words.
+    # Lexical check covers the case where someone explicitly says "I'm tired" but doesn't
+    # acoustically sound tired enough to cross the threshold (e.g. short clip, light accent).
+    acoustic_mood = acoustic_result.get("mood") if acoustic_result else None
+    lexical_tired = _lexical_tired(transcript)
+    if fatigue_detected or (lexical_tired and acoustic_mood not in ("angry", "happy")):
+        final_mood = "tired"
+
     logger.info(
-        "ASR source=google lang=%s model=%s",
+        "ASR source=google lang=%s model=%s fatigue=%s",
         detected_lang or "unknown",
         asr_model or "unknown",
+        fatigue_detected,
     )
 
-    pipeline_name = "google"
+    pipeline_name = "google+acoustic" if acoustic_result else "google"
 
     return JsonResponse(
         {
             "mood": final_mood,
+            "fatigue_detected": fatigue_detected,
+            "acoustic_mood": acoustic_result,
             "mood_components": {
                 "tone": tone_mood,
                 "text": sentiment_result["mood"],
+                "acoustic": acoustic_result.get("mood") if acoustic_result else None,
             },
             "mood_scores": {
                 "tone": tone_scores,

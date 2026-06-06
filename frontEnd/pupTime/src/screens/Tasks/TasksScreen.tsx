@@ -218,10 +218,10 @@ const TasksScreen: React.FC = () => {
     };
 
     const getStatusLabel = () => {
-      if (isToggling) return "•••";
-      if (isCompleted) return "✓ Done";
-      if (isSkipped) return "Skipped";
-      return "Mark ✓";
+      if (isToggling) return "⟳";
+      if (isCompleted) return "✓";
+      if (isSkipped) return "✕";
+      return " ";
     };
 
     return (
@@ -271,8 +271,10 @@ const TasksScreen: React.FC = () => {
       <View style={styles.heroContainer}>
         <View style={styles.heroTopRow}>
           <View>
-            <Text style={styles.heroTitle}>My Tasks</Text>
-            <Text style={styles.heroSubtitle}>Stay organized, stay ahead</Text>
+            <Text style={styles.heroTitle}>Good morning</Text>
+            <Text style={styles.heroSubtitle}>
+              you have {todayOverrides.length} task{todayOverrides.length !== 1 ? "s" : ""} to do!
+            </Text>
           </View>
           <Pressable style={styles.backBtn} onPress={() => navigation.goBack()}>
             <Text style={styles.backBtnText}>←</Text>

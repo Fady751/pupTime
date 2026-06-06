@@ -63,6 +63,7 @@ INSTALLED_APPS = [
     'ai_chat',
     'hobby',
     'notification',
+    'social_task',
     'rest_framework',
     'rest_framework.authtoken',
     'drf_yasg',

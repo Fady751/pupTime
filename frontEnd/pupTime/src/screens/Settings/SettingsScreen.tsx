@@ -178,6 +178,8 @@ const SettingsScreen = ({ navigation }: { navigation: any }) => {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.container}>
+        <View style={styles.glowOrbTop} />
+        <View style={styles.glowOrbBottom} />
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
@@ -194,11 +196,6 @@ const SettingsScreen = ({ navigation }: { navigation: any }) => {
               icon="👤"
               onPress={() => navigation.navigate("EditProfile")}
               isFirst
-            />
-            <SettingsNavItem
-              label="Change Password"
-              icon="🔒"
-              onPress={() => console.log("Navigate to ChangePasswordScreen")}
             />
           </SettingsSection>
 
@@ -222,40 +219,7 @@ const SettingsScreen = ({ navigation }: { navigation: any }) => {
             />
           </SettingsSection>
 
-          {/* 3. History */}
-          <SettingsSection title="History">
-            <SettingsNavItem
-              label="Tasks History"
-              icon="🗂"
-              onPress={() => console.log("Navigate to HistoryTasksScreen")}
-              isFirst
-            />
-            <SettingsNavItem
-              label="Social Events"
-              icon="🎉"
-              onPress={() => console.log("Navigate to SocialHistoryScreen")}
-            />
-          </SettingsSection>
 
-          {/* 4. FreeTime */}
-          <SettingsSection title="FreeTime">
-            <SettingsNavItem
-              label="FreeTime List"
-              icon="⏱"
-              onPress={() => console.log("Navigate to FreeTimeScreen")}
-              isFirst
-            />
-            <SettingsNavItem
-              label="Habits"
-              icon="📈"
-              onPress={() => console.log("Navigate to HabitsScreen")}
-            />
-            <SettingsNavItem
-              label="Applied Recommendations"
-              icon="✨"
-              onPress={() => console.log("Navigate to RecommendationsScreen")}
-            />
-          </SettingsSection>
 
           {/* 5. Notifications */}
           <SettingsSection title="Notifications">
@@ -352,20 +316,7 @@ const SettingsScreen = ({ navigation }: { navigation: any }) => {
             />
           </SettingsSection>
 
-          {/* 9. Support */}
-          <SettingsSection title="Support">
-            <SettingsNavItem
-              label="Make a Report"
-              icon="📝"
-              onPress={() => console.log("Navigate to ReportScreen")}
-              isFirst
-            />
-            <SettingsNavItem
-              label="Help / FAQ"
-              icon="❓"
-              onPress={() => console.log("Navigate to HelpScreen")}
-            />
-          </SettingsSection>
+
 
           {/* 10. About */}
           <SettingsSection title="About">
@@ -374,11 +325,6 @@ const SettingsScreen = ({ navigation }: { navigation: any }) => {
               icon="ℹ️"
               onPress={() => {}}
               isFirst
-            />
-            <SettingsNavItem
-              label="Terms & Privacy"
-              icon="📃"
-              onPress={() => console.log("Navigate to TermsPrivacyScreen")}
             />
           </SettingsSection>
 

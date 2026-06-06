@@ -1,4 +1,4 @@
-name: Deploy Backend to GCP
+name: Deploy Backend to AWS
 
 on:
   push:
@@ -10,7 +10,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -23,22 +23,10 @@ jobs:
           key: ${{ secrets.GCP_SSH_PRIVATE_KEY }}
           script: |
             set -e
-            echo "Navigating to the Backend directory..."
-            # Using the correct case-sensitive path
             cd ~/pupTime/Backend
-            
-            echo "Pulling latest code from main..."
             git pull origin main
-            
-            echo "Installing dependencies using venv pip..."
-            # Using the direct path to pip ensures we stay inside the virtual environment
             ./venv/bin/pip install -r requirements.txt
-            
-            echo "Applying database migrations..."
             ./venv/bin/python manage.py migrate
-            
-            echo "Restarting the systemd service..."
-            # Restarting the service we created earlier
             sudo systemctl restart puptime
-            
+            sudo systemctl restart puptime-celery
             echo "Deployment successful!"

@@ -150,5 +150,6 @@ pandas
 
 soundfile
 gunicorn
+librosa
 
 asyncio

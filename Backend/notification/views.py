@@ -24,7 +24,7 @@ class NotificationsView(APIView):
     )
     def get(self, request):
         user = request.user
-        notifications = Notification.objects.filter(reciever=user)
+        notifications = Notification.objects.filter(receiver=user)
 
         if not notifications.exists():
             return Response({'message': 'No notifications found for this user'}, status=200)
@@ -50,7 +50,7 @@ class MarkAsReadView(APIView):
     def post(self, request):
         notification_id = request.data.get('notification_id')
         try:
-            notification = Notification.objects.get(id=notification_id, reciever=request.user , is_read=False)
+            notification = Notification.objects.get(id=notification_id, receiver=request.user , is_read=False)
         except Notification.DoesNotExist:
             return Response({'error': 'notification already read'}, status=404)
 
@@ -74,7 +74,7 @@ class CountUnreadNotificationsView(APIView):
     )
     def get(self, request):
         user = request.user
-        unread_count = Notification.objects.filter(reciever=user, is_read=False).count()
+        unread_count = Notification.objects.filter(receiver=user, is_read=False).count()
         return Response({'unread_count': unread_count}, status=200)
     
 
@@ -90,7 +90,7 @@ class GetUnreadNotificationsView(APIView):
     )
     def get(self, request):
         user = request.user
-        unread_notifications = Notification.objects.filter(reciever=user, is_read=False)
+        unread_notifications = Notification.objects.filter(receiver=user, is_read=False)
 
         if not unread_notifications.exists():
             return Response({'message': 'No unread notifications found for this user'}, status=200)
@@ -113,12 +113,11 @@ class MarkAllAsReadView(APIView):
     )
     def post(self, request):
         user = request.user
-        notifications = Notification.objects.filter(reciever=user, is_read=False)
+        notifications = Notification.objects.filter(receiver=user, is_read=False)
 
         if not notifications.exists():
             return Response({'message': 'Already all notifications are read'}, status=200)
         
         notifications.update(is_read=True)
-        notifications.save() 
 
         return Response({'message': 'All notifications marked as read successfully'}, status=200)
