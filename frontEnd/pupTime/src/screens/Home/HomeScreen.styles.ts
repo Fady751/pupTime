@@ -226,10 +226,12 @@ export const createHomeStyles = (colors: AppColors) =>
     },
     quickActionsCard: {
       flexDirection: "row",
+      flexWrap: "wrap",
       backgroundColor: colors.surface,
       borderRadius: 20,
       paddingVertical: 16,
       paddingHorizontal: 8,
+      rowGap: 16,
       shadowColor: "#000",
       shadowOffset: { width: 0, height: 8 },
       shadowOpacity: 0.1,
@@ -237,7 +239,7 @@ export const createHomeStyles = (colors: AppColors) =>
       elevation: 8,
     },
     quickActionItem: {
-      flex: 1,
+      width: "33.33%",
       alignItems: "center",
     },
     quickActionIcon: {
@@ -249,7 +251,7 @@ export const createHomeStyles = (colors: AppColors) =>
       marginBottom: 8,
     },
     quickActionEmoji: {
-      fontSize: 24,
+      fontSize: 28,
     },
     quickActionLabel: {
       fontSize: 12,

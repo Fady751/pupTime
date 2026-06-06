@@ -5,6 +5,7 @@ import {
   ScrollView,
   Pressable,
   ActivityIndicator,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useSelector } from "react-redux";
@@ -22,6 +23,7 @@ import {
   floorDateByTimezone,
   getOverridesForBetweenDate,
 } from "../../types/task";
+import socialIcon from "../../assets/socialIcon.png";
 
 /* ═══════════════════════════════════════════════════════════
    CONSTANTS
@@ -47,6 +49,7 @@ const QUICK_ACTION_COLORS = [
   { bg: "#D1FAE5", icon: "#059669" },
   { bg: "#F3E8FF", icon: "#7C3AED" },
   { bg: "#FCE7F3", icon: "#DB2777" },
+  { bg: "#E6F4EA", icon: "#137333" },
 ];
 
 const FEATURE_CARDS = [
@@ -330,6 +333,7 @@ const HomeScreen: React.FC = () => {
               { icon: "📅", label: "Schedule", route: "Schedule" },
               { icon: "⏱", label: "Focus", route: "Timer" },
               { icon: "👥", label: "Friends", route: "Friends" },
+              { icon: socialIcon, label: "Social", route: "SocialTask", isImage: true },
             ].map((action, idx) => (
               <Pressable
                 key={action.route}
@@ -340,9 +344,14 @@ const HomeScreen: React.FC = () => {
                   style={[
                     styles.quickActionIcon,
                     { backgroundColor: QUICK_ACTION_COLORS[idx].bg },
+                    action.isImage && { overflow: "hidden" }
                   ]}
                 >
-                  <Text style={styles.quickActionEmoji}>{action.icon}</Text>
+                  {action.isImage ? (
+                    <Image source={action.icon as any} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                  ) : (
+                    <Text style={styles.quickActionEmoji}>{action.icon as string}</Text>
+                  )}
                 </View>
                 <Text style={styles.quickActionLabel}>{action.label}</Text>
               </Pressable>
@@ -370,7 +379,7 @@ const HomeScreen: React.FC = () => {
               const isCompleted = override.status === "COMPLETED";
               const isSkipped = override.status === "SKIPPED";
               const isDone = isCompleted || isSkipped;
-              const statusColor = STATUS_COLORS[override.status] ?? STATUS_COLORS.PENDING;
+              const statusColor = STATUS_COLORS[override.status ?? "PENDING"] ?? STATUS_COLORS.PENDING;
 
               return (
                 <Pressable

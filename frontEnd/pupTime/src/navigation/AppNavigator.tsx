@@ -25,6 +25,8 @@ import NotificationsScreen from '../screens/Notifications/NotificationsScreen';
 import AiConversationListScreen from '../screens/AiChat/AiConversationListScreen';
 import AiChatScreen from '../screens/AiChat/AiChatScreen';
 // import TimerScreen from '../screens/Timer/TimerScreen';
+import SocialTasksScreen from '../screens/SocialTasks/SocialTasks';
+
 
 export type AppStackParamList = {
   Home: undefined;
@@ -49,6 +51,7 @@ export type AppStackParamList = {
   Notifications: undefined;
   AiConversations: undefined;
   AiChat: { conversationId?: string } | undefined;
+  SocialTask: undefined;
 };
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
@@ -84,6 +87,7 @@ const AppNavigator: React.FC = () => {
         <Stack.Screen name="Notifications" component={NotificationsScreen} />
         <Stack.Screen name="AiConversations" component={AiConversationListScreen} />
         <Stack.Screen name="AiChat" component={AiChatScreen} />
+        <Stack.Screen name="SocialTask" component={SocialTasksScreen} />
       </Stack.Navigator>
       
       <AiButtonWithNavigation />
