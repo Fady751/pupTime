@@ -8,6 +8,7 @@ import {
   Pressable,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Settings as SettingsIcon, Users } from "lucide-react-native";
 import createStyles from "./ProfileScreen.styles";
 import { useSelector } from "react-redux";
 import { RootState } from "../../redux/store";
@@ -117,9 +118,14 @@ const ProfileSettingsScreen = ({ navigation }: { navigation: any }) => {
         <View style={styles.header}>
           <View style={styles.headerRow}>
             <Text style={styles.headerTitle}>Profile</Text>
-            <Pressable style={styles.backBtn} onPress={() => navigation.goBack()}>
-              <Text style={styles.backBtnText}>←</Text>
-            </Pressable>
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <Pressable style={styles.iconBtn} onPress={() => navigation.navigate('Friends')}>
+                <Users color={colors.primaryDark} size={22} strokeWidth={2.5} />
+              </Pressable>
+              <Pressable style={styles.iconBtn} onPress={() => navigation.navigate('Settings')}>
+                <SettingsIcon color={colors.primaryDark} size={22} strokeWidth={2.5} />
+              </Pressable>
+            </View>
           </View>
         </View>
 

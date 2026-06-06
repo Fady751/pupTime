@@ -13,6 +13,7 @@ const useTheme = (): UseThemeResult => {
   );
 
   useEffect(() => {
+    // setTheme("dark");
     const subscription = Appearance.addChangeListener(({ colorScheme }) => {
       setTheme(colorScheme);
     });
