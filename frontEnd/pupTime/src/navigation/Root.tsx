@@ -9,42 +9,41 @@ import LoadingScreen from '../screens/Loading/loading';
 import OfflineBar from '../components/OfflineBar/offlineBar';
 import useNetworkListener from '../Hooks/RootHooks/NetworkBootstrap';
 import useAuthBootstrap from '../Hooks/RootHooks/AuthBootstrap';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { AppMetaRepository } from '../DB/Repositories/AppMetaRepository';
+import IntroScreen from '../screens/Intro/Intro';
 
 export default function Root() {
   const { data, loading } = useSelector((s: RootState) => s.user);
   const { isConnected, loading: networkLoading } = useSelector((s: RootState) => s.network);
+  const [showIntro, setShowIntro] = useState<boolean | null>(null);
 
   useNetworkListener();
   useAuthBootstrap();
 
   useEffect(() => {
-    const test = async () => {
-      // console.log("token: ", await AppMetaRepository.get("authToken"));
-
-      // const task = await getTasks({page: 1, page_size: 1000});
-      // console.log("task: ", task);
-      // const tasksLocal = await TaskTemplateRepository.getTaskOverrides({user_id: data?.id ?? 0, page: 1, page_size: 1000, ordering: 'start_datetime', start_date: '2026-03-01', end_date: '2026-04-11'});
-      // console.log("tasksLocal: ", tasksLocal);
-
-      // const conv = await getConversations();
-      // console.log("conv: ", conv);
-
-      // for(const c of conv) {
-      //   getConversation(c.id).then((conversation) => {
-      //     console.log("conversation: ", conversation);
-      //   });
-      // }
-
-      // const res = await sendMessage({ message: "Hello, AI!" });
-      // console.log("res: ", res);
-
-      // console.log("recordedUri: ", recordedUri);
+    const checkFirstLaunch = async () => {
+      try {
+        const alreadyLaunched = await AppMetaRepository.get('already_launched');
+        if (!alreadyLaunched) {
+          await AppMetaRepository.set('already_launched', 'true');
+          setShowIntro(true);
+        } else {
+          setShowIntro(false);
+        }
+      } catch (e) {
+        console.error('Failed to check already_launched app meta:', e);
+        setShowIntro(false); // Default to false if DB check fails
+      }
     };
-    test();
+    checkFirstLaunch();
   }, []);
 
-  if (loading || networkLoading) return <LoadingScreen />;
+  if (loading || networkLoading || showIntro === null) return <LoadingScreen />;
+
+  if (showIntro) {
+    return <IntroScreen onComplete={() => setShowIntro(false)} />;
+  }
 
   return (
     <>

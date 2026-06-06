@@ -80,3 +80,4 @@ CLAUDE.md
 .aiagent/
 .claude/
 skills-lock.json
+ai_context
