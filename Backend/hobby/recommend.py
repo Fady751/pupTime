@@ -61,18 +61,6 @@ def suggest_similar_hobbies(hobby_id, num_recommendations=5, min_similarity=0.05
     recommended_indices = [index for _, index in recommendations[:num_recommendations]]
 
     recs = map_recommended_hobbies(df, recommended_indices)
-
-    if recs:
-        try:
-            target_hobby = Hobby.objects.prefetch_related('tags').get(id=hobby_id)
-            target_tags = set(tag.name for tag in target_hobby.tags.all())
-            y_true = [1] * len(recs)
-            y_pred = [1 if (target_tags & set(tag.name for tag in rec.tags.all())) else 0 for rec in recs]
-            accuracy = accuracy_score(y_true, y_pred)
-            print(f"KNN Recommendation Accuracy Level: {accuracy * 100:.2f}%")
-        except Exception as e:
-            print(f"Error calculating accuracy: {e}")
-
     return recs
 
 

@@ -67,7 +67,7 @@ class FriendshipCancelRequestSerializer(serializers.ModelSerializer):
         
         instance.status = Status.CANCELLED
         instance.save()
-        delete_cancelled_friendship.apply_async(args=[instance.id], countdown=60)
+        
         return instance
     
 class BlockFriendshipSerializer(serializers.ModelSerializer):

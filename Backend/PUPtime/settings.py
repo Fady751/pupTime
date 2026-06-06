@@ -13,6 +13,7 @@ import firebase_admin
 from firebase_admin import credentials
 from pathlib import Path
 from decouple import config, Csv
+from celery.schedules import crontab
 try:
     from dotenv import load_dotenv
 except ImportError:  # pragma: no cover - optional dependency
@@ -195,3 +196,17 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 #firebase_fcm_settings
 cred = credentials.Certificate("./firebase_adminsdk.json")
 firebase_admin.initialize_app(cred)
+
+#celery settings
+CELERY_BROKER_URL = 'redis://localhost:6379/0'
+CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'UTC'
+CELERY_BEAT_SCHEDULE = {
+    'delete-canceled-friendships-every-2-hours': {
+        'task': 'friendship.tasks.delete_canceled_friendships',
+        'schedule': crontab(minute=0, hour='*/2'),
+    },
+}
