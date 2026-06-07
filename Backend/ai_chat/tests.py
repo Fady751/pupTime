@@ -86,7 +86,6 @@ class ChatViewTests(APITestCase):
 		response = self.client.post(reverse("ai-chat"), {"message": "Schedule a game session"}, format="json")
 
 		self.assertEqual(response.status_code, 200)
-		# No longer using streaming content
 
 		conversation = Conversation.objects.get(user=self.user)
 		assistant_message = conversation.messages.get(role=Message.Role.ASSISTANT)
@@ -112,14 +111,11 @@ class ChatViewTests(APITestCase):
 		response = self.client.post(reverse("ai-chat"), {"message": "Hi"}, format="json")
 
 		self.assertEqual(response.status_code, 200)
-		
+
 		conversation = Conversation.objects.get(user=self.user)
 		assistant_message = conversation.messages.get(role=Message.Role.ASSISTANT)
-		
-		# Ensure the content is exactly the plain text, not JSON
 		self.assertEqual(assistant_message.content, "Hello! I am your assistant. How can I help you today?")
-		
-		# Verify serialized response
+
 		response_data = response.data
 		self.assertEqual(response_data["message"]["content"], "Hello! I am your assistant. How can I help you today?")
 		self.assertEqual(len(response_data["message"]["choices"]), 0)
