@@ -14,7 +14,7 @@ Tests mock AILoopService so no real AI calls are made.
 import json
 import uuid
 
-from asgiref.sync import async_to_sync
+from asgiref.sync import async_to_sync, sync_to_async
 from channels.routing import URLRouter
 from channels.testing import WebsocketCommunicator
 from chat.middleware import TokenAuthMiddleware
@@ -223,7 +223,10 @@ class TextMessageLoopTests(TransactionTestCase):
                 started = await comm.receive_json_from()
                 self.assertEqual(started['type'], 'loop_started')
                 conv_id = started['conversation_id']
-                self.assertTrue(Conversation.objects.filter(id=conv_id, user=self.user).exists())
+                exists = await sync_to_async(
+                    Conversation.objects.filter(id=conv_id, user=self.user).exists
+                )()
+                self.assertTrue(exists)
 
                 await comm.disconnect()
         self._run(run)
@@ -342,13 +345,15 @@ class ApproveChoiceTests(TransactionTestCase):
         self._run(run)
 
     def test_approve_choice_moves_to_next_task_choices(self):
+        # No approve_task mock here: the real approve_task advances the loop index
+        # (the choice has empty actions, so nothing is executed) so the next
+        # task_choices must report task_index 1.
         loop = _make_loop(self.conversation, self.user, ['Task A', 'Task B'], index=0)
         msg, choice = _make_choice(self.conversation, content='Task A choice.')
         next_msg, next_choice = _make_choice(self.conversation, content='Task B choice.')
 
         async def run():
             with (
-                patch('ai_chat.consumers.AILoopService.approve_task', return_value=False),
                 patch('ai_chat.consumers.AILoopService.reason_task', return_value=(next_msg, [next_choice])),
             ):
                 comm = WebsocketCommunicator(_ws_app(), f'ws/ai/chat/?token={self.token.key}')
