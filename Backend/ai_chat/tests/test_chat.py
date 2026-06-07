@@ -4,8 +4,8 @@ from unittest.mock import patch
 from django.urls import reverse
 from rest_framework.test import APITestCase
 
-from .ai_provider import AIProviderRateLimitError
-from .models import AIChoice, Conversation, Message
+from ai_chat.ai_provider import AIProviderRateLimitError
+from ai_chat.models import AIChoice, Conversation, Message
 from task.models import TaskTemplate
 from user.models import User
 
