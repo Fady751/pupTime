@@ -9,6 +9,9 @@ interface ConfirmModalProps {
   body: string;
   onConfirm: () => void;
   onCancel: () => void;
+  confirmText?: string;
+  cancelText?: string;
+  isDestructive?: boolean;
 }
 
 const ConfirmModal: React.FC<ConfirmModalProps> = ({
@@ -17,6 +20,9 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   body,
   onConfirm,
   onCancel,
+  confirmText = 'Confirm',
+  cancelText = 'Cancel',
+  isDestructive = false,
 }) => {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -37,12 +43,18 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
           <View style={styles.buttonRow}>
             {/* Cancel Button */}
             <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
-              <Text style={styles.cancelButtonText}>Cancel</Text>
+              <Text style={styles.cancelButtonText}>{cancelText}</Text>
             </TouchableOpacity>
 
             {/* Confirm Button */}
-            <TouchableOpacity style={styles.confirmButton} onPress={onConfirm}>
-              <Text style={styles.confirmButtonText}>Confirm</Text>
+            <TouchableOpacity
+              style={[
+                styles.confirmButton,
+                isDestructive && { backgroundColor: colors.error }
+              ]}
+              onPress={onConfirm}
+            >
+              <Text style={styles.confirmButtonText}>{confirmText}</Text>
             </TouchableOpacity>
           </View>
 

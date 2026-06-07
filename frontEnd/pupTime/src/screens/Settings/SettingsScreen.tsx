@@ -8,6 +8,7 @@ import SettingsNavItem from "../../components/Settings/SettingsNavItem";
 import SettingsSwitchItem from "../../components/Settings/SettingsSwitchItem";
 import SettingsSelectItem from "../../components/Settings/SettingsSelectItem";
 import LogoutButton from "../../components/Settings/LogoutButton";
+import DeleteAccountButton from "../../components/Settings/DeleteAccountButton";
 import ColorSelectionModal from "../../components/Settings/ColorSelectionModal";
 import FontSizeSelectionModal from "../../components/Settings/FontSizeSelectionModal";
 import createSettingsStyles from "../../components/Settings/Settings.styles";
@@ -392,6 +393,7 @@ const SettingsScreen = ({ navigation }: { navigation: any }) => {
 
           {/* 11. Logout */}
           <LogoutButton />
+          <DeleteAccountButton />
         </ScrollView>
         <ColorSelectionModal
           visible={colorModalVisible}

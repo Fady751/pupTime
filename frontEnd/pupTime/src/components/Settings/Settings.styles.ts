@@ -84,7 +84,7 @@ export const createSettingsStyles = (colors: AppColors) =>
     logoutButton: {
       marginHorizontal: 20,
       marginTop: 20,
-      marginBottom: 40,
+      marginBottom: 10,
       borderRadius: 999,
       paddingVertical: 16,
       alignItems: "center",
@@ -98,6 +98,23 @@ export const createSettingsStyles = (colors: AppColors) =>
     },
     logoutText: {
       color: "#FFFFFF",
+      fontSize: 16,
+      fontWeight: "800",
+    },
+    deleteAccountButton: {
+      marginHorizontal: 20,
+      marginTop: 10,
+      marginBottom: 40,
+      borderRadius: 999,
+      paddingVertical: 16,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 1.5,
+      borderColor: colors.error,
+      backgroundColor: "transparent",
+    },
+    deleteAccountText: {
+      color: colors.error,
       fontSize: 16,
       fontWeight: "800",
     },
