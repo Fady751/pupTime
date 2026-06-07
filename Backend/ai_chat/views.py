@@ -31,6 +31,7 @@ from .serializers import (
     VoiceChatSerializer,
 )
 from .s3_storage import ALLOWED_MIME_TYPES, MAX_VOICE_FILE_SIZE, upload_voice_file, generate_presigned_url
+from .voice_service import analyze_audio, classify_mood
 from task.models import TaskTemplate, TaskOverride
 from task.serializers import TaskSerializer, TaskOverrideSerializer
 from task.views import _parse_iso
@@ -756,6 +757,20 @@ class VoiceChatView(APIView):
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+
+class VoiceUploadView(APIView):
+    """
+    POST /ai/chat/voice/upload/
+
+    Upload a voice file and return a voice_message_id.
+    Does NOT call the AI — the AI loop is driven by the WebSocket consumer.
+    """
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        raise NotImplementedError("VoiceUploadView not yet implemented")
 
 
 class VoiceFileView(APIView):

@@ -82,6 +82,16 @@ def upload_voice_file(
     return s3_key
 
 
+def download_voice_file(s3_key: str) -> bytes | None:
+    try:
+        client = _get_s3_client()
+        response = client.get_object(Bucket=_get_bucket_name(), Key=s3_key)
+        return response['Body'].read()
+    except ClientError:
+        logger.exception("Failed to download voice file %s", s3_key)
+        return None
+
+
 def generate_presigned_url(s3_key: str, expiry_seconds: int = 3600) -> str | None:
     try:
         client = _get_s3_client()
