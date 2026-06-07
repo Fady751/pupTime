@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ScrollView, View, Text } from "react-native";
+import { ScrollView, View, Text, Pressable } from "react-native";
 import createStyles from "./SettingsScreen.styles";
 import useTheme from "../../Hooks/useTheme";
 import SettingsSection from "../../components/Settings/SettingsSection";
@@ -8,6 +8,9 @@ import SettingsNavItem from "../../components/Settings/SettingsNavItem";
 import SettingsSwitchItem from "../../components/Settings/SettingsSwitchItem";
 import SettingsSelectItem from "../../components/Settings/SettingsSelectItem";
 import LogoutButton from "../../components/Settings/LogoutButton";
+import ColorSelectionModal from "../../components/Settings/ColorSelectionModal";
+import FontSizeSelectionModal from "../../components/Settings/FontSizeSelectionModal";
+import createSettingsStyles from "../../components/Settings/Settings.styles";
 
 export type UserSettings = {
   notifications: {
@@ -64,10 +67,47 @@ const sortByOptions = ["Time", "Priority", "Status"] as const;
 const dailyGoalOptions = ["1", "3", "5", "10"] as const;
 
 const SettingsScreen = ({ navigation }: { navigation: any }) => {
-  const { colors } = useTheme();
+  const { colors, themeMode, colorScheme, fontSize, theme, setThemeMode, setColorScheme, setFontSize } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const itemStyles = useMemo(() => createSettingsStyles(colors), [colors]);
 
   const [settings, setSettings] = useState<UserSettings>(initialSettings);
+  const [colorModalVisible, setColorModalVisible] = useState(false);
+  const [fontSizeModalVisible, setFontSizeModalVisible] = useState(false);
+
+
+
+  const colorSchemeOptions = [
+    "Emerald Green",
+    "Ocean Blue",
+    "Royal Purple",
+    "Sunset Orange",
+    "Pink Rose",
+  ];
+
+  const colorSchemeMap: Record<string, string> = {
+    emerald: "Emerald Green",
+    ocean: "Ocean Blue",
+    royal: "Royal Purple",
+    sunset: "Sunset Orange",
+    rose: "Pink Rose",
+  };
+
+  const colorSchemeLabel = colorSchemeMap[colorScheme] || "Emerald Green";
+
+  const handleSelectColorScheme = (value: string) => {
+    const optionMap: Record<string, any> = {
+      "Emerald Green": "emerald",
+      "Ocean Blue": "ocean",
+      "Royal Purple": "royal",
+      "Sunset Orange": "sunset",
+      "Pink Rose": "rose",
+    };
+    const key = optionMap[value];
+    if (key) {
+      setColorScheme(key);
+    }
+  };
 
   const handleToggleNotification = (key: keyof UserSettings["notifications"], value: boolean) => {
     setSettings(prev => ({
@@ -142,17 +182,6 @@ const SettingsScreen = ({ navigation }: { navigation: any }) => {
     }));
   };
 
-  const handleSelectFontSize = (value: string) => {
-    const normalized = value.toLowerCase() as "small" | "medium" | "large";
-    setSettings(prev => ({
-      ...prev,
-      appearance: {
-        ...prev.appearance,
-        fontSize: normalized,
-      },
-    }));
-  };
-
   const handleSelectDailyGoal = (value: string) => {
     const goal = parseInt(value, 10) || 1;
     setSettings(prev => ({
@@ -166,8 +195,8 @@ const SettingsScreen = ({ navigation }: { navigation: any }) => {
 
   const reminderLabel = `${settings.notifications.reminderMinutes} min`;
   const fontSizeLabel =
-    settings.appearance.fontSize.charAt(0).toUpperCase() +
-    settings.appearance.fontSize.slice(1);
+    fontSize.charAt(0).toUpperCase() +
+    fontSize.slice(1);
   const priorityLabel =
     settings.tasks.defaultPriority.charAt(0).toUpperCase() +
     settings.tasks.defaultPriority.slice(1);
@@ -283,16 +312,49 @@ const SettingsScreen = ({ navigation }: { navigation: any }) => {
           <SettingsSection title="Appearance">
             <SettingsSwitchItem
               label="Dark Mode"
-              value={settings.appearance.darkMode}
-              onToggle={value => handleToggleAppearance("darkMode", value)}
+              value={themeMode === "dark"}
+              onToggle={value => setThemeMode(value ? "dark" : "light")}
               isFirst
             />
-            <SettingsSelectItem
-              label="Font Size"
-              selectedValue={fontSizeLabel}
-              options={[...fontSizeOptions]}
-              onSelect={handleSelectFontSize}
-            />
+            <Pressable
+              onPress={() => setColorModalVisible(true)}
+              style={({ pressed }) => [
+                itemStyles.itemRow,
+                { opacity: pressed ? 0.85 : 1 },
+              ]}
+            >
+              <View style={itemStyles.itemLeft}>
+                <Text style={itemStyles.itemLabel}>Color Scheme</Text>
+              </View>
+              <View style={itemStyles.itemValueContainer}>
+                <View
+                  style={{
+                    width: 14,
+                    height: 14,
+                    borderRadius: 7,
+                    backgroundColor: colors.primary,
+                    marginRight: 8,
+                  }}
+                />
+                <Text style={itemStyles.itemValue}>{colorSchemeLabel}</Text>
+                <Text style={itemStyles.selectChevron}>{"▾"}</Text>
+              </View>
+            </Pressable>
+            <Pressable
+              onPress={() => setFontSizeModalVisible(true)}
+              style={({ pressed }) => [
+                itemStyles.itemRow,
+                { opacity: pressed ? 0.85 : 1 },
+              ]}
+            >
+              <View style={itemStyles.itemLeft}>
+                <Text style={itemStyles.itemLabel}>Font Size</Text>
+              </View>
+              <View style={itemStyles.itemValueContainer}>
+                <Text style={itemStyles.itemValue}>{fontSizeLabel}</Text>
+                <Text style={itemStyles.selectChevron}>{"▾"}</Text>
+              </View>
+            </Pressable>
           </SettingsSection>
 
           {/* 8. Productivity Mode */}
@@ -331,6 +393,21 @@ const SettingsScreen = ({ navigation }: { navigation: any }) => {
           {/* 11. Logout */}
           <LogoutButton />
         </ScrollView>
+        <ColorSelectionModal
+          visible={colorModalVisible}
+          onClose={() => setColorModalVisible(false)}
+          currentScheme={colorScheme}
+          onSelectScheme={setColorScheme}
+          colors={colors}
+          isDark={theme === "dark"}
+        />
+        <FontSizeSelectionModal
+          visible={fontSizeModalVisible}
+          onClose={() => setFontSizeModalVisible(false)}
+          currentSize={fontSize}
+          onSelectSize={setFontSize}
+          colors={colors}
+        />
       </View>
     </SafeAreaView>
   );

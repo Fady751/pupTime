@@ -12,6 +12,7 @@ import useAuthBootstrap from '../Hooks/RootHooks/AuthBootstrap';
 import { useEffect, useState } from 'react';
 import { AppMetaRepository } from '../DB/Repositories/AppMetaRepository';
 import IntroScreen from '../screens/Intro/Intro';
+import useTheme from '../Hooks/useTheme';
 
 export default function Root() {
   const { data, loading } = useSelector((s: RootState) => s.user);
@@ -39,6 +40,8 @@ export default function Root() {
     checkFirstLaunch();
   }, []);
 
+  const { colors } = useTheme();
+
   if (loading || networkLoading || showIntro === null) return <LoadingScreen />;
 
   if (showIntro) {
@@ -48,7 +51,7 @@ export default function Root() {
   return (
     <>
       <NavigationContainer>
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
           {data ? <AppNavigator /> : <AuthNavigator />}
         </SafeAreaView>
       </NavigationContainer>
@@ -60,6 +63,5 @@ export default function Root() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
   },
 });

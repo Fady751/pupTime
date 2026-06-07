@@ -1,0 +1,58 @@
+diff --git a/node_modules/react-native/Libraries/Text/Text.js b/node_modules/react-native/Libraries/Text/Text.js
+index f30261d..103ea2e 100644
+--- a/node_modules/react-native/Libraries/Text/Text.js
++++ b/node_modules/react-native/Libraries/Text/Text.js
+@@ -154,9 +154,25 @@ if (ReactNativeFeatureFlags.reduceDefaultPropsInText()) {
+       selectionColor != null ? processColor(selectionColor) : undefined;
+ 
+     let _style = style;
++    const scale = globalThis.fontScale || 1.0;
++    if (scale !== 1.0 && _style != null) {
++      const flat = flattenStyle(_style);
++      if (flat != null) {
++        const extra = {};
++        if (typeof flat.fontSize === 'number') {
++          extra.fontSize = Math.round(flat.fontSize * scale);
++        }
++        if (typeof flat.lineHeight === 'number') {
++          extra.lineHeight = Math.round(flat.lineHeight * scale);
++        }
++        if (Object.keys(extra).length > 0) {
++          _style = [_style, extra];
++        }
++      }
++    }
+     if (__DEV__) {
+       if (PressabilityDebug.isEnabled() && onPress != null) {
+-        _style = [style, {color: 'magenta'}];
++        _style = [_style, {color: 'magenta'}];
+       }
+     }
+ 
+@@ -403,9 +419,25 @@ if (ReactNativeFeatureFlags.reduceDefaultPropsInText()) {
+       selectionColor != null ? processColor(selectionColor) : undefined;
+ 
+     let _style = style;
++    const scale = globalThis.fontScale || 1.0;
++    if (scale !== 1.0 && _style != null) {
++      const flat = flattenStyle(_style);
++      if (flat != null) {
++        const extra = {};
++        if (typeof flat.fontSize === 'number') {
++          extra.fontSize = Math.round(flat.fontSize * scale);
++        }
++        if (typeof flat.lineHeight === 'number') {
++          extra.lineHeight = Math.round(flat.lineHeight * scale);
++        }
++        if (Object.keys(extra).length > 0) {
++          _style = [_style, extra];
++        }
++      }
++    }
+     if (__DEV__) {
+       if (PressabilityDebug.isEnabled() && onPress != null) {
+-        _style = [style, {color: 'magenta'}];
++        _style = [_style, {color: 'magenta'}];
+       }
+     }
+ 

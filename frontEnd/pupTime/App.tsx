@@ -6,37 +6,38 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import useTheme from './src/Hooks/useTheme';
 import { getMessaging, onMessage, getToken, requestPermission } from '@react-native-firebase/messaging';
 import NotificationService from './src/services/NotificationService';
+import { ThemeProvider } from './src/context/ThemeContext';
 const messaging = getMessaging();
 
-const App = () => {
+const AppContent = () => {
   const { colors } = useTheme();
 
   useEffect(() => {
-  // async function initFCM() {
-    // const authStatus = await requestPermission();
-    // const token = await getToken(messaging);
-    // console.log('FCM Token:', token);
-  // }
+    const unsubscribe = onMessage(messaging, async remoteMessage => {
+      console.log('Foreground message:', remoteMessage);
+      NotificationService.showNow(
+        remoteMessage.notification?.title || 'New Notification',
+        remoteMessage.notification?.body || '',
+        'test-channel'
+      );
+    });
 
-  // initFCM();
-
-  const unsubscribe = onMessage(messaging, async remoteMessage => {
-    console.log('Foreground message:', remoteMessage);
-    NotificationService.showNow(
-      remoteMessage.notification?.title || 'New Notification',
-      remoteMessage.notification?.body || '',
-      'test-channel'
-    );
-  });
-
-  return unsubscribe;
+    return unsubscribe;
   }, []);
 
   return (
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
+      <Root />
+    </GestureHandlerRootView>
+  );
+};
+
+const App = () => {
+  return (
     <Provider store={store}>
-      <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
-        <Root />
-      </GestureHandlerRootView>
+      <ThemeProvider>
+        <AppContent />
+      </ThemeProvider>
     </Provider>
   );
 };
