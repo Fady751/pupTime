@@ -4,14 +4,14 @@ from unittest.mock import patch
 from django.urls import reverse
 from rest_framework.test import APITestCase
 
-from .ai_provider import AIProviderRateLimitError
-from .models import AIChoice, Conversation, Message
+from ai_chat.ai_provider import AIProviderRateLimitError
+from ai_chat.models import AIChoice, Conversation, Message
 from task.models import TaskTemplate
 from user.models import User
 
 
 class _RateLimitedProvider:
-	def stream_with_tools(self, messages, tools):
+	def stream_with_tools(self, messages, tools, user=None):
 		raise AIProviderRateLimitError(
 			"Gemini quota exceeded. Please try again in about 46 seconds.",
 			retry_after_seconds=46,
@@ -20,7 +20,7 @@ class _RateLimitedProvider:
 
 
 class _ChoiceProvider:
-	def stream_with_tools(self, messages, tools):
+	def stream_with_tools(self, messages, tools, user=None):
 		yield json.dumps(
 			{
 				"message": "I can schedule that.",
@@ -49,7 +49,7 @@ class _ChoiceProvider:
 
 
 class _PlainTextProvider:
-	def stream_with_tools(self, messages, tools):
+	def stream_with_tools(self, messages, tools, user=None):
 		yield "Hello! I am your assistant. How can I help you today?"
 
 

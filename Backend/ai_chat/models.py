@@ -57,6 +57,10 @@ class Message(models.Model):
             "Contains: mood label, confidence, raw feature dict, and ai_hint string."
         ),
     )
+    voice_acoustic_hint = models.TextField(
+        null=True, blank=True,
+        help_text="Plain-English acoustic analysis hint from librosa, injected into the AI prompt.",
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -88,6 +92,35 @@ class AIChoice(models.Model):
 
     def __str__(self):
         return f"Choice {self.choice_id_string} for Message {self.message.id} (Executed: {self.is_executed})"
+
+class AILoop(models.Model):
+    class Status(models.TextChoices):
+        ACTIVE = 'active', 'Active'
+        COMPLETED = 'completed', 'Completed'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    conversation = models.ForeignKey(
+        Conversation,
+        on_delete=models.CASCADE,
+        related_name='loops',
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='ai_loops',
+    )
+    tasks = models.JSONField(help_text="Ordered list of task description strings extracted from the user's message.")
+    current_task_index = models.IntegerField(default=0)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"AILoop({self.status}, task {self.current_task_index}/{len(self.tasks)}) for {self.conversation_id}"
+
 
 class UserMemory(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
