@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import {
   ScrollView,
   Text,
@@ -14,12 +14,10 @@ import DateTimePicker, {
   DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
 import { createStyles } from "./styles";
-import { getCategories } from "../../services/interestService/getCategories";
 import { Category } from "../../types/category";
 import {
   PRIORITIES,
   DEFAULT_REMINDERS,
-  EMOJI_CATEGORIES,
 } from "../../constants/taskConstants";
 import useTheme from "../../Hooks/useTheme";
 import { useTasks } from "../../Hooks/useTasks";
@@ -90,14 +88,13 @@ const AddTaskScreen: React.FC<Props> = ({ navigation }) => {
   const [reminder, setReminder] = useState<number | null>(null);
   const [reminderOptions, setReminderOptions] = useState<number[]>(DEFAULT_REMINDERS);
   const [customReminder, setCustomReminder] = useState("");
-  const [emoji, setEmoji] = useState<string>("");
-  const [selectedEmojiCategory, setSelectedEmojiCategory] = useState(EMOJI_CATEGORIES[0].id);
+  const [emoji, setEmoji] = useState<string>("📌");
   const [durationMinutes, setDurationMinutes] = useState<string>("");
+  const emojiInputRef = useRef<TextInput | null>(null);
 
   // Fetch categories
   useEffect(() => {
     getAllLocalCategories().then(setCategories).catch(() => {});
-    setEmoji(EMOJI_CATEGORIES[0].emojis[0]);
   }, []);
 
   // ── Handlers ──
@@ -202,7 +199,7 @@ const AddTaskScreen: React.FC<Props> = ({ navigation }) => {
           <View style={{ flex: 1, marginLeft: 14 }}>
             <Text style={styles.heroTitle}>New Task</Text>
             <Text style={styles.heroSubtitle}>
-              {emoji ? `${emoji} ` : "✨ "}Create something awesome
+              {emoji ? `${emoji} ` : ""}Create something awesome
             </Text>
           </View>
         </View>
@@ -216,35 +213,42 @@ const AddTaskScreen: React.FC<Props> = ({ navigation }) => {
             <Text style={styles.sectionIcon}>🎨</Text>
             <Text style={styles.sectionLabel}>Icon *</Text>
           </View>
-          {emoji ? (
-            <View style={styles.selectedEmojiPreview}>
-              <Text style={styles.selectedEmojiLarge}>{emoji}</Text>
-              <Pressable style={styles.clearEmojiBtn} onPress={() => setEmoji("")}>
-                <Text style={styles.clearEmojiBtnText}>✕</Text>
-              </Pressable>
-            </View>
-          ) : null}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.emojiTabsRow}>
-              {EMOJI_CATEGORIES.map((cat) => (
-                <Pressable
-                  key={cat.id}
-                  style={[styles.emojiTab, selectedEmojiCategory === cat.id && styles.emojiTabActive]}
-                  onPress={() => setSelectedEmojiCategory(cat.id)}
-                >
-                  <Text style={[styles.emojiTabText, selectedEmojiCategory === cat.id && styles.emojiTabTextActive]}>
-                    {cat.label}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          </ScrollView>
-          <View style={styles.emojiGrid}>
-            {EMOJI_CATEGORIES.find((c) => c.id === selectedEmojiCategory)?.emojis.map((e) => (
-              <Pressable key={e} style={[styles.emojiBtn, emoji === e && styles.emojiSelected]} onPress={() => setEmoji(emoji === e ? "" : e)}>
-                <Text style={styles.emojiText}>{e}</Text>
-              </Pressable>
-            ))}
+          <View style={styles.emojiPickerContainer}>
+            <Text style={styles.emojiPickerHelpText}>
+              Tap the circle below to select any emoji from your keyboard
+            </Text>
+            <Pressable
+              style={styles.emojiInputWrapper}
+              onPress={() => emojiInputRef.current?.focus()}
+            >
+              <TextInput
+                ref={emojiInputRef}
+                style={styles.emojiTextInput}
+                value={emoji}
+                onFocus={() => {
+                  if (emoji === "📌") {
+                    setEmoji("");
+                  }
+                }}
+                onChangeText={(text) => {
+                  const chars = Array.from(text);
+                  if (chars.length > 0) {
+                    setEmoji(chars[chars.length - 1]);
+                  } else {
+                    setEmoji("");
+                  }
+                }}
+                maxLength={8}
+                placeholder=""
+                placeholderTextColor={colors.secondaryText}
+                textAlign="center"
+              />
+            </Pressable>
+            {emoji ? (
+              <TouchableOpacity style={styles.clearEmojiButton} onPress={() => setEmoji("")}>
+                <Text style={styles.clearEmojiButtonText}>Clear Icon</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
         </View>
 
@@ -255,7 +259,7 @@ const AddTaskScreen: React.FC<Props> = ({ navigation }) => {
             <Text style={styles.sectionLabel}>Task Name *</Text>
           </View>
           <View style={styles.titleInputContainer}>
-            <Text style={styles.titleEmoji}>{emoji || "⭐"}</Text>
+            {emoji ? <Text style={styles.titleEmoji}>{emoji}</Text> : null}
             <TextInput
               style={styles.titleInput}
               placeholder="What needs to be done?"

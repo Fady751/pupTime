@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import {
   ScrollView,
   Text,
@@ -14,12 +14,10 @@ import DateTimePicker, {
   DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
 import { createStyles } from "./styles";
-import { getCategories } from "../../services/interestService/getCategories";
 import { Category } from "../../types/category";
 import {
   PRIORITIES,
   DEFAULT_REMINDERS,
-  EMOJI_CATEGORIES,
 } from "../../constants/taskConstants";
 import useTheme from "../../Hooks/useTheme";
 import { useTasks } from "../../Hooks/useTasks";
@@ -97,15 +95,14 @@ const EditTaskScreen: React.FC<Props> = ({ route, navigation }) => {
   const [startDatetime, setStartDatetime] = useState<string>(new Date().toISOString());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
-  const [isRecurring, setIsRecurring] = useState(false);
   const [repFreq, setRepFreq] = useState<RepFreq>("once");
   const [selectedWeekdays, setSelectedWeekdays] = useState<string[]>([]);
   const [reminder, setReminder] = useState<number | null>(null);
   const [reminderOptions, setReminderOptions] = useState<number[]>(DEFAULT_REMINDERS);
   const [customReminder, setCustomReminder] = useState("");
   const [emoji, setEmoji] = useState<string>("");
-  const [selectedEmojiCategory, setSelectedEmojiCategory] = useState(EMOJI_CATEGORIES[0].id);
   const [durationMinutes, setDurationMinutes] = useState<string>("");
+  const emojiInputRef = useRef<TextInput | null>(null);
 
   // ── Populate from task ──
   useEffect(() => {
@@ -116,7 +113,6 @@ const EditTaskScreen: React.FC<Props> = ({ route, navigation }) => {
     setEmoji(taskToEdit.emoji ?? "");
     setReminder(taskToEdit.reminder_time ?? null);
     setDurationMinutes(taskToEdit.duration_minutes ? String(taskToEdit.duration_minutes) : "");
-    setIsRecurring(taskToEdit.is_recurring ?? false);
     if (taskToEdit.start_datetime) setStartDatetime(taskToEdit.start_datetime);
     const { freq, weekdays } = parseRRule(taskToEdit.rrule);
     setRepFreq(freq ?? "once");
@@ -268,7 +264,7 @@ const EditTaskScreen: React.FC<Props> = ({ route, navigation }) => {
           <View style={{ flex: 1, marginLeft: 14 }}>
             <Text style={styles.heroTitle}>Edit Task</Text>
             <Text style={styles.heroSubtitle} numberOfLines={1}>
-              {emoji ? `${emoji} ` : "📝 "}{taskToEdit.title}
+              {emoji ? `${emoji} ` : ""}{taskToEdit.title}
             </Text>
           </View>
         </View>
@@ -282,35 +278,37 @@ const EditTaskScreen: React.FC<Props> = ({ route, navigation }) => {
             <Text style={styles.sectionIcon}>🎨</Text>
             <Text style={styles.sectionLabel}>Icon *</Text>
           </View>
-          {emoji ? (
-            <View style={styles.selectedEmojiPreview}>
-              <Text style={styles.selectedEmojiLarge}>{emoji}</Text>
-              <Pressable style={styles.clearEmojiBtn} onPress={() => setEmoji("")}>
-                <Text style={styles.clearEmojiBtnText}>✕</Text>
-              </Pressable>
-            </View>
-          ) : null}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.emojiTabsRow}>
-              {EMOJI_CATEGORIES.map((cat) => (
-                <Pressable
-                  key={cat.id}
-                  style={[styles.emojiTab, selectedEmojiCategory === cat.id && styles.emojiTabActive]}
-                  onPress={() => setSelectedEmojiCategory(cat.id)}
-                >
-                  <Text style={[styles.emojiTabText, selectedEmojiCategory === cat.id && styles.emojiTabTextActive]}>
-                    {cat.label}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          </ScrollView>
-          <View style={styles.emojiGrid}>
-            {EMOJI_CATEGORIES.find((c) => c.id === selectedEmojiCategory)?.emojis.map((e) => (
-              <Pressable key={e} style={[styles.emojiBtn, emoji === e && styles.emojiSelected]} onPress={() => setEmoji(emoji === e ? "" : e)}>
-                <Text style={styles.emojiText}>{e}</Text>
-              </Pressable>
-            ))}
+          <View style={styles.emojiPickerContainer}>
+            <Text style={styles.emojiPickerHelpText}>
+              Tap the circle below to select any emoji from your keyboard
+            </Text>
+            <Pressable
+              style={styles.emojiInputWrapper}
+              onPress={() => emojiInputRef.current?.focus()}
+            >
+              <TextInput
+                ref={emojiInputRef}
+                style={styles.emojiTextInput}
+                value={emoji}
+                onChangeText={(text) => {
+                  const chars = Array.from(text);
+                  if (chars.length > 0) {
+                    setEmoji(chars[chars.length - 1]);
+                  } else {
+                    setEmoji("");
+                  }
+                }}
+                maxLength={8}
+                placeholder=""
+                placeholderTextColor={colors.secondaryText}
+                textAlign="center"
+              />
+            </Pressable>
+            {emoji ? (
+              <TouchableOpacity style={styles.clearEmojiButton} onPress={() => setEmoji("")}>
+                <Text style={styles.clearEmojiButtonText}>Clear Icon</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
         </View>
 
@@ -321,7 +319,7 @@ const EditTaskScreen: React.FC<Props> = ({ route, navigation }) => {
             <Text style={styles.sectionLabel}>Task Name *</Text>
           </View>
           <View style={styles.titleInputContainer}>
-            <Text style={styles.titleEmoji}>{emoji || "⭐"}</Text>
+            {emoji ? <Text style={styles.titleEmoji}>{emoji}</Text> : null}
             <TextInput
               style={styles.titleInput}
               placeholder="What needs to be done?"

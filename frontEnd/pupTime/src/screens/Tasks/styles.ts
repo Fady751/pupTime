@@ -398,6 +398,56 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
     fontSize: 22,
   },
 
+  /* ── Emoji Picker ───────────────────────────── */
+  emojiPickerContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
+  },
+  emojiPickerHelpText: {
+    fontSize: 13,
+    color: colors.secondaryText,
+    marginBottom: 16,
+    textAlign: "center",
+  },
+  emojiInputWrapper: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: colors.background,
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  emojiTextInput: {
+    fontSize: 38,
+    textAlign: "center",
+    width: 60,
+    height: 60,
+    padding: 0,
+    color: colors.text,
+  },
+  clearEmojiButton: {
+    marginTop: 14,
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    borderRadius: 999,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  clearEmojiButtonText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.error,
+  },
+
   /* ── Action Buttons ─────────────────────────── */
   actionsContainer: {
     marginHorizontal: 16,
