@@ -81,21 +81,6 @@ class BaseAIProvider(abc.ABC):
             f"{self.__class__.__name__} does not support conversation title generation."
         )
 
-    def extract_tasks(
-        self,
-        user_message: str,
-        audio_bytes: bytes | None = None,
-        audio_mime_type: str | None = None,
-    ) -> List[str]:
-        """Split a user message into a list of discrete task descriptions.
-
-        Returns an empty list when the message contains no actionable tasks
-        (e.g. a plain question). Override in providers that support this.
-        """
-        raise NotImplementedError(
-            f"{self.__class__.__name__} does not support task extraction."
-        )
-
 
 _provider_instance: BaseAIProvider | None = None
 

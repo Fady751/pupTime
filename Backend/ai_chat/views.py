@@ -31,8 +31,6 @@ from .serializers import (
     VoiceChatSerializer,
 )
 from .s3_storage import ALLOWED_MIME_TYPES, MAX_VOICE_FILE_SIZE, upload_voice_file, generate_presigned_url
-from .voice_service import analyze_audio, classify_mood
-from .action_executor import execute_action
 from task.models import TaskTemplate, TaskOverride
 from task.serializers import TaskSerializer, TaskOverrideSerializer
 from task.views import _parse_iso
@@ -212,7 +210,163 @@ class ApproveAIChoiceView(APIView):
         )
 
     def _execute_action(self, user, action):
-        return execute_action(user, action)
+        import datetime as dt
+        import json as _json
+
+        if not isinstance(action, dict):
+            raise ValidationError({'actions': 'Each action must be an object.'})
+
+        action_name = action.get('action_name')
+        params = action.get('params') or {}
+
+        if isinstance(params, str):
+            try:
+                params = _json.loads(params)
+            except (_json.JSONDecodeError, TypeError):
+                raise ValidationError({'params': 'Action params is not valid JSON.'})
+
+        if not isinstance(params, dict):
+            raise ValidationError({'actions': 'Each action params value must be an object.'})
+
+        for alias in ['task_name', 'name']:
+            if alias in params and 'title' not in params:
+                params['title'] = params.pop(alias)
+                break
+
+        if action_name == 'create_TaskTemplate':
+            requested_task_id = params.get('task_id')
+            if requested_task_id:
+                params = {**params, 'id': requested_task_id}
+                params.pop('task_id', None)
+
+            if not params.get('start_datetime'):
+                now = timezone.now()
+                default_dt = now.replace(hour=9, minute=0, second=0, microsecond=0)
+                if default_dt < now:
+                    default_dt = now
+                params['start_datetime'] = default_dt.isoformat()
+
+            if params.get('rrule') and not params.get('is_recurring'):
+                params['is_recurring'] = True
+
+            if not params.get('emoji'):
+                params['emoji'] = "📝"
+
+            serializer = TaskSerializer(data=params)
+            serializer.is_valid(raise_exception=True)
+            task = serializer.save(user=user)
+            return {'action_name': action_name, 'task_id': str(task.id), 'task_data': serializer.data}
+
+        if action_name == 'update_TaskTemplate':
+            task_id = params.get('task_id') or params.get('id') or params.get('master_task_id')
+            if not task_id:
+                raise ValidationError({'task_id': 'task_id or id is required for update_TaskTemplate.'})
+            try:
+                task = TaskTemplate.objects.get(pk=task_id, user=user, is_deleted=False)
+            except TaskTemplate.DoesNotExist:
+                raise ValidationError({'task_id': f'Task {task_id} not found.'})
+
+            update_data = {k: v for k, v in params.items() if k not in ['task_id', 'id', 'master_task_id']}
+
+            if 'start_time' in update_data:
+                time_str = update_data.pop('start_time')
+                if task.start_datetime:
+                    try:
+                        new_time = dt.time.fromisoformat(time_str)
+                        new_dt = task.start_datetime.replace(
+                            hour=new_time.hour, minute=new_time.minute,
+                            second=new_time.second, microsecond=0,
+                        )
+                        update_data['start_datetime'] = new_dt.isoformat()
+                    except ValueError:
+                        pass
+
+            if update_data.get('rrule') and not update_data.get('is_recurring'):
+                update_data['is_recurring'] = True
+
+            should_regenerate = (
+                'rrule' in update_data or
+                ('start_datetime' in update_data and task.is_recurring)
+            )
+            if should_regenerate:
+                TaskOverride.objects.filter(
+                    task=task, instance_datetime__gt=timezone.now(),
+                    status=TaskOverride.STATUS_PENDING, is_deleted=False,
+                ).update(is_deleted=True)
+
+            serializer = TaskSerializer(task, data=update_data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            updated_task = serializer.save()
+            if should_regenerate:
+                generate_overrides_for_task(updated_task)
+
+            task_data = TaskSerializer(
+                updated_task,
+                context={'start_date': timezone.now(), 'end_date': timezone.now() + timedelta(days=30)},
+            ).data
+            return {'action_name': action_name, 'task_id': str(updated_task.id), 'task_data': task_data}
+
+        if action_name == 'update_TaskOverride':
+            instance_id = params.get('instance_id') or params.get('occurrence_id') or params.get('id')
+            requested_status = params.get('status')
+            new_dt_str = params.get('new_datetime') or params.get('start_datetime')
+            notes = params.get('notes')
+
+            if isinstance(requested_status, str):
+                requested_status = requested_status.upper()
+                if requested_status == 'DONE':
+                    requested_status = TaskOverride.STATUS_COMPLETED
+
+            if not instance_id:
+                raise ValidationError({'instance_id': 'instance_id (or occurrence_id) is required.'})
+            try:
+                override = TaskOverride.objects.get(pk=instance_id, task__user=user, is_deleted=False)
+            except TaskOverride.DoesNotExist:
+                raise ValidationError({'instance_id': 'Instance not found.'})
+
+            if not new_dt_str and requested_status == TaskOverride.STATUS_RESCHEDULED:
+                raise ValidationError({'new_datetime': 'Required for rescheduling.'})
+
+            if new_dt_str:
+                parsed_dt = _parse_iso(new_dt_str)
+                if not parsed_dt:
+                    raise ValidationError({'new_datetime': 'Invalid format.'})
+                override.new_datetime = parsed_dt
+                override.status = TaskOverride.STATUS_RESCHEDULED
+                new_instance_status = requested_status or TaskOverride.STATUS_PENDING
+                new_override, created = TaskOverride.objects.get_or_create(
+                    task=override.task, instance_datetime=parsed_dt,
+                    defaults={'status': new_instance_status},
+                )
+                if not created and requested_status:
+                    new_override.status = new_instance_status
+                    new_override.save(update_fields=['status'])
+            else:
+                override.status = requested_status or TaskOverride.STATUS_RESCHEDULED
+
+            if notes:
+                override.notes = notes
+            override.save()
+            return {
+                'action_name': action_name,
+                'instance_id': str(override.id),
+                'status': override.status,
+                'instance_data': TaskOverrideSerializer(override).data,
+            }
+
+        if action_name == 'delete_TaskTemplate':
+            task_id = params.get('task_id') or params.get('master_task_id') or params.get('id')
+            if not task_id:
+                raise ValidationError({'task_id': 'task_id or id is required for delete_TaskTemplate.'})
+            try:
+                task = TaskTemplate.objects.get(pk=task_id, user=user, is_deleted=False)
+            except TaskTemplate.DoesNotExist:
+                raise ValidationError({'task_id': 'Task not found.'})
+            task.is_deleted = True
+            task.save(update_fields=['is_deleted'])
+            return {'action_name': action_name, 'task_id': str(task.id)}
+
+        raise ValidationError({'action_name': f'Unsupported action: {action_name}'})
 
 
 class ChatView(APIView):
@@ -573,137 +727,6 @@ class VoiceChatView(APIView):
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-
-
-class VoiceUploadView(APIView):
-    """
-    POST /ai/chat/voice/upload/
-
-    Upload a voice file and return a voice_message_id.
-    Does NOT call the AI — the AI loop is driven by the WebSocket consumer.
-    """
-    permission_classes = [IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]
-
-    @swagger_auto_schema(
-        tags=['AI Chat'],
-        operation_summary='Upload a voice message (no AI call)',
-        operation_description=(
-            'Uploads a voice recording, stores it in S3, runs acoustic analysis, and '
-            'persists a user voice message. Returns the voice_message_id and conversation_id. '
-            'The AI loop is then driven over the WebSocket by sending '
-            '{"type": "process_voice", "voice_message_id": ...}.'
-        ),
-        manual_parameters=[
-            openapi.Parameter('audio', openapi.IN_FORM, type=openapi.TYPE_FILE,
-                              description='Voice recording file', required=True),
-            openapi.Parameter('conversation_id', openapi.IN_FORM, type=openapi.TYPE_STRING,
-                              format='uuid', description='Existing conversation ID (optional)'),
-            openapi.Parameter('message', openapi.IN_FORM, type=openapi.TYPE_STRING,
-                              description='Optional text context alongside voice'),
-            openapi.Parameter('duration', openapi.IN_FORM, type=openapi.TYPE_NUMBER,
-                              description='Duration of recording in seconds'),
-        ],
-        responses={
-            200: openapi.Response(description='Voice message stored.'),
-            400: openapi.Response(description='Invalid audio file or request.'),
-            413: openapi.Response(description='Audio file too large.'),
-        },
-    )
-    def post(self, request):
-        serializer = VoiceChatSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        audio_file = serializer.validated_data['audio']
-        conversation_id = serializer.validated_data.get('conversation_id')
-        text_context = serializer.validated_data.get('message', '')
-        duration = serializer.validated_data.get('duration')
-
-        audio_bytes = audio_file.read()
-        mime_type = audio_file.content_type or 'audio/webm'
-
-        if mime_type not in ALLOWED_MIME_TYPES:
-            return Response(
-                {
-                    'error': f'Unsupported audio format: {mime_type}',
-                    'supported_formats': list(ALLOWED_MIME_TYPES.keys()),
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if len(audio_bytes) > MAX_VOICE_FILE_SIZE:
-            return Response(
-                {'error': f'Audio file too large. Maximum: {MAX_VOICE_FILE_SIZE // (1024*1024)} MB.'},
-                status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            )
-
-        import tempfile
-        import os
-        import subprocess
-
-        try:
-            with tempfile.NamedTemporaryFile(delete=False) as f_in, tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as f_out:
-                f_in.write(audio_bytes)
-                f_in.flush()
-                subprocess.run(
-                    ['ffmpeg', '-y', '-i', f_in.name, '-c:a', 'libmp3lame', '-q:a', '2', f_out.name],
-                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True,
-                )
-                with open(f_out.name, 'rb') as f:
-                    audio_bytes = f.read()
-            os.unlink(f_in.name)
-            os.unlink(f_out.name)
-            mime_type = 'audio/mp3'
-        except Exception as e:
-            logger.error(f"Audio conversion failed: {e}")
-            return Response({'error': 'Failed to process audio format.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        acoustic_hint = None
-        voice_mood = None
-        try:
-            with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp:
-                tmp.write(audio_bytes)
-                tmp_path = tmp.name
-            features = analyze_audio(tmp_path)
-            voice_mood = classify_mood(features)
-            acoustic_hint = voice_mood.get('ai_hint')
-            os.unlink(tmp_path)
-        except Exception as e:
-            logger.debug("Acoustic analysis skipped: %s", e)
-
-        try:
-            conversation = ChatService.get_or_create_conversation(
-                user=request.user,
-                conversation_id=conversation_id,
-                user_text=text_context or 'Voice message',
-            )
-        except ValidationError as e:
-            return Response(e.detail, status=status.HTTP_404_NOT_FOUND)
-
-        s3_key = upload_voice_file(
-            file_bytes=audio_bytes,
-            user_id=request.user.id,
-            mime_type=mime_type,
-        )
-
-        voice_message = Message.objects.create(
-            conversation=conversation,
-            role=Message.Role.USER,
-            content=text_context,
-            voice_s3_key=s3_key,
-            voice_mime_type=mime_type,
-            voice_duration_seconds=duration,
-            voice_mood=voice_mood,
-            voice_acoustic_hint=acoustic_hint,
-        )
-
-        return Response(
-            {
-                'voice_message_id': str(voice_message.id),
-                'conversation_id': str(conversation.id),
-            },
-            status=status.HTTP_200_OK,
-        )
 
 
 class VoiceFileView(APIView):
