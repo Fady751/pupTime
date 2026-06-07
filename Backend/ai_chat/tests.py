@@ -168,7 +168,10 @@ class ChatViewTests(APITestCase):
 			item for item in conversation_response.data["messages"]
 			if item["role"] == Message.Role.ASSISTANT
 		)
-		self.assertEqual(assistant_payload["choices"], [])
+		executed_choices = assistant_payload["choices"]
+		self.assertEqual(len(executed_choices), 1)
+		self.assertTrue(executed_choices[0]["is_executed"])
+		self.assertIsNotNone(executed_choices[0]["results_payload"])
 
 		second_response = self.client.post(
 			reverse("ai-approve-choice"),
