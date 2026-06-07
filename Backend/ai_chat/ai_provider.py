@@ -95,14 +95,6 @@ def get_ai_provider() -> BaseAIProvider:
             from .providers.gemini import GeminiProvider
 
             _provider_instance = GeminiProvider()
-        elif provider_name == "ollama":
-            from .providers.ollama import OllamaProvider
-
-            _provider_instance = OllamaProvider()
-        elif provider_name == "lmstudio":
-            from .providers.lmstudio import LMStudioProvider
-
-            _provider_instance = LMStudioProvider()
         else:
             raise AIProviderError(
                 "Unsupported AI_PROVIDER value. Use 'gemini', 'ollama', or 'lmstudio'."
