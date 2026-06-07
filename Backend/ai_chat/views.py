@@ -585,8 +585,125 @@ class VoiceUploadView(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
 
+    @swagger_auto_schema(
+        tags=['AI Chat'],
+        operation_summary='Upload a voice message (no AI call)',
+        operation_description=(
+            'Uploads a voice recording, stores it in S3, runs acoustic analysis, and '
+            'persists a user voice message. Returns the voice_message_id and conversation_id. '
+            'The AI loop is then driven over the WebSocket by sending '
+            '{"type": "process_voice", "voice_message_id": ...}.'
+        ),
+        manual_parameters=[
+            openapi.Parameter('audio', openapi.IN_FORM, type=openapi.TYPE_FILE,
+                              description='Voice recording file', required=True),
+            openapi.Parameter('conversation_id', openapi.IN_FORM, type=openapi.TYPE_STRING,
+                              format='uuid', description='Existing conversation ID (optional)'),
+            openapi.Parameter('message', openapi.IN_FORM, type=openapi.TYPE_STRING,
+                              description='Optional text context alongside voice'),
+            openapi.Parameter('duration', openapi.IN_FORM, type=openapi.TYPE_NUMBER,
+                              description='Duration of recording in seconds'),
+        ],
+        responses={
+            200: openapi.Response(description='Voice message stored.'),
+            400: openapi.Response(description='Invalid audio file or request.'),
+            413: openapi.Response(description='Audio file too large.'),
+        },
+    )
     def post(self, request):
-        raise NotImplementedError("VoiceUploadView not yet implemented")
+        serializer = VoiceChatSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        audio_file = serializer.validated_data['audio']
+        conversation_id = serializer.validated_data.get('conversation_id')
+        text_context = serializer.validated_data.get('message', '')
+        duration = serializer.validated_data.get('duration')
+
+        audio_bytes = audio_file.read()
+        mime_type = audio_file.content_type or 'audio/webm'
+
+        if mime_type not in ALLOWED_MIME_TYPES:
+            return Response(
+                {
+                    'error': f'Unsupported audio format: {mime_type}',
+                    'supported_formats': list(ALLOWED_MIME_TYPES.keys()),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if len(audio_bytes) > MAX_VOICE_FILE_SIZE:
+            return Response(
+                {'error': f'Audio file too large. Maximum: {MAX_VOICE_FILE_SIZE // (1024*1024)} MB.'},
+                status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            )
+
+        import tempfile
+        import os
+        import subprocess
+
+        try:
+            with tempfile.NamedTemporaryFile(delete=False) as f_in, tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as f_out:
+                f_in.write(audio_bytes)
+                f_in.flush()
+                subprocess.run(
+                    ['ffmpeg', '-y', '-i', f_in.name, '-c:a', 'libmp3lame', '-q:a', '2', f_out.name],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True,
+                )
+                with open(f_out.name, 'rb') as f:
+                    audio_bytes = f.read()
+            os.unlink(f_in.name)
+            os.unlink(f_out.name)
+            mime_type = 'audio/mp3'
+        except Exception as e:
+            logger.error(f"Audio conversion failed: {e}")
+            return Response({'error': 'Failed to process audio format.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        acoustic_hint = None
+        voice_mood = None
+        try:
+            with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp:
+                tmp.write(audio_bytes)
+                tmp_path = tmp.name
+            features = analyze_audio(tmp_path)
+            voice_mood = classify_mood(features)
+            acoustic_hint = voice_mood.get('ai_hint')
+            os.unlink(tmp_path)
+        except Exception as e:
+            logger.debug("Acoustic analysis skipped: %s", e)
+
+        try:
+            conversation = ChatService.get_or_create_conversation(
+                user=request.user,
+                conversation_id=conversation_id,
+                user_text=text_context or 'Voice message',
+            )
+        except ValidationError as e:
+            return Response(e.detail, status=status.HTTP_404_NOT_FOUND)
+
+        s3_key = upload_voice_file(
+            file_bytes=audio_bytes,
+            user_id=request.user.id,
+            mime_type=mime_type,
+        )
+
+        voice_message = Message.objects.create(
+            conversation=conversation,
+            role=Message.Role.USER,
+            content=text_context,
+            voice_s3_key=s3_key,
+            voice_mime_type=mime_type,
+            voice_duration_seconds=duration,
+            voice_mood=voice_mood,
+            voice_acoustic_hint=acoustic_hint,
+        )
+
+        return Response(
+            {
+                'voice_message_id': str(voice_message.id),
+                'conversation_id': str(conversation.id),
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class VoiceFileView(APIView):
