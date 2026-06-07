@@ -4,3 +4,8 @@ declare module '@env' {
   export const googleWebClientId: string;
   export const DATABASE_NAME: string;
 }
+
+declare module "*.png" {
+  const value: any;
+  export default value;
+}

@@ -5,6 +5,7 @@ import {
   ScrollView,
   Pressable,
   ActivityIndicator,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useSelector } from "react-redux";
@@ -22,6 +23,7 @@ import {
   floorDateByTimezone,
   getOverridesForBetweenDate,
 } from "../../types/task";
+import socialIcon from "../../assets/socialIcon.png";
 
 /* ═══════════════════════════════════════════════════════════
    CONSTANTS
@@ -47,6 +49,7 @@ const QUICK_ACTION_COLORS = [
   { bg: "#D1FAE5", icon: "#059669" },
   { bg: "#F3E8FF", icon: "#7C3AED" },
   { bg: "#FCE7F3", icon: "#DB2777" },
+  { bg: "#E6F4EA", icon: "#137333" },
 ];
 
 const FEATURE_CARDS = [
@@ -272,6 +275,42 @@ const HomeScreen: React.FC = () => {
           </Pressable>
         </View>
 
+        {/* ========== QUICK ACTIONS ========== */}
+        <View style={styles.quickActionsContainer}>
+          <View style={styles.quickActionsCard}>
+            {[
+              { icon: "✅", label: "Tasks", route: "Tasks" },
+              { icon: "📋", label: "Hobbies", route: "TemplatesList" },
+              { icon: "📅", label: "Schedule", route: "Schedule" },
+              // { icon: "⏱", label: "Focus", route: "Timer" },
+              { icon: "👥", label: "Friends", route: "Friends" },
+              { icon: socialIcon, label: "Social", route: "SocialTask", isImage: true },
+            ].map((action, idx) => (
+              <Pressable
+                key={action.route}
+                style={styles.quickActionItem}
+                onPress={() => navigation.navigate(action.route)}
+              >
+                <View
+                  style={[
+                    styles.quickActionIcon,
+                    { backgroundColor: QUICK_ACTION_COLORS[idx].bg },
+                    action.isImage && { overflow: "hidden" }
+                  ]}
+                >
+                  {action.isImage ? (
+                    <Image source={action.icon as any} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                  ) : (
+                    <Text style={styles.quickActionEmoji}>{action.icon as string}</Text>
+                  )}
+                </View>
+                <Text style={styles.quickActionLabel}>{action.label}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
+        {/* ========== TODAY'S TASKS ========== */}
         {/* ========== TODAY TASKS ========== */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -284,9 +323,12 @@ const HomeScreen: React.FC = () => {
           {loading ? (
             <ActivityIndicator size="large" color={colors.primary} />
           ) : todayOverrides.length > 0 ? (
-            todayOverrides.map(({ template, override }) => {
-              const priorityColor = PRIORITY_COLORS[template.priority ?? "none"] ?? PRIORITY_COLORS.none;
-              const isDone = override.status === "COMPLETED" || override.status === "SKIPPED";
+            todayOverrides.slice(0, 5).map(({ template, override }) => {
+              const priorityColor =
+                PRIORITY_COLORS[template.priority ?? "none"] ?? PRIORITY_COLORS.none;
+              const isCompleted = override.status === "COMPLETED";
+              const isSkipped = override.status === "SKIPPED";
+              const isDone = isCompleted || isSkipped;
 
               return (
                 <Pressable
@@ -302,7 +344,7 @@ const HomeScreen: React.FC = () => {
                       {template.title}
                     </Text>
                     <Text style={styles.taskTime}>
-                      {formatTime(override.instance_datetime)} • {template.category || "Task"}
+                      {formatTime(override.instance_datetime)} • {template.categories?.[0]?.name || "Task"}
                     </Text>
                   </View>
                   <View style={[styles.taskDot, { backgroundColor: priorityColor }]} />

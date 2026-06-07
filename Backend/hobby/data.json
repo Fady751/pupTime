@@ -1,81 +1,760 @@
 [
-  {"hobby": "coffee", "tags": ["caffeine", "cup_collecting", "books", "brewing", "latte_art"]},
-  {"hobby": "reading", "tags": ["books", "literature", "fiction", "library", "writing"]},
-  {"hobby": "gaming", "tags": ["video_games", "esports", "streaming", "pc_building", "strategy", "virtual_reality", "augmented_reality"]},
-  {"hobby": "fitness", "tags": ["gym", "health", "workout", "nutrition", "cardio", "training"]},
-  {"hobby": "cooking", "tags": ["recipes", "food", "baking", "kitchen", "nutrition", "fermenting", "butchery"]},
-  {"hobby": "travel", "tags": ["adventure", "exploration", "culture", "photography", "flights", "road"]},
-  {"hobby": "photography", "tags": ["camera", "editing", "lightroom", "portraits", "nature", "drones"]},
-  {"hobby": "music", "tags": ["instruments", "songs", "concerts", "recording", "bands", "vocals", "mixing"]},
-  {"hobby": "drawing", "tags": ["art", "sketching", "illustration", "design", "creativity"]},
-  {"hobby": "writing", "tags": ["blogging", "stories", "poetry", "journaling", "editing", "content"]},
-  {"hobby": "swimming", "tags": ["water", "fitness", "pool", "competition", "relaxation"]},
-  {"hobby": "cycling", "tags": ["bike", "outdoors", "fitness", "racing", "gear"]},
-  {"hobby": "hiking", "tags": ["nature", "mountains", "trails", "camping", "adventure", "geocaching"]},
-  {"hobby": "fishing", "tags": ["outdoors", "water", "gear", "relaxation", "nature", "ice_fishing"]},
-  {"hobby": "gardening", "tags": ["plants", "flowers", "outdoors", "soil", "nature", "bonsai_growing", "hydroponics"]},
-  {"hobby": "painting", "tags": ["art", "colors", "canvas", "creative", "design"]},
-  {"hobby": "yoga", "tags": ["meditation", "fitness", "flexibility", "health", "mindfulness", "tai_chi"]},
-  {"hobby": "dancing", "tags": ["music", "movement", "fun", "fitness", "performance", "ice_skating"]},
-  {"hobby": "singing", "tags": ["music", "vocals", "performance", "practice", "songs", "beatboxing"]},
-  {"hobby": "coding", "tags": ["programming", "software", "development", "debugging", "tech", "ai_learning", "robotics"]},
-  {"hobby": "chess", "tags": ["strategy", "board_games", "thinking", "competition", "logic", "go_game"]},
-  {"hobby": "puzzles", "tags": ["brain", "logic", "games", "challenge", "fun", "speedcubing", "lockpicking"]},
-  {"hobby": "alternative_medicine", "tags": ["herbal", "healing", "holistic", "therapy", "wellness"]},
-  {"hobby": "ancient_history", "tags": ["history", "civilizations", "archaeology", "research"]},
-  {"hobby": "classical_music", "tags": ["orchestra", "composers", "instruments", "concerts"]},
-  {"hobby": "documentaries", "tags": ["films", "learning", "education", "real_stories"]},
-  {"hobby": "jazz", "tags": ["music", "improvisation", "instruments", "culture"]},
-  {"hobby": "philosophy", "tags": ["thinking", "logic", "ideas", "ethics", "debate"]},
-  {"hobby": "theatre", "tags": ["acting", "performance", "drama", "stage"]},
-  {"hobby": "tattoo_art", "tags": ["design", "body_art", "ink", "creativity"]},
-  {"hobby": "true_crime", "tags": ["stories", "investigation", "mystery", "cases"]},
-  {"hobby": "artificial_intelligence", "tags": ["ai", "machine_learning", "deep_learning", "automation", "data_science"]},
-  {"hobby": "quantum_physics", "tags": ["science", "particles", "theory", "physics"]},
-  {"hobby": "microbiology", "tags": ["science", "cells", "lab", "research"]},
-  {"hobby": "space_exploration", "tags": ["astronomy", "rockets", "nasa", "planets"]},
-  {"hobby": "environmentalism", "tags": ["nature", "climate", "sustainability", "activism"]},
-  {"hobby": "social_justice", "tags": ["rights", "activism", "society", "equality"]},
-  {"hobby": "economics", "tags": ["markets", "theory", "finance", "trade"]},
-  {"hobby": "financial_literacy", "tags": ["money", "budgeting", "saving", "education"]},
-  {"hobby": "investment_banking", "tags": ["finance", "stocks", "business", "markets"]},
-  {"hobby": "personal_finance", "tags": ["money", "budget", "saving", "investment"]},
-  {"hobby": "stock_market", "tags": ["trading", "stocks", "finance", "investment"]},
-  {"hobby": "esports", "tags": ["gaming", "competition", "tournaments", "streaming"]},
-  {"hobby": "retro_gaming", "tags": ["games", "nostalgia", "consoles", "classic"]},
-  {"hobby": "league_of_legends", "tags": ["moba", "gaming", "competition", "esports"]},
-  {"hobby": "minimalism", "tags": ["lifestyle", "simplicity", "declutter", "focus"]},
-  {"hobby": "sustainable_living", "tags": ["eco", "environment", "green", "lifestyle"]},
-  {"hobby": "mental_health_awareness", "tags": ["wellness", "psychology", "selfcare", "awareness"]},
-  {"hobby": "self_improvement", "tags": ["growth", "habits", "discipline", "productivity"]},
-  {"hobby": "vegetarianism", "tags": ["food", "health", "diet", "lifestyle"]},
-  {"hobby": "adventure_travel", "tags": ["travel", "exploration", "extreme", "journey"]},
-  {"hobby": "camping", "tags": ["outdoors", "nature", "tents", "survival"]},
-  {"hobby": "scuba_diving", "tags": ["ocean", "marine", "adventure", "water"]},
-  {"hobby": "skiing", "tags": ["snow", "winter", "sport", "mountains"]},
-  {"hobby": "snowboarding", "tags": ["snow", "sport", "winter", "adventure"]},
-  {"hobby": "vintage_cars", "tags": ["cars", "classic", "collecting", "automotive"]},
-  {"hobby": "ux_ui_design", "tags": ["design", "figma", "user_experience", "interface"]},
-  {"hobby": "graphic_design", "tags": ["design", "art", "branding", "creativity"]},
-  {"hobby": "interior_design", "tags": ["home", "decoration", "architecture", "style"]},
-  {"hobby": "fashion_design", "tags": ["clothing", "style", "creative", "design"]},
-  {"hobby": "video_editing", "tags": ["editing", "content", "films", "creativity"]},
-  {"hobby": "creative_writing", "tags": ["writing", "stories", "imagination", "books"]},
-  {"hobby": "bodybuilding", "tags": ["gym", "muscles", "strength", "fitness"]},
-  {"hobby": "pilates", "tags": ["fitness", "core", "flexibility", "health"]},
-  {"hobby": "astronomy", "tags": ["space", "stars", "planets", "science"]},
-  {"hobby": "astrology", "tags": ["zodiac", "stars", "beliefs", "horoscope"]},
-  {"hobby": "watch_collecting", "tags": ["collectibles", "luxury", "watches", "fashion"]},
-  {"hobby": "collectibles", "tags": ["items", "rare", "collection", "hobby"]},
-  {"hobby": "coffee_roasting", "tags": ["coffee", "beans", "brewing", "flavor"]},
-  {"hobby": "flower_arranging", "tags": ["flowers", "design", "decoration", "art"]},
-  {"hobby": "home_automation", "tags": ["smart_home", "iot", "tech", "automation"]},
-  {"hobby": "podcasting", "tags": ["audio", "talking", "content", "microphone"]},
-  {"hobby": "public_speaking", "tags": ["communication", "confidence", "presentation", "speech"]},
-  {"hobby": "watching_movies_shows", "tags": ["films", "series", "entertainment", "tv"]},
-  {"hobby": "competitive_programming", "tags": ["algorithms", "coding", "problem_solving", "contests"]},
-  {"hobby": "web_development", "tags": ["frontend", "backend", "javascript", "react"]},
-  {"hobby": "mobile_development", "tags": ["android", "ios", "apps", "flutter"]},
-  {"hobby": "machine_learning", "tags": ["ai", "data", "models", "python"]},
-  {"hobby": "cybersecurity", "tags": ["security", "hacking", "networks", "systems"]}
+  {
+    "hobby": "coffee",
+    "tags": [
+      "caffeine",
+      "cup_collecting",
+      "books",
+      "brewing",
+      "latte_art"
+    ]
+  },
+  {
+    "hobby": "reading",
+    "tags": [
+      "books",
+      "literature",
+      "fiction",
+      "library",
+      "writing"
+    ]
+  },
+  {
+    "hobby": "gaming",
+    "tags": [
+      "video_games",
+      "esports",
+      "streaming",
+      "pc_building",
+      "strategy",
+      "virtual_reality",
+      "augmented_reality"
+    ]
+  },
+  {
+    "hobby": "fitness",
+    "tags": [
+      "gym",
+      "health",
+      "workout",
+      "nutrition",
+      "cardio",
+      "training"
+    ]
+  },
+  {
+    "hobby": "cooking",
+    "tags": [
+      "recipes",
+      "food",
+      "baking",
+      "kitchen",
+      "nutrition",
+      "fermenting",
+      "butchery"
+    ]
+  },
+  {
+    "hobby": "travel",
+    "tags": [
+      "adventure",
+      "exploration",
+      "culture",
+      "photography",
+      "flights",
+      "road"
+    ]
+  },
+  {
+    "hobby": "photography",
+    "tags": [
+      "camera",
+      "editing",
+      "lightroom",
+      "portraits",
+      "nature",
+      "drones"
+    ]
+  },
+  {
+    "hobby": "music",
+    "tags": [
+      "instruments",
+      "songs",
+      "concerts",
+      "recording",
+      "bands",
+      "vocals",
+      "mixing"
+    ]
+  },
+  {
+    "hobby": "drawing",
+    "tags": [
+      "art",
+      "sketching",
+      "illustration",
+      "design",
+      "creativity"
+    ]
+  },
+  {
+    "hobby": "writing",
+    "tags": [
+      "blogging",
+      "stories",
+      "poetry",
+      "journaling",
+      "editing",
+      "content"
+    ]
+  },
+  {
+    "hobby": "swimming",
+    "tags": [
+      "water",
+      "fitness",
+      "pool",
+      "competition",
+      "relaxation"
+    ]
+  },
+  {
+    "hobby": "cycling",
+    "tags": [
+      "bike",
+      "outdoors",
+      "fitness",
+      "racing",
+      "gear"
+    ]
+  },
+  {
+    "hobby": "hiking",
+    "tags": [
+      "nature",
+      "mountains",
+      "trails",
+      "camping",
+      "adventure",
+      "geocaching"
+    ]
+  },
+  {
+    "hobby": "fishing",
+    "tags": [
+      "outdoors",
+      "water",
+      "gear",
+      "relaxation",
+      "nature",
+      "ice_fishing"
+    ]
+  },
+  {
+    "hobby": "gardening",
+    "tags": [
+      "plants",
+      "flowers",
+      "outdoors",
+      "soil",
+      "nature",
+      "bonsai_growing",
+      "hydroponics"
+    ]
+  },
+  {
+    "hobby": "painting",
+    "tags": [
+      "art",
+      "colors",
+      "canvas",
+      "creative",
+      "design"
+    ]
+  },
+  {
+    "hobby": "yoga",
+    "tags": [
+      "meditation",
+      "fitness",
+      "flexibility",
+      "health",
+      "mindfulness",
+      "tai_chi"
+    ]
+  },
+  {
+    "hobby": "dancing",
+    "tags": [
+      "music",
+      "movement",
+      "fun",
+      "fitness",
+      "performance",
+      "ice_skating"
+    ]
+  },
+  {
+    "hobby": "singing",
+    "tags": [
+      "music",
+      "vocals",
+      "performance",
+      "practice",
+      "songs",
+      "beatboxing"
+    ]
+  },
+  {
+    "hobby": "coding",
+    "tags": [
+      "programming",
+      "software",
+      "development",
+      "debugging",
+      "tech",
+      "ai_learning",
+      "robotics"
+    ]
+  },
+  {
+    "hobby": "chess",
+    "tags": [
+      "strategy",
+      "board_games",
+      "thinking",
+      "competition",
+      "logic",
+      "go_game"
+    ]
+  },
+  {
+    "hobby": "puzzles",
+    "tags": [
+      "brain",
+      "logic",
+      "games",
+      "challenge",
+      "fun",
+      "speedcubing",
+      "lockpicking"
+    ]
+  },
+  {
+    "hobby": "alternative_medicine",
+    "tags": [
+      "herbal",
+      "healing",
+      "holistic",
+      "therapy",
+      "wellness"
+    ]
+  },
+  {
+    "hobby": "ancient_history",
+    "tags": [
+      "history",
+      "civilizations",
+      "archaeology",
+      "research"
+    ]
+  },
+  {
+    "hobby": "classical_music",
+    "tags": [
+      "orchestra",
+      "composers",
+      "instruments",
+      "concerts"
+    ]
+  },
+  {
+    "hobby": "documentaries",
+    "tags": [
+      "films",
+      "learning",
+      "education",
+      "real_stories"
+    ]
+  },
+  {
+    "hobby": "jazz",
+    "tags": [
+      "music",
+      "improvisation",
+      "instruments",
+      "culture"
+    ]
+  },
+  {
+    "hobby": "philosophy",
+    "tags": [
+      "thinking",
+      "logic",
+      "ideas",
+      "ethics",
+      "debate"
+    ]
+  },
+  {
+    "hobby": "theatre",
+    "tags": [
+      "acting",
+      "performance",
+      "drama",
+      "stage"
+    ]
+  },
+  {
+    "hobby": "tattoo_art",
+    "tags": [
+      "design",
+      "body_art",
+      "ink",
+      "creativity"
+    ]
+  },
+  {
+    "hobby": "true_crime",
+    "tags": [
+      "stories",
+      "investigation",
+      "mystery",
+      "cases"
+    ]
+  },
+  {
+    "hobby": "artificial_intelligence",
+    "tags": [
+      "ai",
+      "machine_learning",
+      "deep_learning",
+      "automation",
+      "data_science"
+    ]
+  },
+  {
+    "hobby": "quantum_physics",
+    "tags": [
+      "science",
+      "particles",
+      "theory",
+      "physics"
+    ]
+  },
+  {
+    "hobby": "microbiology",
+    "tags": [
+      "science",
+      "cells",
+      "lab",
+      "research"
+    ]
+  },
+  {
+    "hobby": "space_exploration",
+    "tags": [
+      "astronomy",
+      "rockets",
+      "nasa",
+      "planets"
+    ]
+  },
+  {
+    "hobby": "environmentalism",
+    "tags": [
+      "nature",
+      "climate",
+      "sustainability",
+      "activism"
+    ]
+  },
+  {
+    "hobby": "social_justice",
+    "tags": [
+      "rights",
+      "activism",
+      "society",
+      "equality"
+    ]
+  },
+  {
+    "hobby": "economics",
+    "tags": [
+      "markets",
+      "theory",
+      "finance",
+      "trade"
+    ]
+  },
+  {
+    "hobby": "financial_literacy",
+    "tags": [
+      "money",
+      "budgeting",
+      "saving",
+      "education"
+    ]
+  },
+  {
+    "hobby": "investment_banking",
+    "tags": [
+      "finance",
+      "stocks",
+      "business",
+      "markets"
+    ]
+  },
+  {
+    "hobby": "personal_finance",
+    "tags": [
+      "money",
+      "budget",
+      "saving",
+      "investment"
+    ]
+  },
+  {
+    "hobby": "stock_market",
+    "tags": [
+      "trading",
+      "stocks",
+      "finance",
+      "investment"
+    ]
+  },
+  {
+    "hobby": "esports",
+    "tags": [
+      "gaming",
+      "competition",
+      "tournaments",
+      "streaming"
+    ]
+  },
+  {
+    "hobby": "retro_gaming",
+    "tags": [
+      "games",
+      "nostalgia",
+      "consoles",
+      "classic"
+    ]
+  },
+  {
+    "hobby": "league_of_legends",
+    "tags": [
+      "moba",
+      "gaming",
+      "competition",
+      "esports"
+    ]
+  },
+  {
+    "hobby": "minimalism",
+    "tags": [
+      "lifestyle",
+      "simplicity",
+      "declutter",
+      "focus"
+    ]
+  },
+  {
+    "hobby": "sustainable_living",
+    "tags": [
+      "eco",
+      "environment",
+      "green",
+      "lifestyle"
+    ]
+  },
+  {
+    "hobby": "mental_health_awareness",
+    "tags": [
+      "wellness",
+      "psychology",
+      "selfcare",
+      "awareness"
+    ]
+  },
+  {
+    "hobby": "self_improvement",
+    "tags": [
+      "growth",
+      "habits",
+      "discipline",
+      "productivity"
+    ]
+  },
+  {
+    "hobby": "vegetarianism",
+    "tags": [
+      "food",
+      "health",
+      "diet",
+      "lifestyle"
+    ]
+  },
+  {
+    "hobby": "adventure_travel",
+    "tags": [
+      "travel",
+      "exploration",
+      "extreme",
+      "journey"
+    ]
+  },
+  {
+    "hobby": "camping",
+    "tags": [
+      "outdoors",
+      "nature",
+      "tents",
+      "survival"
+    ]
+  },
+  {
+    "hobby": "scuba_diving",
+    "tags": [
+      "ocean",
+      "marine",
+      "adventure",
+      "water"
+    ]
+  },
+  {
+    "hobby": "skiing",
+    "tags": [
+      "snow",
+      "winter",
+      "sport",
+      "mountains"
+    ]
+  },
+  {
+    "hobby": "snowboarding",
+    "tags": [
+      "snow",
+      "sport",
+      "winter",
+      "adventure"
+    ]
+  },
+  {
+    "hobby": "vintage_cars",
+    "tags": [
+      "cars",
+      "classic",
+      "collecting",
+      "automotive"
+    ]
+  },
+  {
+    "hobby": "ux_ui_design",
+    "tags": [
+      "design",
+      "figma",
+      "user_experience",
+      "interface"
+    ]
+  },
+  {
+    "hobby": "graphic_design",
+    "tags": [
+      "design",
+      "art",
+      "branding",
+      "creativity"
+    ]
+  },
+  {
+    "hobby": "interior_design",
+    "tags": [
+      "home",
+      "decoration",
+      "architecture",
+      "style"
+    ]
+  },
+  {
+    "hobby": "fashion_design",
+    "tags": [
+      "clothing",
+      "style",
+      "creative",
+      "design"
+    ]
+  },
+  {
+    "hobby": "video_editing",
+    "tags": [
+      "editing",
+      "content",
+      "films",
+      "creativity"
+    ]
+  },
+  {
+    "hobby": "creative_writing",
+    "tags": [
+      "writing",
+      "stories",
+      "imagination",
+      "books"
+    ]
+  },
+  {
+    "hobby": "bodybuilding",
+    "tags": [
+      "gym",
+      "muscles",
+      "strength",
+      "fitness"
+    ]
+  },
+  {
+    "hobby": "pilates",
+    "tags": [
+      "fitness",
+      "core",
+      "flexibility",
+      "health"
+    ]
+  },
+  {
+    "hobby": "astronomy",
+    "tags": [
+      "space",
+      "stars",
+      "planets",
+      "science"
+    ]
+  },
+  {
+    "hobby": "astrology",
+    "tags": [
+      "zodiac",
+      "stars",
+      "beliefs",
+      "horoscope"
+    ]
+  },
+  {
+    "hobby": "watch_collecting",
+    "tags": [
+      "collectibles",
+      "luxury",
+      "watches",
+      "fashion"
+    ]
+  },
+  {
+    "hobby": "collectibles",
+    "tags": [
+      "items",
+      "rare",
+      "collection",
+      "hobby"
+    ]
+  },
+  {
+    "hobby": "coffee_roasting",
+    "tags": [
+      "coffee",
+      "beans",
+      "brewing",
+      "flavor"
+    ]
+  },
+  {
+    "hobby": "flower_arranging",
+    "tags": [
+      "flowers",
+      "design",
+      "decoration",
+      "art"
+    ]
+  },
+  {
+    "hobby": "home_automation",
+    "tags": [
+      "smart_home",
+      "iot",
+      "tech",
+      "automation"
+    ]
+  },
+  {
+    "hobby": "podcasting",
+    "tags": [
+      "audio",
+      "talking",
+      "content",
+      "microphone"
+    ]
+  },
+  {
+    "hobby": "public_speaking",
+    "tags": [
+      "communication",
+      "confidence",
+      "presentation",
+      "speech"
+    ]
+  },
+  {
+    "hobby": "watching_movies_shows",
+    "tags": [
+      "films",
+      "series",
+      "entertainment",
+      "tv"
+    ]
+  },
+  {
+    "hobby": "competitive_programming",
+    "tags": [
+      "algorithms",
+      "coding",
+      "problem_solving",
+      "contests"
+    ]
+  },
+  {
+    "hobby": "web_development",
+    "tags": [
+      "frontend",
+      "backend",
+      "javascript",
+      "react"
+    ]
+  },
+  {
+    "hobby": "mobile_development",
+    "tags": [
+      "android",
+      "ios",
+      "apps",
+      "flutter"
+    ]
+  },
+  {
+    "hobby": "machine_learning",
+    "tags": [
+      "ai",
+      "data",
+      "models",
+      "python"
+    ]
+  },
+  {
+    "hobby": "cybersecurity",
+    "tags": [
+      "security",
+      "hacking",
+      "networks",
+      "systems"
+    ]
+  }
 ]

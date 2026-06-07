@@ -141,6 +141,55 @@ export const createHomeStyles = (colors: AppColors) =>
       color: colors.primaryDark,
       opacity: 0.6,
     },
+    chatSpotlightCTA: {
+      backgroundColor: "#FFFFFF",
+      borderRadius: 999,
+      paddingHorizontal: 18,
+      paddingVertical: 9,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.15,
+      shadowRadius: 8,
+      elevation: 4,
+    },
+    chatSpotlightCTAText: {
+      fontSize: 13,
+      fontWeight: "800",
+      color: colors.primary,
+      letterSpacing: 0.2,
+    },
+
+    // ========== QUICK ACTIONS ==========
+    quickActionsContainer: {
+      marginTop: -16,
+      marginHorizontal: 20,
+      zIndex: 10,
+    },
+    quickActionsCard: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      backgroundColor: colors.surface,
+      borderRadius: 20,
+      paddingVertical: 16,
+      paddingHorizontal: 8,
+      rowGap: 16,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.1,
+      shadowRadius: 24,
+      elevation: 8,
+    },
+    quickActionItem: {
+      width: "33.33%",
+      alignItems: "center",
+    },
+    quickActionIcon: {
+      width: 52,
+      height: 52,
+      borderRadius: 16,
+      alignItems: "center",
+      justifyContent: "center",
+    },
     chatButton: {
       backgroundColor: colors.primary,
       paddingVertical: 14,
@@ -149,6 +198,14 @@ export const createHomeStyles = (colors: AppColors) =>
       justifyContent: "center",
       alignSelf: "flex-start",
       paddingHorizontal: 20,
+    },
+    quickActionEmoji: {
+      fontSize: 32,
+    },
+    quickActionLabel: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: colors.text,
     },
     chatButtonText: {
       color: "#FFF",
