@@ -3,7 +3,7 @@ import {
   View,
   Text,
   Pressable,
-  FlatList,
+  ScrollView,
   Modal,
   Animated,
   PanResponder,
@@ -154,7 +154,7 @@ const DayCell = memo<DayCellProps>(({ data, isSelected, dotColors, onPress, styl
     {dotColors.length > 0 && (
       <View style={styles.taskIndicators}>
         {dotColors.map((c, i) => (
-          <View key={i} style={[styles.taskDot, { backgroundColor: c }]} />
+          <View key={i} style={[styles.taskDot, { backgroundColor: isSelected ? "#FFFFFF" : c }]} />
         ))}
       </View>
     )}
@@ -347,14 +347,17 @@ const Schedule: React.FC<ScheduleProps> = ({
     (dateStr: string): string[] => {
       const items = overridesByDate.get(dateStr);
       if (!items || items.length === 0) return [];
-      const out: string[] = [];
-      for (const p of ["high", "medium", "low", "none"] as const) {
-        if (items.some((o) => o.template.priority === p) && out.length < 3)
-          out.push(PRIORITY_COLORS[p]);
+      const count = items.length;
+      const indicatorColor = colors.primary;
+      if (count === 1) {
+        return [indicatorColor];
+      } else if (count === 2) {
+        return [indicatorColor, indicatorColor];
+      } else {
+        return [indicatorColor, indicatorColor, indicatorColor];
       }
-      return out;
     },
-    [overridesByDate],
+    [overridesByDate, colors.primary],
   );
 
   /* ── Selected day data ─────────────────────────── */
@@ -494,15 +497,11 @@ const Schedule: React.FC<ScheduleProps> = ({
     [colors, isToggling, onTaskPress, onCompleteToggle],
   );
 
-  const taskKeyExtractor = useCallback((item: OverrideItem) => item.override.id, []);
-
   /* ═══════════════════════════════════════════════════
      RENDER
      ═══════════════════════════════════════════════════ */
-  const Container = embedded ? View : SafeAreaView;
-
-  return (
-    <Container style={styles.container} onLayout={handleContainerLayout}>
+  const renderInnerContent = () => (
+    <>
       {/* ========= CALENDAR HEADER ========= */}
       <View style={styles.header}>
         {/* Title row + Today pill */}
@@ -595,21 +594,13 @@ const Schedule: React.FC<ScheduleProps> = ({
           )}
         </View>
 
-        {/* FlatList is more performant than ScrollView for lists */}
-        <FlatList
-          data={selectedOverrides}
-          keyExtractor={taskKeyExtractor}
-          renderItem={renderTask}
-          contentContainerStyle={[
-            { paddingHorizontal: 20, paddingBottom: 120 },
-            selectedOverrides.length === 0 && {
-              flexGrow: 1,
-              justifyContent: "center" as const,
-            },
-          ]}
-          showsVerticalScrollIndicator={false}
-          nestedScrollEnabled
-          ListEmptyComponent={
+        <View style={styles.tasksList}>
+          {selectedOverrides.map((item) => (
+            <React.Fragment key={item.override.id}>
+              {renderTask({ item })}
+            </React.Fragment>
+          ))}
+          {selectedOverrides.length === 0 && (
             <View style={styles.emptyState}>
               <Text style={styles.emptyEmoji}>🌤️</Text>
               <Text style={styles.emptyTitle}>No tasks scheduled</Text>
@@ -617,151 +608,176 @@ const Schedule: React.FC<ScheduleProps> = ({
                 Enjoy your free time or tap + to add a new task!
               </Text>
             </View>
-          }
-        />
+          )}
+        </View>
       </View>
+    </>
+  );
 
-      {/* ========= MONTH PICKER MODAL ========= */}
-      <Modal
-        visible={showMonthPicker}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowMonthPicker(false)}
+  const renderMonthPickerModal = () => (
+    <Modal
+      visible={showMonthPicker}
+      transparent
+      animationType="fade"
+      onRequestClose={() => setShowMonthPicker(false)}
+    >
+      <Pressable
+        style={styles.monthPickerOverlay}
+        onPress={() => setShowMonthPicker(false)}
       >
         <Pressable
-          style={styles.monthPickerOverlay}
-          onPress={() => setShowMonthPicker(false)}
+          style={styles.monthPickerContent}
+          onPress={(e) => e.stopPropagation()}
         >
-          <Pressable
-            style={styles.monthPickerContent}
-            onPress={(e) => e.stopPropagation()}
-          >
-            <Text style={styles.monthPickerTitle}>Select Month</Text>
+          <Text style={styles.monthPickerTitle}>Select Month</Text>
 
-            <View style={styles.yearNavRow}>
-              <Pressable
-                style={styles.yearNavButton}
-                onPress={() => setPickerYear((y) => y - 1)}
-              >
-                <Text style={styles.yearNavText}>←</Text>
-              </Pressable>
-              <Text style={styles.yearNavTitle}>{pickerYear}</Text>
-              <Pressable
-                style={styles.yearNavButton}
-                onPress={() => setPickerYear((y) => y + 1)}
-              >
-                <Text style={styles.yearNavText}>→</Text>
-              </Pressable>
-            </View>
-
-            <View style={styles.monthsGrid}>
-              {MONTHS.map((month, idx) => {
-                const sel = idx === currentMonth && pickerYear === currentYear;
-                const cur =
-                  idx === today.getMonth() && pickerYear === today.getFullYear();
-                return (
-                  <Pressable
-                    key={month}
-                    style={[
-                      styles.monthPickerItem,
-                      sel && styles.monthPickerItemSelected,
-                      cur && !sel && styles.monthPickerItemCurrent,
-                    ]}
-                    onPress={() => handleMonthSelect(idx)}
-                  >
-                    <Text
-                      style={[
-                        styles.monthPickerItemText,
-                        sel && styles.monthPickerItemTextSelected,
-                        cur && !sel && styles.monthPickerItemTextCurrent,
-                      ]}
-                    >
-                      {month.slice(0, 3)}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
+          <View style={styles.yearNavRow}>
             <Pressable
-              style={styles.monthPickerClose}
-              onPress={() => setShowMonthPicker(false)}
+              style={styles.yearNavButton}
+              onPress={() => setPickerYear((y) => y - 1)}
             >
-              <Text style={styles.monthPickerCloseText}>Close</Text>
+              <Text style={styles.yearNavText}>←</Text>
             </Pressable>
-          </Pressable>
-        </Pressable>
-      </Modal>
+            <Text style={styles.yearNavTitle}>{pickerYear}</Text>
+            <Pressable
+              style={styles.yearNavButton}
+              onPress={() => setPickerYear((y) => y + 1)}
+            >
+              <Text style={styles.yearNavText}>→</Text>
+            </Pressable>
+          </View>
 
-      {/* ========= STATUS PICKER MODAL ========= */}
-      <Modal
-        visible={!!pickerOverride}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setPickerOverride(null)}
-      >
-        <Pressable
-          style={taskItemStyles.pickerOverlay}
-          onPress={() => setPickerOverride(null)}
-        >
-          <Pressable
-            style={[taskItemStyles.pickerSheet, { backgroundColor: colors.surface }]}
-            onPress={(e) => e.stopPropagation?.()}
-          >
-            <View style={[taskItemStyles.pickerHandle, { backgroundColor: colors.border }]} />
-            <Text style={[taskItemStyles.pickerTitle, { color: colors.text }]}>Change Status</Text>
-
-            {PICKER_OPTIONS.map((opt) => {
-              const optColor = STATUS_COLORS[opt.status] ?? STATUS_COLORS.PENDING;
-              const isCurrent = pickerOverride?.currentStatus === opt.status;
+          <View style={styles.monthsGrid}>
+            {MONTHS.map((month, idx) => {
+              const sel = idx === currentMonth && pickerYear === currentYear;
+              const cur =
+                idx === today.getMonth() && pickerYear === today.getFullYear();
               return (
                 <Pressable
-                  key={opt.status}
+                  key={month}
                   style={[
-                    taskItemStyles.pickerOption,
-                    isCurrent && { backgroundColor: optColor + '12' },
+                    styles.monthPickerItem,
+                    sel && styles.monthPickerItemSelected,
+                    cur && !sel && styles.monthPickerItemCurrent,
                   ]}
-                  onPress={() => {
-                    if (!isCurrent && pickerOverride && onCompleteToggle) {
-                      onCompleteToggle(
-                        pickerOverride.templateId,
-                        pickerOverride.overrideId,
-                        opt.status,
-                      );
-                    }
-                    setPickerOverride(null);
-                  }}
+                  onPress={() => handleMonthSelect(idx)}
                 >
-                  <Text style={taskItemStyles.pickerOptionEmoji}>{opt.emoji}</Text>
-                  <View style={taskItemStyles.pickerOptionTexts}>
-                    <Text style={[
-                      taskItemStyles.pickerOptionLabel,
-                      { color: colors.text },
-                      isCurrent && { color: optColor, fontWeight: '800' },
-                    ]}>
-                      {opt.label}
-                    </Text>
-                    <Text style={[taskItemStyles.pickerOptionDesc, { color: colors.secondaryText }]}>
-                      {opt.desc}
-                    </Text>
-                  </View>
-                  {isCurrent && (
-                    <Text style={[taskItemStyles.pickerOptionCheck, { color: optColor }]}>✓</Text>
-                  )}
+                  <Text
+                    style={[
+                      styles.monthPickerItemText,
+                      sel && styles.monthPickerItemTextSelected,
+                      cur && !sel && styles.monthPickerItemTextCurrent,
+                    ]}
+                  >
+                    {month.slice(0, 3)}
+                  </Text>
                 </Pressable>
               );
             })}
+          </View>
 
-            <Pressable
-              style={[taskItemStyles.pickerCancel, { backgroundColor: colors.background }]}
-              onPress={() => setPickerOverride(null)}
-            >
-              <Text style={[taskItemStyles.pickerCancelText, { color: colors.secondaryText }]}>Cancel</Text>
-            </Pressable>
+          <Pressable
+            style={styles.monthPickerClose}
+            onPress={() => setShowMonthPicker(false)}
+          >
+            <Text style={styles.monthPickerCloseText}>Close</Text>
           </Pressable>
         </Pressable>
-      </Modal>
-    </Container>
+      </Pressable>
+    </Modal>
+  );
+
+  const renderStatusPickerModal = () => (
+    <Modal
+      visible={!!pickerOverride}
+      transparent
+      animationType="slide"
+      onRequestClose={() => setPickerOverride(null)}
+    >
+      <Pressable
+        style={taskItemStyles.pickerOverlay}
+        onPress={() => setPickerOverride(null)}
+      >
+        <Pressable
+          style={[taskItemStyles.pickerSheet, { backgroundColor: colors.surface }]}
+          onPress={(e) => e.stopPropagation?.()}
+        >
+          <View style={[taskItemStyles.pickerHandle, { backgroundColor: colors.border }]} />
+          <Text style={[taskItemStyles.pickerTitle, { color: colors.text }]}>Change Status</Text>
+
+          {PICKER_OPTIONS.map((opt) => {
+            const optColor = STATUS_COLORS[opt.status] ?? STATUS_COLORS.PENDING;
+            const isCurrent = pickerOverride?.currentStatus === opt.status;
+            return (
+              <Pressable
+                key={opt.status}
+                style={[
+                  taskItemStyles.pickerOption,
+                  isCurrent && { backgroundColor: optColor + '12' },
+                ]}
+                onPress={() => {
+                  if (!isCurrent && pickerOverride && onCompleteToggle) {
+                    onCompleteToggle(
+                      pickerOverride.templateId,
+                      pickerOverride.overrideId,
+                      opt.status,
+                    );
+                  }
+                  setPickerOverride(null);
+                }}
+              >
+                <Text style={taskItemStyles.pickerOptionEmoji}>{opt.emoji}</Text>
+                <View style={taskItemStyles.pickerOptionTexts}>
+                  <Text style={[
+                    taskItemStyles.pickerOptionLabel,
+                    { color: colors.text },
+                    isCurrent && { color: optColor, fontWeight: '800' },
+                  ]}>
+                    {opt.label}
+                  </Text>
+                  <Text style={[taskItemStyles.pickerOptionDesc, { color: colors.secondaryText }]}>
+                    {opt.desc}
+                  </Text>
+                </View>
+                {isCurrent && (
+                  <Text style={[taskItemStyles.pickerOptionCheck, { color: optColor }]}>✓</Text>
+                )}
+              </Pressable>
+            );
+          })}
+
+          <Pressable
+            style={[taskItemStyles.pickerCancel, { backgroundColor: colors.background }]}
+            onPress={() => setPickerOverride(null)}
+          >
+            <Text style={[taskItemStyles.pickerCancelText, { color: colors.secondaryText }]}>Cancel</Text>
+          </Pressable>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+
+  if (embedded) {
+    return (
+      <View style={styles.container} onLayout={handleContainerLayout}>
+        {renderInnerContent()}
+        {renderMonthPickerModal()}
+        {renderStatusPickerModal()}
+      </View>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.container} onLayout={handleContainerLayout}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {renderInnerContent()}
+      </ScrollView>
+      {renderMonthPickerModal()}
+      {renderStatusPickerModal()}
+    </SafeAreaView>
   );
 };
 
