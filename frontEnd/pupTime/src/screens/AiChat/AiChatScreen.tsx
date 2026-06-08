@@ -80,6 +80,7 @@ const AiChatScreen: React.FC = () => {
   const loadConversation = async (id: string) => {
     try {
       const conv = await getConversation(id);
+      console.log(conv);
       setMessages(conv.messages);
     } catch (error) {
       console.error('Failed to load conversation', error);
