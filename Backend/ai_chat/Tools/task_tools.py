@@ -39,7 +39,7 @@ class Choice(BaseModel):
 class RespondToUserSchema(BaseModel):
     model_config = {"extra": "ignore"}
     message: str = Field(description="The conversational text message to show the user.")
-    choices: List[Choice] = Field(default=[], description="Proposed actions. Provide choices if the user wants to create, update, or delete tasks.")
+    choices: List[Choice] = Field(default=[], description="Proposed actions. Provide choices if the user wants to create, update, or delete tasks or create or edit social tasks.")
 
 def get_task_tools(user, voice_message=None):
     """
@@ -190,26 +190,37 @@ def get_task_tools(user, voice_message=None):
 
         ONLY use this tool if you need to suggest task changes. For basic conversation, just reply with text.
         IMPORTANT: Before proposing a NEW task, you MUST check for conflicts using `get_tasks`.
-        CRITICAL: BEFORE using this tool to create, update, or delete tasks, you MUST call `get_task_crud_rules` to understand the required fields and constraints.
+        CRITICAL: BEFORE proposing regular task changes, call `get_task_crud_rules`. BEFORE proposing social task changes, call `get_social_task_crud_rules`.
         """
         pass
         
     @tool
     def get_task_crud_rules() -> str:
         """
-        MUST BE CALLED BEFORE using `respond_to_user` to create, update, or delete tasks.
-        Returns the exact JSON schema and rules for CRUD operations on tasks.
+        MUST BE CALLED BEFORE using `respond_to_user` to create, update, or delete regular tasks.
+        Returns the exact JSON schema and rules for CRUD operations on TaskTemplate and TaskOverride.
+        For social tasks, call `get_social_task_crud_rules` instead.
         """
         schemas = {
             "create_TaskTemplate": CreateTaskTemplateSchema.model_json_schema(),
             "update_TaskTemplate": UpdateTaskTemplateSchema.model_json_schema(),
             "update_TaskOverride": UpdateTaskOverrideSchema.model_json_schema(),
             "delete_TaskTemplate": DeleteTaskTemplateSchema.model_json_schema(),
+        }
+        return "CRITICAL RULES FOR TASK CRUD OPERATIONS. You must conform strictly to these schemas:\n" + json.dumps(schemas, indent=2)
+
+    @tool
+    def get_social_task_crud_rules() -> str:
+        """
+        MUST BE CALLED BEFORE using `respond_to_user` to create or update social tasks.
+        Returns the exact JSON schema and rules for create_SocialTask and update_SocialTask.
+        For regular tasks, call `get_task_crud_rules` instead.
+        """
+        schemas = {
             "create_SocialTask": CreateSocialTaskSchema.model_json_schema(),
             "update_SocialTask": UpdateSocialTaskSchema.model_json_schema(),
         }
-        
-        return "CRITICAL RULES FOR TASK CRUD OPERATIONS. You must conform strictly to these schemas:\n" + json.dumps(schemas, indent=2)
+        return "CRITICAL RULES FOR SOCIAL TASK CRUD OPERATIONS. You must conform strictly to these schemas:\n" + json.dumps(schemas, indent=2)
     
     @tool(args_schema=FindFreeTimeSchema)
     def find_free_time(**kwargs) -> str:
@@ -353,7 +364,7 @@ def get_task_tools(user, voice_message=None):
     tools = [
         get_today_tasks, get_task_by_id, get_tasks, respond_to_user,
         find_free_time, get_overdue_tasks, get_daily_load_summary, get_user_preferences,
-        get_task_crud_rules,
+        get_task_crud_rules, get_social_task_crud_rules,
     ]
 
     # Only expose the mood tool on voice turns — text chats have no audio to judge.
