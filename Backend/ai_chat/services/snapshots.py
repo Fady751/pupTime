@@ -106,6 +106,12 @@ def build_task_snapshot(
     """
     Return (task_snapshot, choice_id) for the given AI action.
     """
+    # Social-task snapshots have their own shape (no overrides) — return early.
+    if action_name == 'create_SocialTask':
+        return _snapshot_for_social_create(params), None
+    if action_name == 'update_SocialTask':
+        return _snapshot_for_social_update(params, user), None
+
     if action_name == 'create_TaskTemplate':
         snapshot, choice_id = _snapshot_for_create(params)
 
@@ -122,6 +128,56 @@ def build_task_snapshot(
         _clean_overrides(snapshot)
 
     return snapshot, choice_id
+
+
+def _snapshot_for_social_create(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Preview snapshot of the SocialTask the AI proposes to create.
+
+    With no participants the task auto-confirms, so the preview reflects 'confirmed'.
+    """
+    return {
+        'id':               params.get('social_task_id'),
+        'title':            params.get('title'),
+        'description':      params.get('description', ''),
+        'duration_minutes': params.get('duration_minutes'),
+        'scheduled_at':     params.get('scheduled_at'),
+        'status':           'confirmed',
+        'sub_tasks': [
+            {
+                'title':            st.get('title'),
+                'description':      st.get('description', ''),
+                'duration_minutes': st.get('duration_minutes'),
+                'scheduled_at':     st.get('scheduled_at'),
+            }
+            for st in (params.get('sub_tasks') or [])
+        ],
+    }
+
+
+def _snapshot_for_social_update(params: Dict[str, Any], user) -> Optional[Dict[str, Any]]:
+    """Preview snapshot of an existing SocialTask with the proposed edits applied."""
+    from social_task.models import SocialTask
+
+    social_task_id = params.get('social_task_id') or params.get('id')
+    if not social_task_id:
+        return None
+    try:
+        node = SocialTask.objects.get(pk=social_task_id, initiator=user, is_deleted=False)
+    except Exception:
+        return None
+
+    snapshot = {
+        'id':               str(node.id),
+        'title':            node.title,
+        'description':      node.description,
+        'duration_minutes': node.duration_minutes,
+        'scheduled_at':     node.scheduled_at.isoformat() if node.scheduled_at else None,
+        'status':           node.status,
+    }
+    for field in ('title', 'description', 'duration_minutes', 'scheduled_at'):
+        if field in params:
+            snapshot[field] = params[field]
+    return snapshot
 
 
 def _snapshot_for_create(params: Dict[str, Any]) -> Tuple[Optional[Dict], Optional[uuid.UUID]]:

@@ -216,6 +216,61 @@ class SubTaskInputSchema(BaseModel):
     description: str = Field(default="", description="Optional description.")
 
 
+class SocialSubTaskSchema(BaseModel):
+    model_config = {"extra": "ignore"}
+    """A sub-task of a SocialTask. Field names match the SocialTask model."""
+    title: str = Field(description="Title of the sub-task.")
+    description: str = Field(default="", description="Optional description.")
+    duration_minutes: int = Field(description="Duration in minutes.", ge=1)
+    scheduled_at: Optional[str] = Field(
+        default=None,
+        description="ISO 8601 datetime. Null if this sub-task has no fixed time.",
+    )
+
+
+class CreateSocialTaskSchema(BaseModel):
+    model_config = {"extra": "ignore"}
+    """
+    Schema for creating a new SocialTask. Maps to the writable fields on the
+    SocialTask model. Participants/friends are NOT set here yet (handled later);
+    the task is created for the user alone.
+    """
+    title: str = Field(description="The title of the social task.")
+    description: str = Field(default="", description="Optional description of the social task.")
+    duration_minutes: int = Field(
+        description="How long the social task takes, in minutes.", ge=1
+    )
+    scheduled_at: Optional[str] = Field(
+        default=None,
+        description=(
+            "ISO 8601 datetime for when the social task happens (e.g. '2026-03-12T10:00:00Z'). "
+            "Null if this is a container whose sub-tasks each carry their own time. "
+            "Use find_free_time first to pick a good slot."
+        ),
+    )
+    sub_tasks: List[SocialSubTaskSchema] = Field(
+        default=[],
+        description="Optional sub-tasks (1 level deep). Each can have its own scheduled_at.",
+    )
+
+
+class UpdateSocialTaskSchema(BaseModel):
+    model_config = {"extra": "ignore"}
+    """
+    Schema for partially updating an existing SocialTask (PATCH).
+    social_task_id identifies which one; only pass the fields the user wants changed.
+    """
+    social_task_id: str = Field(description="The UUID of the SocialTask to update.")
+    title: Optional[str] = Field(default=None, description="New title.")
+    description: Optional[str] = Field(default=None, description="New description.")
+    duration_minutes: Optional[int] = Field(
+        default=None, description="New duration in minutes.", ge=1
+    )
+    scheduled_at: Optional[str] = Field(
+        default=None, description="New ISO 8601 datetime, or null to clear the schedule."
+    )
+
+
 class InviteFriendToTaskSchema(BaseModel):
     model_config = {"extra": "ignore"}
     friend_id: int = Field(

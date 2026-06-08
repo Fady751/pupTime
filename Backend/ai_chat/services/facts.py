@@ -2,9 +2,9 @@ from typing import Iterable, List
 
 from django.db import transaction
 
-from .ai_provider import get_ai_provider
+from ..ai.provider import get_ai_provider
 
-from .models import Conversation, Message , UserMemory
+from ..models import Conversation, Message , UserMemory
 
 from pydantic import BaseModel, Field
 
