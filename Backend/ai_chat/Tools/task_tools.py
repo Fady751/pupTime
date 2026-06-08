@@ -8,7 +8,7 @@ import json
 from .task_schemas import (
     GetTasksSchema, CreateTaskTemplateSchema, UpdateTaskTemplateSchema,
     UpdateTaskOverrideSchema, DeleteTaskTemplateSchema, FindFreeTimeSchema,
-    GetDailyLoadSummarySchema, LogVoiceMoodSchema, InviteFriendToTaskSchema,
+    GetDailyLoadSummarySchema, LogVoiceMoodSchema,
     CreateSocialTaskSchema, UpdateSocialTaskSchema,
 )
 from typing import List, Dict, Any, Union, Literal, Annotated
@@ -350,67 +350,10 @@ def get_task_tools(user, voice_message=None):
 
         return f"Mood recorded: {mood} (energy: {energy}). Adapt your tone accordingly."
 
-    @tool(args_schema=InviteFriendToTaskSchema)
-    def invite_friend_to_task(**kwargs) -> str:
-        """
-        Create a shared social task and invite a friend.
-        Only works with users who are already your friends.
-        Call find_free_time first to find a good slot, then call this tool.
-        The friend will see the invite the next time they open chat.
-        """
-        from django.db.models import Q
-        from friendship.models import Friendship, Status as FriendshipStatus
-        from social_task.services import create_social_task
-        from task.views import _parse_iso
-        from user.models import User as UserModel
-
-        friend_id = kwargs['friend_id']
-
-        is_friend = Friendship.objects.filter(
-            Q(sender=user, receiver_id=friend_id) | Q(sender_id=friend_id, receiver=user),
-            status=FriendshipStatus.ACCEPTED,
-        ).exists()
-        if not is_friend:
-            return f"Cannot invite user {friend_id}: not in your friends list."
-
-        sub_tasks_data = [
-            {
-                'title': st.task_title,
-                'duration_minutes': st.duration_minutes,
-                'scheduled_at': _parse_iso(st.scheduled_at),
-                'description': st.description,
-            }
-            for st in kwargs.get('sub_tasks', [])
-        ]
-
-        task = create_social_task(
-            initiator=user,
-            data={
-                'title': kwargs['task_title'],
-                'description': kwargs.get('description', ''),
-                'duration_minutes': kwargs['duration_minutes'],
-                'scheduled_at': _parse_iso(kwargs.get('scheduled_at')),
-            },
-            participant_ids=[friend_id],
-            sub_tasks_data=sub_tasks_data,
-        )
-
-        try:
-            friend = UserModel.objects.get(id=friend_id)
-            friend_name = friend.username
-        except UserModel.DoesNotExist:
-            friend_name = f"user {friend_id}"
-
-        parts = [f"Invite sent to {friend_name} for '{task.title}'."]
-        if sub_tasks_data:
-            parts.append(f"{len(sub_tasks_data)} sub-task(s) included.")
-        parts.append("They'll see it the next time they open chat.")
-        return " ".join(parts)
-
     tools = [
         get_today_tasks, get_task_by_id, get_tasks, respond_to_user,
         find_free_time, get_overdue_tasks, get_daily_load_summary, get_user_preferences,
-        get_task_crud_rules, invite_friend_to_task,
+        get_task_crud_rules,
     ]
 
     # Only expose the mood tool on voice turns — text chats have no audio to judge.

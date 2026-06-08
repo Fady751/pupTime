@@ -351,6 +351,20 @@ class SocialTaskSnapshotTests(TestCase):
         self.assertEqual(snapshot["duration_minutes"], 30)
 
 
+class ToolExposureTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="actor", email="actor@example.com", password="pw12345678"
+        )
+
+    def test_invite_friend_to_task_live_tool_removed(self):
+        """Social tasks must go through approve-first create_SocialTask, never a live tool."""
+        from ai_chat.Tools.task_tools import get_task_tools
+
+        names = {t.name for t in get_task_tools(self.user)}
+        self.assertNotIn("invite_friend_to_task", names)
+
+
 class ProposeTimeValidationTests(TestCase):
     """Advisory validation at propose-time logs but never blocks (was in the provider)."""
 
