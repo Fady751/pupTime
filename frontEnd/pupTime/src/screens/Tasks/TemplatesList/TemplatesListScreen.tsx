@@ -17,7 +17,7 @@ import useTheme from "../../../Hooks/useTheme";
 import { useTasks } from "../../../Hooks/useTasks";
 import { useSelector } from "react-redux";
 import { RootState } from "../../../redux/store";
-import { BottomBar } from "../../../components/BottomBar/BottomBar";
+
 import { getTemplates } from "../../../services/TaskService/syncService";
 import { TaskTemplate } from "../../../DB";
 
@@ -329,8 +329,6 @@ const TemplatesListScreen: React.FC = () => {
         <Text style={styles.fabText}>+</Text>
       </Pressable>
 
-      {/* ========== BOTTOM BAR ========== */}
-      <BottomBar current="Tasks" navigation={navigation} />
     </SafeAreaView>
   );
 };
