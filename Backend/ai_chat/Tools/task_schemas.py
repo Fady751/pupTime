@@ -205,17 +205,6 @@ class LogVoiceMoodSchema(BaseModel):
     )
 
 
-class SubTaskInputSchema(BaseModel):
-    model_config = {"extra": "ignore"}
-    task_title: str = Field(description="Title of the sub-task.")
-    duration_minutes: int = Field(description="Duration in minutes.", ge=1)
-    scheduled_at: Optional[str] = Field(
-        default=None,
-        description="ISO 8601 datetime. Null if this sub-task has no fixed time.",
-    )
-    description: str = Field(default="", description="Optional description.")
-
-
 class SocialSubTaskSchema(BaseModel):
     model_config = {"extra": "ignore"}
     """A sub-task of a SocialTask. Field names match the SocialTask model."""
@@ -268,26 +257,4 @@ class UpdateSocialTaskSchema(BaseModel):
     )
     scheduled_at: Optional[str] = Field(
         default=None, description="New ISO 8601 datetime, or null to clear the schedule."
-    )
-
-
-class InviteFriendToTaskSchema(BaseModel):
-    model_config = {"extra": "ignore"}
-    friend_id: int = Field(
-        description="The integer user ID of the friend to invite. Must already be your friend."
-    )
-    task_title: str = Field(description="Title of the shared task.")
-    duration_minutes: int = Field(description="Duration in minutes.", ge=1)
-    scheduled_at: Optional[str] = Field(
-        default=None,
-        description=(
-            "ISO 8601 datetime for when the task is scheduled. "
-            "Null if this is a container task whose sub-tasks each have their own time. "
-            "Use find_free_time first to choose a good slot."
-        ),
-    )
-    description: str = Field(default="", description="Optional description.")
-    sub_tasks: List[SubTaskInputSchema] = Field(
-        default=[],
-        description="Sub-tasks (1-level deep). Each can have its own scheduled_at.",
     )
