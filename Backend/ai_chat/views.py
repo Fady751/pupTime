@@ -31,6 +31,7 @@ from .serializers import (
 )
 from .utils.s3_storage import ALLOWED_MIME_TYPES, MAX_VOICE_FILE_SIZE, upload_voice_file, generate_presigned_url
 from .services.chat import ChatService
+from .services.voice_pipeline import convert_to_mp3, compute_acoustic_hint, AudioConversionError
 from .utils.actions import execute_action
 
 logger = logging.getLogger(__name__)
@@ -404,63 +405,14 @@ class VoiceChatView(APIView):
                 status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             )
 
-        import tempfile
-        import os
-        import subprocess
-
         try:
-            with tempfile.NamedTemporaryFile(delete=False) as f_in, tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as f_out:
-                f_in.write(audio_bytes)
-                f_in.flush()
-                subprocess.run(
-                    ['ffmpeg', '-y', '-i', f_in.name, '-c:a', 'libmp3lame', '-q:a', '2', f_out.name],
-                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True
-                )
-                with open(f_out.name, 'rb') as f:
-                    audio_bytes = f.read()
-            os.unlink(f_in.name)
-            os.unlink(f_out.name)
+            audio_bytes = convert_to_mp3(audio_bytes)
             mime_type = 'audio/mp3'
-        except Exception as e:
+        except AudioConversionError as e:
             logger.error(f"Audio conversion failed: {e}")
             return Response({'error': 'Failed to process audio format.'}, status=status.HTTP_400_BAD_REQUEST)
 
-
-        # Run librosa acoustic analysis to extract quantitative features (RMS, silence,
-        # pitch variation, etc.) and produce a plain-English hint. The hint is injected
-        # alongside the raw audio so Gemini has both its native audio understanding AND
-        # an explicit acoustic signal — it still makes the final emotional judgement.
-        acoustic_hint: str | None = None
-        try:
-            import io as _io
-            import tempfile as _tempfile
-            import soundfile as _sf
-            import numpy as _np
-            from .services.voice import analyze_audio as _analyze_audio, classify_mood as _classify_mood
-
-            def _load_bytes_as_float32(b: bytes):
-                try:
-                    data, sr = _sf.read(_io.BytesIO(b), dtype="float32", always_2d=False)
-                    if data.ndim == 2:
-                        data = data.mean(axis=1)
-                    return _np.asarray(data, dtype=_np.float32), int(sr)
-                except Exception:
-                    return None, None
-
-            wav_data, wav_sr = _load_bytes_as_float32(audio_bytes)
-            if wav_data is not None:
-                with _tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as _tmp:
-                    _sf.write(_tmp.name, wav_data, wav_sr)
-                    _features = _analyze_audio(_tmp.name)
-                import os as _os
-                try:
-                    _os.unlink(_tmp.name)
-                except OSError:
-                    pass
-                _acoustic = _classify_mood(_features)
-                acoustic_hint = _acoustic.get("ai_hint")
-        except Exception as _e:
-            logger.debug("Acoustic analysis skipped: %s", _e)
+        acoustic_hint = compute_acoustic_hint(audio_bytes)
 
         try:
             title = text_context[:80] if text_context else "Voice message"
