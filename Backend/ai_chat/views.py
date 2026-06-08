@@ -16,7 +16,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .ai_provider import AIProviderRateLimitError, ChatMessage, get_ai_provider
+from .ai.provider import AIProviderRateLimitError, ChatMessage, get_ai_provider
 from .Tools.task_tools import get_task_tools
 from .models import AIChoice, Conversation, Message
 from .serializers import (
@@ -29,9 +29,9 @@ from .serializers import (
     SendMessageSerializer,
     VoiceChatSerializer,
 )
-from .s3_storage import ALLOWED_MIME_TYPES, MAX_VOICE_FILE_SIZE, upload_voice_file, generate_presigned_url
-from .services import ChatService
-from .actions import execute_action
+from .utils.s3_storage import ALLOWED_MIME_TYPES, MAX_VOICE_FILE_SIZE, upload_voice_file, generate_presigned_url
+from .services.chat import ChatService
+from .utils.actions import execute_action
 
 logger = logging.getLogger(__name__)
 
@@ -261,7 +261,7 @@ class ChatView(APIView):
 
         #to-do : fix this line and implemnt the better approach 
         last_conversation = Conversation.objects.filter(user=request.user).order_by('-created_at').first()
-        from .facts_service import check_facts_in_conversation
+        from .services.facts import check_facts_in_conversation
         if last_conversation and not conversation_id:
             check_facts_in_conversation(str(last_conversation.id), request.user.id)
         try:
@@ -436,7 +436,7 @@ class VoiceChatView(APIView):
             import tempfile as _tempfile
             import soundfile as _sf
             import numpy as _np
-            from .voice_service import analyze_audio as _analyze_audio, classify_mood as _classify_mood
+            from .services.voice import analyze_audio as _analyze_audio, classify_mood as _classify_mood
 
             def _load_bytes_as_float32(b: bytes):
                 try:

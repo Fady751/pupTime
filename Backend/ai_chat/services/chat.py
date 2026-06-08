@@ -7,10 +7,10 @@ from django.db import transaction
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
 
-from .ai_provider import ChatMessage, get_ai_provider
-from .Tools.task_tools import get_task_tools
-from .models import AIChoice, Conversation, Message
-from .prompts import build_system_prompt
+from ..ai.provider import ChatMessage, get_ai_provider
+from ..Tools.task_tools import get_task_tools
+from ..models import AIChoice, Conversation, Message
+from ..ai.prompts import build_system_prompt
 from .snapshots import build_task_snapshot
 
 logger = logging.getLogger(__name__)

@@ -10,8 +10,8 @@ from decouple import config
 from langchain_google_vertexai import ChatVertexAI
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 
-from ..ai_provider import AIProviderError, AIProviderRateLimitError, BaseAIProvider, ChatMessage
-from ..ai_logger import (
+from ..provider import AIProviderError, AIProviderRateLimitError, BaseAIProvider, ChatMessage
+from ..logger import (
     log_ai_request, log_tool_call, log_tool_result, log_tool_error,
     log_respond_to_user, log_validation_warning, log_ai_final_text,
     log_rate_limit, log_max_rounds_reached,
@@ -132,7 +132,7 @@ class GeminiProvider(BaseAIProvider):
         """
         import json
         import logging
-        from ..Tools.task_schemas import (
+        from ...Tools.task_schemas import (
             CreateTaskTemplateSchema, UpdateTaskTemplateSchema,
             DeleteTaskTemplateSchema, UpdateTaskOverrideSchema,
         )

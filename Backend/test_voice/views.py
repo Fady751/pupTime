@@ -413,7 +413,7 @@ def _run_acoustic_analysis(audio_data, sample_rate: int) -> dict | None:
     try:
         import tempfile
         import soundfile as sf
-        from ai_chat.voice_service import analyze_audio, classify_mood
+        from ai_chat.services.voice import analyze_audio, classify_mood
 
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
             tmp_path = tmp.name

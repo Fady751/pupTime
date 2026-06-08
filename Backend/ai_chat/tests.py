@@ -4,7 +4,7 @@ from unittest.mock import patch
 from django.urls import reverse
 from rest_framework.test import APITestCase
 
-from ai_chat.ai_provider import AIProviderRateLimitError
+from ai_chat.ai.provider import AIProviderRateLimitError
 from ai_chat.models import AIChoice, Conversation, Message
 from task.models import TaskTemplate
 from user.models import User
@@ -62,8 +62,8 @@ class ChatViewTests(APITestCase):
 		)
 		self.client.force_authenticate(user=self.user)
 
-	@patch("ai_chat.services.get_task_tools", return_value=[])
-	@patch("ai_chat.services.get_ai_provider", return_value=_RateLimitedProvider())
+	@patch("ai_chat.services.chat.get_task_tools", return_value=[])
+	@patch("ai_chat.services.chat.get_ai_provider", return_value=_RateLimitedProvider())
 	def test_chat_stream_returns_rate_limit_payload(self, _mock_provider, _mock_tools):
 		response = self.client.post(reverse("ai-chat"), {"message": "Hello"}, format="json")
 
@@ -80,8 +80,8 @@ class ChatViewTests(APITestCase):
 		self.assertEqual(messages[0].role, Message.Role.USER)
 		self.assertEqual(messages[0].content, "Hello")
 
-	@patch("ai_chat.services.get_task_tools", return_value=[])
-	@patch("ai_chat.services.get_ai_provider", return_value=_ChoiceProvider())
+	@patch("ai_chat.services.chat.get_task_tools", return_value=[])
+	@patch("ai_chat.services.chat.get_ai_provider", return_value=_ChoiceProvider())
 	def test_chat_stream_persists_ai_choices(self, _mock_provider, _mock_tools):
 		response = self.client.post(reverse("ai-chat"), {"message": "Schedule a game session"}, format="json")
 
@@ -105,8 +105,8 @@ class ChatViewTests(APITestCase):
 		self.assertEqual(len(assistant_payload["choices"]), 1)
 		self.assertEqual(assistant_payload["choices"][0]["id"], str(choice.id))
 
-	@patch("ai_chat.services.get_task_tools", return_value=[])
-	@patch("ai_chat.services.get_ai_provider", return_value=_PlainTextProvider())
+	@patch("ai_chat.services.chat.get_task_tools", return_value=[])
+	@patch("ai_chat.services.chat.get_ai_provider", return_value=_PlainTextProvider())
 	def test_chat_stream_handles_plain_text_response(self, _mock_provider, _mock_tools):
 		response = self.client.post(reverse("ai-chat"), {"message": "Hi"}, format="json")
 

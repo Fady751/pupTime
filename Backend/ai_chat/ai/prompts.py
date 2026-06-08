@@ -1,6 +1,6 @@
 import os
 from django.utils import timezone
-from .ai_provider import ChatMessage
+from .provider import ChatMessage
 
 _APP_KNOWLEDGE_PATH = os.path.join(os.path.dirname(__file__), "app_knowledge.md")
 
@@ -25,7 +25,7 @@ def build_system_prompt(user=None) -> ChatMessage:
 
     memory_section = ""
     if user:
-        from .models import UserMemory
+        from ..models import UserMemory
         memories = UserMemory.objects.filter(user=user).order_by('-importance_score')[:20]
         if memories.exists():
             memory_list = "\n".join([f"* {m.fact_content}" for m in memories])
