@@ -86,8 +86,14 @@ const AiButton: React.FC<AiButtonProps> = ({ onPress }) => {
         const predictedX = currentX + velocityX * 0.08;
         const predictedY = currentY + velocityY * 0.08;
 
-        const finalX = Math.max(0, Math.min(predictedX, SCREEN_W - BTN_SIZE));
-        const finalY = Math.max(0, Math.min(predictedY, SCREEN_H - BTN_SIZE));
+        const PADDING = 20;
+        const midPoint = (SCREEN_W - BTN_SIZE) / 2;
+        
+        // Determine whether to snap to the left or right side
+        const finalX = predictedX < midPoint ? PADDING : SCREEN_W - BTN_SIZE - PADDING;
+        
+        // Keep the Y position within screen bounds
+        const finalY = Math.max(PADDING, Math.min(predictedY, SCREEN_H - BTN_SIZE - PADDING));
 
         // Update the base layout to the current drop location to prevent jumping
         offsetX.setValue(currentX);
@@ -100,15 +106,15 @@ const AiButton: React.FC<AiButtonProps> = ({ onPress }) => {
         // Smoothly spring to the clamped/predicted final position
         Animated.spring(offsetX, {
           toValue: finalX,
-          bounciness: 12,
-          speed: 14,
+          friction: 6,
+          tension: 45,
           useNativeDriver: true,
         }).start();
 
         Animated.spring(offsetY, {
           toValue: finalY,
-          bounciness: 12,
-          speed: 14,
+          friction: 6,
+          tension: 45,
           useNativeDriver: true,
         }).start();
 
