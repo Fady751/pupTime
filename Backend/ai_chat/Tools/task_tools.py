@@ -9,13 +9,17 @@ from .task_schemas import (
     GetTasksSchema, CreateTaskTemplateSchema, UpdateTaskTemplateSchema,
     UpdateTaskOverrideSchema, DeleteTaskTemplateSchema, FindFreeTimeSchema,
     GetDailyLoadSummarySchema, LogVoiceMoodSchema, InviteFriendToTaskSchema,
+    CreateSocialTaskSchema, UpdateSocialTaskSchema,
 )
 from typing import List, Dict, Any, Union, Literal, Annotated
 from pydantic import BaseModel, Field
 
 class Action(BaseModel):
     model_config = {"extra": "ignore"}
-    action_name: Literal['create_TaskTemplate', 'update_TaskTemplate', 'update_TaskOverride', 'delete_TaskTemplate'] = Field(
+    action_name: Literal[
+        'create_TaskTemplate', 'update_TaskTemplate', 'update_TaskOverride', 'delete_TaskTemplate',
+        'create_SocialTask', 'update_SocialTask',
+    ] = Field(
         description="The exact name of the action."
     )
     params: dict = Field(
@@ -181,7 +185,9 @@ def get_task_tools(user, voice_message=None):
         - 'update_TaskTemplate': Use for PERMANENT or FUTURE changes to a series (requires Master Task ID).
         - 'update_TaskOverride': Use for ONE-TIME changes to a specific instance (requires Occurrence ID).
         - 'delete_TaskTemplate': Use to remove a task series.
-        
+        - 'create_SocialTask': Use to create a NEW shared/social task (optionally with sub-tasks).
+        - 'update_SocialTask': Use to edit an existing social task (requires social_task_id).
+
         ONLY use this tool if you need to suggest task changes. For basic conversation, just reply with text.
         IMPORTANT: Before proposing a NEW task, you MUST check for conflicts using `get_tasks`.
         CRITICAL: BEFORE using this tool to create, update, or delete tasks, you MUST call `get_task_crud_rules` to understand the required fields and constraints.
@@ -199,6 +205,8 @@ def get_task_tools(user, voice_message=None):
             "update_TaskTemplate": UpdateTaskTemplateSchema.model_json_schema(),
             "update_TaskOverride": UpdateTaskOverrideSchema.model_json_schema(),
             "delete_TaskTemplate": DeleteTaskTemplateSchema.model_json_schema(),
+            "create_SocialTask": CreateSocialTaskSchema.model_json_schema(),
+            "update_SocialTask": UpdateSocialTaskSchema.model_json_schema(),
         }
         
         return "CRITICAL RULES FOR TASK CRUD OPERATIONS. You must conform strictly to these schemas:\n" + json.dumps(schemas, indent=2)

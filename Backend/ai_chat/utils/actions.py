@@ -17,6 +17,8 @@ from ..Tools.task_schemas import (
     UpdateTaskTemplateSchema,
     UpdateTaskOverrideSchema,
     DeleteTaskTemplateSchema,
+    CreateSocialTaskSchema,
+    UpdateSocialTaskSchema,
 )
 
 
@@ -180,6 +182,59 @@ def _delete_task_template(user, params):
     return {'action_name': 'delete_TaskTemplate', 'task_id': str(task.id)}
 
 
+def _create_social_task(user, params):
+    from types import SimpleNamespace
+    from social_task.serializers import SocialTaskCreateSerializer, SocialTaskDetailSerializer
+    from social_task.services import create_social_task
+
+    request_ctx = {'request': SimpleNamespace(user=user)}
+    serializer = SocialTaskCreateSerializer(data=params, context=request_ctx)
+    serializer.is_valid(raise_exception=True)
+    data = dict(serializer.validated_data)
+    sub_tasks = data.pop('sub_tasks', [])
+    data.pop('participant_ids', None)  # TODO: AI cannot set participants/friends yet
+
+    task = create_social_task(
+        initiator=user,
+        data=data,
+        participant_ids=[],  # TODO: wire friend invitation into the AI flow
+        sub_tasks_data=[dict(st) for st in sub_tasks],
+    )
+    return {
+        'action_name': 'create_SocialTask',
+        'social_task_id': str(task.id),
+        'social_task_data': SocialTaskDetailSerializer(task, context=request_ctx).data,
+    }
+
+
+def _update_social_task(user, params):
+    from types import SimpleNamespace
+    from social_task.models import SocialTask
+    from social_task.serializers import SocialTaskUpdateSerializer, SocialTaskDetailSerializer
+    from social_task.services import update_node
+
+    social_task_id = params.get('social_task_id') or params.get('id')
+    if not social_task_id:
+        raise ValidationError({'social_task_id': 'social_task_id is required for update_SocialTask.'})
+    try:
+        node = SocialTask.objects.get(pk=social_task_id, initiator=user, is_deleted=False)
+    except (SocialTask.DoesNotExist, ValidationError, ValueError):
+        raise ValidationError({'social_task_id': f'Social task {social_task_id} not found.'})
+
+    update_params = {k: v for k, v in params.items() if k not in ('social_task_id', 'id')}
+    serializer = SocialTaskUpdateSerializer(data=update_params, partial=True)
+    serializer.is_valid(raise_exception=True)
+    updated = update_node(node, dict(serializer.validated_data))
+
+    return {
+        'action_name': 'update_SocialTask',
+        'social_task_id': str(updated.id),
+        'social_task_data': SocialTaskDetailSerializer(
+            updated, context={'request': SimpleNamespace(user=user)}
+        ).data,
+    }
+
+
 @dataclass(frozen=True)
 class ActionSpec:
     """One AI-proposable write action, defined once.
@@ -199,6 +254,8 @@ ACTION_REGISTRY: dict[str, ActionSpec] = {
         ActionSpec('update_TaskTemplate', UpdateTaskTemplateSchema, _update_task_template),
         ActionSpec('update_TaskOverride', UpdateTaskOverrideSchema, _update_task_override),
         ActionSpec('delete_TaskTemplate', DeleteTaskTemplateSchema, _delete_task_template),
+        ActionSpec('create_SocialTask', CreateSocialTaskSchema, _create_social_task),
+        ActionSpec('update_SocialTask', UpdateSocialTaskSchema, _update_social_task),
     )
 }
 

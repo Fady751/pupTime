@@ -32,7 +32,7 @@ from .serializers import (
 from .utils.s3_storage import ALLOWED_MIME_TYPES, MAX_VOICE_FILE_SIZE, upload_voice_file, generate_presigned_url
 from .services.chat import ChatService
 from .services.voice_pipeline import convert_to_mp3, compute_acoustic_hint, AudioConversionError
-from .utils.actions import execute_action
+from .utils.actions import execute_action, ACTION_REGISTRY
 
 logger = logging.getLogger(__name__)
 
@@ -107,7 +107,7 @@ _EXECUTED_ACTION_SCHEMA = openapi.Schema(
     properties={
         'action_name': openapi.Schema(
             type=openapi.TYPE_STRING,
-            enum=['create_TaskTemplate', 'update_TaskTemplate', 'update_TaskOverride', 'delete_TaskTemplate'],
+            enum=list(ACTION_REGISTRY),
         ),
         'task_id': openapi.Schema(type=openapi.TYPE_STRING, format='uuid'),
     },

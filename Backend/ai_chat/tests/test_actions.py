@@ -7,6 +7,7 @@ from rest_framework.exceptions import ValidationError
 
 from ai_chat.services.chat import ChatService
 from ai_chat.utils.actions import execute_action
+from social_task.models import SocialTask, ParticipantStatus, SocialTaskStatus
 from task.models import TaskTemplate, TaskOverride
 from user.models import User
 
@@ -206,6 +207,148 @@ class ExecuteActionValidationTests(TestCase):
     def test_non_object_params_raises(self):
         with self.assertRaises(ValidationError):
             execute_action(self.user, {"action_name": "create_TaskTemplate", "params": "[1, 2]"})
+
+
+class ExecuteActionSocialCreateTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="actor", email="actor@example.com", password="pw12345678"
+        )
+
+    def test_create_minimal_social_task(self):
+        result = execute_action(
+            self.user,
+            _action("create_SocialTask", {"title": "Game night", "duration_minutes": 60}),
+        )
+        task = SocialTask.objects.get(initiator=self.user, title="Game night")
+        self.assertEqual(result["action_name"], "create_SocialTask")
+        self.assertEqual(result["social_task_id"], str(task.id))
+        self.assertEqual(task.duration_minutes, 60)
+
+    def test_create_adds_initiator_as_accepted_participant(self):
+        execute_action(
+            self.user,
+            _action("create_SocialTask", {"title": "Solo", "duration_minutes": 30}),
+        )
+        task = SocialTask.objects.get(initiator=self.user, title="Solo")
+        participant = task.participants.get(user=self.user)
+        self.assertEqual(participant.status, ParticipantStatus.ACCEPTED)
+
+    def test_create_with_no_participants_auto_confirms(self):
+        execute_action(
+            self.user,
+            _action("create_SocialTask", {"title": "Auto", "duration_minutes": 45}),
+        )
+        task = SocialTask.objects.get(initiator=self.user, title="Auto")
+        self.assertEqual(task.status, SocialTaskStatus.CONFIRMED)
+
+    def test_create_with_sub_tasks(self):
+        execute_action(
+            self.user,
+            _action(
+                "create_SocialTask",
+                {
+                    "title": "Trip",
+                    "duration_minutes": 120,
+                    "sub_tasks": [
+                        {"title": "Pack", "duration_minutes": 30},
+                        {"title": "Drive", "duration_minutes": 90},
+                    ],
+                },
+            ),
+        )
+        root = SocialTask.objects.get(initiator=self.user, title="Trip", parent__isnull=True)
+        self.assertEqual(root.sub_tasks.count(), 2)
+
+    def test_create_missing_duration_raises(self):
+        with self.assertRaises(ValidationError):
+            execute_action(self.user, _action("create_SocialTask", {"title": "No duration"}))
+
+
+class ExecuteActionSocialUpdateTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="actor", email="actor@example.com", password="pw12345678"
+        )
+        self.task = SocialTask.objects.create(
+            initiator=self.user, title="Original", duration_minutes=60
+        )
+
+    def test_update_changes_title(self):
+        execute_action(
+            self.user,
+            _action("update_SocialTask", {"social_task_id": str(self.task.id), "title": "Renamed"}),
+        )
+        self.task.refresh_from_db()
+        self.assertEqual(self.task.title, "Renamed")
+
+    def test_update_requires_social_task_id(self):
+        with self.assertRaises(ValidationError):
+            execute_action(self.user, _action("update_SocialTask", {"title": "X"}))
+
+    def test_update_missing_task_raises(self):
+        with self.assertRaises(ValidationError):
+            execute_action(
+                self.user,
+                _action("update_SocialTask", {"social_task_id": str(uuid.uuid4()), "title": "X"}),
+            )
+
+    def test_update_rejects_other_users_task(self):
+        other = User.objects.create_user(
+            username="other", email="other@example.com", password="pw12345678"
+        )
+        other_task = SocialTask.objects.create(
+            initiator=other, title="Hidden", duration_minutes=30
+        )
+        with self.assertRaises(ValidationError):
+            execute_action(
+                self.user,
+                _action("update_SocialTask", {"social_task_id": str(other_task.id), "title": "X"}),
+            )
+        other_task.refresh_from_db()
+        self.assertEqual(other_task.title, "Hidden")
+
+
+class SocialTaskSnapshotTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="actor", email="actor@example.com", password="pw12345678"
+        )
+
+    def test_create_snapshot_carries_fields_and_sub_tasks(self):
+        from ai_chat.services.snapshots import build_task_snapshot
+
+        snapshot, choice_id = build_task_snapshot(
+            "create_SocialTask",
+            {
+                "title": "Game night",
+                "duration_minutes": 60,
+                "scheduled_at": "2026-03-12T20:00:00Z",
+                "sub_tasks": [{"title": "Setup", "duration_minutes": 15}],
+            },
+            self.user,
+        )
+        self.assertIsNone(choice_id)
+        self.assertEqual(snapshot["title"], "Game night")
+        self.assertEqual(snapshot["status"], "confirmed")
+        self.assertEqual(len(snapshot["sub_tasks"]), 1)
+        self.assertEqual(snapshot["sub_tasks"][0]["title"], "Setup")
+        self.assertNotIn("overrides", snapshot)
+
+    def test_update_snapshot_applies_proposed_edits(self):
+        from ai_chat.services.snapshots import build_task_snapshot
+
+        task = SocialTask.objects.create(
+            initiator=self.user, title="Before", duration_minutes=30
+        )
+        snapshot, _ = build_task_snapshot(
+            "update_SocialTask",
+            {"social_task_id": str(task.id), "title": "After"},
+            self.user,
+        )
+        self.assertEqual(snapshot["id"], str(task.id))
+        self.assertEqual(snapshot["title"], "After")
+        self.assertEqual(snapshot["duration_minutes"], 30)
 
 
 class ProposeTimeValidationTests(TestCase):
