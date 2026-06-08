@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { createNativeStackNavigator, NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 
@@ -8,6 +8,7 @@ import ProfileScreen from '../screens/ProfileScreen/ProfileScreen';
 import EditProfileScreen from '../screens/ProfileScreen/editProfile/EditProfile';
 import ScheduleScreen from '../screens/Schedule/ScheduleScreen';
 import AiButton from '../components/AiBottom/AiButtom';
+import { BottomBar } from '../components/BottomBar/BottomBar';
 import TasksScreen from '../screens/Tasks/TasksScreen';
 import AddTaskScreen from '../screens/Tasks/AddTaskScreen';
 import EditTaskScreen from '../screens/Tasks/EditTaskScreen';
@@ -56,15 +57,59 @@ export type AppStackParamList = {
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
 
+// Screens where we hide the bottom bar and AI button
+const CHAT_SCREENS: string[] = ['ChatRoom', 'ChatRoomDetails', 'AiChat', 'AiConversations'];
+
+// Map routes to their BottomBar "current" tab name
+const ROUTE_TO_TAB: Record<string, string> = {
+  Home: 'Home',
+  Schedule: 'Schedule',
+  SocialTask: 'SocialTask',
+  Tasks: 'Tasks',
+  TemplatesList: 'Tasks',
+  TemplateDetails: 'Tasks',
+  OverrideDetails: 'Tasks',
+  AddTask: 'Tasks',
+  EditTask: 'Tasks',
+  Profile: 'Profile',
+  EditProfile: 'Profile',
+};
+
+// Wrapper that receives currentRoute as a prop to avoid useNavigationState issues
 const AiButtonWithNavigation = () => {
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   return <AiButton onPress={() => navigation.navigate('AiConversations')} />;
 };
 
+const BottomBarWrapper = ({ currentRoute }: { currentRoute: string }) => {
+  const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
+  const currentTab = ROUTE_TO_TAB[currentRoute] || '';
+  return <BottomBar current={currentTab} navigation={navigation} />;
+};
+
 const AppNavigator: React.FC = () => {
+  // Track current route to determine visibility & active tab
+  const [currentRoute, setCurrentRoute] = useState('Home');
+
+  const showBarAndButton = !CHAT_SCREENS.includes(currentRoute);
+
   return (
     <>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator
+        screenOptions={{ headerShown: false }}
+        screenListeners={{
+          focus: (e) => {
+            // e.target contains "RouteName-uniqueId", extract the route name
+            const target = e.target;
+            if (target) {
+              const routeName = target.split('-')[0];
+              if (routeName) {
+                setCurrentRoute(routeName);
+              }
+            }
+          },
+        }}
+      >
         <Stack.Screen name="Home" component={HomeScreen} />
         {/* <Stack.Screen name="Intro" component={IntroNavigator} /> */}
         <Stack.Screen name="Profile" component={ProfileScreen} />
@@ -90,7 +135,8 @@ const AppNavigator: React.FC = () => {
         <Stack.Screen name="SocialTask" component={SocialTasksScreen} />
       </Stack.Navigator>
       
-      <AiButtonWithNavigation />
+      {showBarAndButton && <BottomBarWrapper currentRoute={currentRoute} />}
+      {showBarAndButton && <AiButtonWithNavigation />}
     </>
   );
 };

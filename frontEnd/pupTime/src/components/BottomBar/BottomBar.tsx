@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 import { Text, View, Pressable } from "react-native";
-import { Home, Calendar, ListTodo, User } from "lucide-react-native";
+import { Home, Calendar, ListTodo, User, Globe } from "lucide-react-native";
 import createStyles from "./styles";
 import useTheme from "../../Hooks/useTheme";
 
@@ -11,7 +11,7 @@ export function BottomBar({ current, navigation }: { current: string; navigation
     const tabs = [
         { name: 'Home', icon: Home, route: 'Home' },
         { name: 'Plan', icon: Calendar, route: 'Schedule' },
-        { name: 'PUP', isCenter: true },
+        { name: 'Social', icon: Globe, route: 'SocialTask' },
         { name: 'Tasks', icon: ListTodo, route: 'Tasks' },
         { name: 'You', icon: User, route: 'Profile' },
     ];
@@ -19,13 +19,9 @@ export function BottomBar({ current, navigation }: { current: string; navigation
     return (
         <View style={styles.container}>
             <View style={styles.bottomBar}>
-                {tabs.map((tab, idx) => {
-                    if (tab.isCenter) {
-                        return <View key={`center-${idx}`} style={styles.centerSpace} />;
-                    }
-
+                {tabs.map((tab) => {
                     const isActive = current === tab.route;
-                    const Icon = tab.icon!;
+                    const Icon = tab.icon;
                     return (
                         <Pressable 
                             key={tab.route} 

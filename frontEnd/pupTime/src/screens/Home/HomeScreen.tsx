@@ -14,7 +14,7 @@ import type { RootState } from "../../redux/store";
 import useTheme from "../../Hooks/useTheme";
 import { useTasks } from "../../Hooks/useTasks";
 import createHomeStyles from "./HomeScreen.styles";
-import { BottomBar } from "../../components/BottomBar/BottomBar";
+
 import { listChatRooms } from "../../services/chatService";
 import {
   type TaskTemplate,
@@ -361,8 +361,7 @@ const HomeScreen: React.FC = () => {
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      {/* ========== BOTTOM BAR ========== */}
-      <BottomBar current="Home" navigation={navigation} />
+
     </SafeAreaView>
   );
 };

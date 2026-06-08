@@ -12,7 +12,7 @@ import { Settings as SettingsIcon, Users } from "lucide-react-native";
 import createStyles from "./ProfileScreen.styles";
 import { useSelector } from "react-redux";
 import { RootState } from "../../redux/store";
-import { BottomBar } from "../../components/BottomBar/BottomBar";
+
 import useTheme from "../../Hooks/useTheme";
 import { useTasks } from "../../Hooks/useTasks";
 import {
@@ -217,7 +217,7 @@ const ProfileSettingsScreen = ({ navigation }: { navigation: any }) => {
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      <BottomBar current="Profile" navigation={navigation} />
+
     </SafeAreaView>
   );
 };

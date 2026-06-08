@@ -93,7 +93,8 @@ const AiConversationListScreen: React.FC = () => {
 
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
-            <View style={styles.header}>
+            <View style={[styles.header, { backgroundColor: colors.surface }]}>
+
                 <Text style={[styles.headerTitle, { color: colors.text }]}>AI Conversations</Text>
                 <TouchableOpacity onPress={handleCreateNewChat} style={styles.newChatButton}>
                     <Text style={styles.newChatButtonText}>+</Text>
@@ -133,7 +134,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         paddingTop: 60,
         paddingBottom: 24,
-        backgroundColor: '#fff',
         borderBottomLeftRadius: 32,
         borderBottomRightRadius: 32,
         shadowColor: '#000',
