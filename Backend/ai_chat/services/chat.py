@@ -8,9 +8,11 @@ from rest_framework import status
 from rest_framework.exceptions import ValidationError
 
 from ..ai.provider import ChatMessage, get_ai_provider
+from ..ai.logger import log_validation_warning
 from ..Tools.task_tools import get_task_tools
 from ..models import AIChoice, Conversation, Message
 from ..ai.prompts import build_system_prompt
+from ..utils.actions import action_validators
 from .snapshots import build_task_snapshot
 
 logger = logging.getLogger(__name__)
@@ -179,6 +181,8 @@ class ChatService:
                     action_name = action.get('action_name')
                     params      = cls._normalise_params(action.get('params') or {})
 
+                    cls._validate_action_params(action_name, params, user)
+
                     # Use the extracted snapshot logic
                     task_snapshot, extracted_id = build_task_snapshot(action_name, params, user)
                     
@@ -201,6 +205,22 @@ class ChatService:
             choice_objects.append(AIChoice(**kwargs))
 
         AIChoice.objects.bulk_create(choice_objects)
+
+    @staticmethod
+    def _validate_action_params(action_name, params, user) -> None:
+        """Advisory check that proposed action params match their schema.
+
+        Never blocks — a mismatch is only logged, mirroring the lenient
+        propose-time contract. Approve-time enforcement lives in execute_action.
+        """
+        schema = action_validators().get(action_name)
+        if not schema:
+            return
+        try:
+            schema(**params)
+        except Exception as e:
+            logger.warning("AI produced invalid params for %s: %s", action_name, e)
+            log_validation_warning(action_name or "?", str(e), user=user)
 
     @staticmethod
     def _normalise_params(params) -> Dict[str, Any]:

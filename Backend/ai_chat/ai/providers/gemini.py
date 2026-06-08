@@ -13,7 +13,7 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, Tool
 from ..provider import AIProviderError, AIProviderRateLimitError, BaseAIProvider, ChatMessage
 from ..logger import (
     log_ai_request, log_tool_call, log_tool_result, log_tool_error,
-    log_respond_to_user, log_validation_warning, log_ai_final_text,
+    log_respond_to_user, log_ai_final_text,
     log_rate_limit, log_max_rounds_reached,
 )
 
@@ -131,20 +131,6 @@ class GeminiProvider(BaseAIProvider):
         stream_with_tools_and_audio.
         """
         import json
-        import logging
-        from ...Tools.task_schemas import (
-            CreateTaskTemplateSchema, UpdateTaskTemplateSchema,
-            DeleteTaskTemplateSchema, UpdateTaskOverrideSchema,
-        )
-
-        logger = logging.getLogger(__name__)
-
-        PARAM_VALIDATORS = {
-            "create_TaskTemplate": CreateTaskTemplateSchema,
-            "update_TaskTemplate": UpdateTaskTemplateSchema,
-            "delete_TaskTemplate": DeleteTaskTemplateSchema,
-            "update_TaskOverride": UpdateTaskOverrideSchema,
-        }
 
         tool_defs = _build_tool_defs(tools)
         llm_with_tools = self._llm.bind_tools(tool_defs)
@@ -200,20 +186,6 @@ class GeminiProvider(BaseAIProvider):
                         )
 
                 if respond_to_user_args is not None:
-                    for choice in respond_to_user_args.get("choices", []):
-                        for action in choice.get("actions", []):
-                            validator = PARAM_VALIDATORS.get(action.get("action_name"))
-                            if validator:
-                                try:
-                                    params_to_validate = action.get("params", {})
-                                    for alias in ['task_name', 'name']:
-                                        if alias in params_to_validate and 'title' not in params_to_validate:
-                                            params_to_validate['title'] = params_to_validate.pop(alias)
-                                    validator(**params_to_validate)
-                                except Exception as e:
-                                    logger.warning("AI produced invalid params for %s: %s", action.get("action_name"), e)
-                                    log_validation_warning(action.get("action_name", "?"), str(e), user=user)
-
                     yield json.dumps(respond_to_user_args)
                     return
 

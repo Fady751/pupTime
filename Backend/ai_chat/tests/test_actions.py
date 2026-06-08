@@ -1,9 +1,11 @@
 import json
 import uuid
+from unittest.mock import patch
 
 from django.test import TestCase
 from rest_framework.exceptions import ValidationError
 
+from ai_chat.services.chat import ChatService
 from ai_chat.utils.actions import execute_action
 from task.models import TaskTemplate, TaskOverride
 from user.models import User
@@ -204,3 +206,31 @@ class ExecuteActionValidationTests(TestCase):
     def test_non_object_params_raises(self):
         with self.assertRaises(ValidationError):
             execute_action(self.user, {"action_name": "create_TaskTemplate", "params": "[1, 2]"})
+
+
+class ProposeTimeValidationTests(TestCase):
+    """Advisory validation at propose-time logs but never blocks (was in the provider)."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="actor", email="actor@example.com", password="pw12345678"
+        )
+
+    @patch("ai_chat.services.chat.log_validation_warning")
+    def test_valid_params_do_not_warn(self, mock_warn):
+        ChatService._validate_action_params(
+            "create_TaskTemplate",
+            {"title": "X", "start_datetime": "2026-03-12T10:00:00Z", "priority": "medium", "emoji": "📝", "timezone": "UTC"},
+            self.user,
+        )
+        mock_warn.assert_not_called()
+
+    @patch("ai_chat.services.chat.log_validation_warning")
+    def test_invalid_params_warn(self, mock_warn):
+        ChatService._validate_action_params("create_TaskTemplate", {"title": "X"}, self.user)
+        mock_warn.assert_called_once()
+
+    @patch("ai_chat.services.chat.log_validation_warning")
+    def test_unknown_action_is_skipped(self, mock_warn):
+        ChatService._validate_action_params("frobnicate", {"anything": 1}, self.user)
+        mock_warn.assert_not_called()
