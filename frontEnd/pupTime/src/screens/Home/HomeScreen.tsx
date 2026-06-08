@@ -279,9 +279,9 @@ const HomeScreen: React.FC = () => {
         <View style={styles.quickActionsContainer}>
           <View style={styles.quickActionsCard}>
             {[
-              { icon: "✅", label: "Tasks", route: "Tasks" },
+              // { icon: "✅", label: "Tasks", route: "Tasks" },
               { icon: "📋", label: "Hobbies", route: "TemplatesList" },
-              { icon: "📅", label: "Schedule", route: "Schedule" },
+              // { icon: "📅", label: "Schedule", route: "Schedule" },
               // { icon: "⏱", label: "Focus", route: "Timer" },
               { icon: "👥", label: "Friends", route: "Friends" },
               { icon: socialIcon, label: "Social", route: "SocialTask", isImage: true },
@@ -312,7 +312,7 @@ const HomeScreen: React.FC = () => {
 
         {/* ========== TODAY'S TASKS ========== */}
         {/* ========== TODAY TASKS ========== */}
-        <View style={styles.section}>
+        <View style={[styles.section, { marginTop: 30 }]}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Today</Text>
             <Pressable onPress={() => navigation.navigate("Tasks")}>

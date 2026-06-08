@@ -130,16 +130,22 @@ export const createScheduleStyles = (colors: AppColors, compact = false, contain
       color: "#FFFFFF",
       fontWeight: "800",
     },
+    scrollContent: {
+      flexGrow: 1,
+      paddingBottom: 40,
+    },
     taskIndicators: {
       flexDirection: "row",
       marginTop: 6,
-      height: 4,
-      gap: 3,
+      height: 6,
+      gap: 4,
+      justifyContent: "center",
+      alignItems: "center",
     },
     taskDot: {
-      width: 4,
-      height: 4,
-      borderRadius: 2,
+      width: 6,
+      height: 6,
+      borderRadius: 3,
     },
     content: {
       flex: 1,

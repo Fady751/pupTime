@@ -1,7 +1,6 @@
 import json
 import logging
 import uuid
-from datetime import timedelta
 
 from django.db import transaction
 from django.db.models import Prefetch
@@ -17,7 +16,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .ai_provider import AIProviderRateLimitError, ChatMessage, get_ai_provider
+from .ai.provider import AIProviderRateLimitError, ChatMessage, get_ai_provider
 from .Tools.task_tools import get_task_tools
 from .models import AIChoice, Conversation, Message
 from .serializers import (
@@ -30,12 +29,10 @@ from .serializers import (
     SendMessageSerializer,
     VoiceChatSerializer,
 )
-from .s3_storage import ALLOWED_MIME_TYPES, MAX_VOICE_FILE_SIZE, upload_voice_file, generate_presigned_url
-from task.models import TaskTemplate, TaskOverride
-from task.serializers import TaskSerializer, TaskOverrideSerializer
-from task.views import _parse_iso
-from task.utils import generate_overrides_for_task
-from .services import ChatService
+from .utils.s3_storage import ALLOWED_MIME_TYPES, MAX_VOICE_FILE_SIZE, upload_voice_file, generate_presigned_url
+from .services.chat import ChatService
+from .services.voice_pipeline import convert_to_mp3, compute_acoustic_hint, AudioConversionError
+from .utils.actions import execute_action, ACTION_REGISTRY
 
 logger = logging.getLogger(__name__)
 
@@ -110,7 +107,7 @@ _EXECUTED_ACTION_SCHEMA = openapi.Schema(
     properties={
         'action_name': openapi.Schema(
             type=openapi.TYPE_STRING,
-            enum=['create_TaskTemplate', 'update_TaskTemplate', 'update_TaskOverride', 'delete_TaskTemplate'],
+            enum=list(ACTION_REGISTRY),
         ),
         'task_id': openapi.Schema(type=openapi.TYPE_STRING, format='uuid'),
     },
@@ -186,7 +183,7 @@ class ApproveAIChoiceView(APIView):
             executed_actions = []
             try:
                 for action in actions:
-                    executed_actions.append(self._execute_action(request.user, action))
+                    executed_actions.append(execute_action(request.user, action))
             except ValidationError as error:
                 return Response(error.detail, status=status.HTTP_400_BAD_REQUEST)
 
@@ -208,194 +205,6 @@ class ApproveAIChoiceView(APIView):
             },
             status=status.HTTP_200_OK,
         )
-
-    @staticmethod
-    def _one_month_serializer_context():
-        now = timezone.now()
-        return {
-            'start_date': now,
-            'end_date': now + timedelta(days=30),
-        }
-
-    def _execute_action(self, user, action):
-        if not isinstance(action, dict):
-            raise ValidationError({'actions': 'Each action must be an object.'})
-
-        action_name = action.get('action_name')
-        params = action.get('params') or {}
-
-        if isinstance(params, str):
-            try:
-                params = json.loads(params)
-            except (json.JSONDecodeError, TypeError):
-                raise ValidationError({'params': 'Action params is not valid JSON.'})
-
-        if not isinstance(params, dict):
-            raise ValidationError({'actions': 'Each action params value must be an object.'})
-
-        for alias in ['task_name', 'name']:
-            if alias in params and 'title' not in params:
-                params['title'] = params.pop(alias)
-                break
-
-        if action_name == 'create_TaskTemplate':
-            requested_task_id = params.get('task_id')
-            if requested_task_id:
-                params = {**params, 'id': requested_task_id}
-                params.pop('task_id', None)
-            
-            if not params.get('start_datetime'):
-                now = timezone.now()
-                default_dt = now.replace(hour=9, minute=0, second=0, microsecond=0)
-                if default_dt < now:
-                    default_dt = now
-                params['start_datetime'] = default_dt.isoformat()
-
-            if params.get('rrule') and not params.get('is_recurring'):
-                params['is_recurring'] = True
-
-            if not params.get('emoji'):
-                params['emoji'] = "📝"
-
-            serializer = TaskSerializer(data=params)
-            serializer.is_valid(raise_exception=True)
-            task = serializer.save(user=user)
-            return {
-                'action_name': action_name,
-                'task_id': str(task.id),
-                'task_data': serializer.data
-            }
-
-        if action_name == 'update_TaskTemplate':
-            task_id = params.get('task_id') or params.get('id') or params.get('master_task_id')
-            if not task_id:
-                raise ValidationError({'task_id': 'task_id or id is required for update_TaskTemplate.'})
-
-            try:
-                task = TaskTemplate.objects.get(pk=task_id, user=user, is_deleted=False)
-            except TaskTemplate.DoesNotExist:
-                raise ValidationError({'task_id': f'Task {task_id} not found.'})
-
-            update_data = {key: value for key, value in params.items() if key not in ['task_id', 'id', 'master_task_id']}
-
-            if 'start_time' in update_data:
-                time_str = update_data.pop('start_time')
-                if task.start_datetime:
-                    try:
-                        import datetime as dt
-                        new_time = dt.time.fromisoformat(time_str)
-                        new_dt = task.start_datetime.replace(
-                            hour=new_time.hour, 
-                            minute=new_time.minute, 
-                            second=new_time.second, 
-                            microsecond=0
-                        )
-                        update_data['start_datetime'] = new_dt.isoformat()
-                    except ValueError:
-                        pass
-
-            if update_data.get('rrule') and not update_data.get('is_recurring'):
-                update_data['is_recurring'] = True
-
-            should_regenerate = (
-                'rrule' in update_data or
-                ('start_datetime' in update_data and task.is_recurring)
-            )
-
-            if should_regenerate:
-                overrides_to_delete = TaskOverride.objects.filter(
-                    task=task,
-                    instance_datetime__gt=timezone.now(),
-                    status=TaskOverride.STATUS_PENDING,
-                    is_deleted=False
-                )
-                overrides_to_delete.update(is_deleted=True)
-
-            serializer = TaskSerializer(task, data=update_data, partial=True)
-            serializer.is_valid(raise_exception=True)
-            updated_task = serializer.save()
-
-            if should_regenerate:
-                generate_overrides_for_task(updated_task)
-
-            task_data = TaskSerializer(updated_task, context=self._one_month_serializer_context()).data
-            return {
-                'action_name': action_name,
-                'task_id': str(updated_task.id),
-                'task_data': task_data,
-            }
-
-        if action_name == 'update_TaskOverride':
-            instance_id = params.get('instance_id') or params.get('occurrence_id') or params.get('id')
-            requested_status = params.get('status')
-            new_dt_str = params.get('new_datetime') or params.get('start_datetime')
-            notes = params.get('notes')
-
-            if isinstance(requested_status, str):
-                requested_status = requested_status.upper()
-                if requested_status == 'DONE':
-                    requested_status = TaskOverride.STATUS_COMPLETED
-
-            if not instance_id:
-                raise ValidationError({'instance_id': 'instance_id (or occurrence_id) is required.'})
-
-            try:
-                override = TaskOverride.objects.get(pk=instance_id, task__user=user, is_deleted=False)
-            except TaskOverride.DoesNotExist:
-                raise ValidationError({'instance_id': 'Instance not found.'})
-
-            if not new_dt_str and requested_status == TaskOverride.STATUS_RESCHEDULED:
-                raise ValidationError({'new_datetime': 'Required for rescheduling.'})
-
-            is_reschedule = bool(new_dt_str)
-            if is_reschedule:
-                parsed_dt = _parse_iso(new_dt_str)
-                if not parsed_dt:
-                    raise ValidationError({'new_datetime': 'Invalid format.'})
-                override.new_datetime = parsed_dt
-                override.status = TaskOverride.STATUS_RESCHEDULED
-
-                new_instance_status = requested_status or TaskOverride.STATUS_PENDING
-                new_override, created = TaskOverride.objects.get_or_create(
-                    task=override.task,
-                    instance_datetime=parsed_dt,
-                    defaults={'status': new_instance_status}
-                )
-                if not created and requested_status:
-                    new_override.status = new_instance_status
-                    new_override.save(update_fields=['status'])
-            else:
-                override.status = requested_status or TaskOverride.STATUS_RESCHEDULED
-
-            if notes:
-                override.notes = notes
-            
-            override.save()
-            return {
-                'action_name': action_name,
-                'instance_id': str(override.id),
-                'status': override.status,
-                'instance_data': TaskOverrideSerializer(override).data
-            }
-
-        if action_name == 'delete_TaskTemplate':
-            task_id = params.get('task_id') or params.get('master_task_id') or params.get('id')
-            if not task_id:
-                raise ValidationError({'task_id': 'task_id or id is required for delete_TaskTemplate.'})
-
-            try:
-                task = TaskTemplate.objects.get(pk=task_id, user=user, is_deleted=False)
-            except TaskTemplate.DoesNotExist:
-                raise ValidationError({'task_id': 'Task not found.'})
-
-            task.is_deleted = True
-            task.save(update_fields=['is_deleted'])
-            return {
-                'action_name': action_name,
-                'task_id': str(task.id),
-            }
-
-        raise ValidationError({'action_name': f'Unsupported action: {action_name}'})
 
 
 class ChatView(APIView):
@@ -453,7 +262,7 @@ class ChatView(APIView):
 
         #to-do : fix this line and implemnt the better approach 
         last_conversation = Conversation.objects.filter(user=request.user).order_by('-created_at').first()
-        from .facts_service import check_facts_in_conversation
+        from .services.facts import check_facts_in_conversation
         if last_conversation and not conversation_id:
             check_facts_in_conversation(str(last_conversation.id), request.user.id)
         try:
@@ -596,63 +405,14 @@ class VoiceChatView(APIView):
                 status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             )
 
-        import tempfile
-        import os
-        import subprocess
-
         try:
-            with tempfile.NamedTemporaryFile(delete=False) as f_in, tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as f_out:
-                f_in.write(audio_bytes)
-                f_in.flush()
-                subprocess.run(
-                    ['ffmpeg', '-y', '-i', f_in.name, '-c:a', 'libmp3lame', '-q:a', '2', f_out.name],
-                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True
-                )
-                with open(f_out.name, 'rb') as f:
-                    audio_bytes = f.read()
-            os.unlink(f_in.name)
-            os.unlink(f_out.name)
+            audio_bytes = convert_to_mp3(audio_bytes)
             mime_type = 'audio/mp3'
-        except Exception as e:
+        except AudioConversionError as e:
             logger.error(f"Audio conversion failed: {e}")
             return Response({'error': 'Failed to process audio format.'}, status=status.HTTP_400_BAD_REQUEST)
 
-
-        # Run librosa acoustic analysis to extract quantitative features (RMS, silence,
-        # pitch variation, etc.) and produce a plain-English hint. The hint is injected
-        # alongside the raw audio so Gemini has both its native audio understanding AND
-        # an explicit acoustic signal — it still makes the final emotional judgement.
-        acoustic_hint: str | None = None
-        try:
-            import io as _io
-            import tempfile as _tempfile
-            import soundfile as _sf
-            import numpy as _np
-            from .voice_service import analyze_audio as _analyze_audio, classify_mood as _classify_mood
-
-            def _load_bytes_as_float32(b: bytes):
-                try:
-                    data, sr = _sf.read(_io.BytesIO(b), dtype="float32", always_2d=False)
-                    if data.ndim == 2:
-                        data = data.mean(axis=1)
-                    return _np.asarray(data, dtype=_np.float32), int(sr)
-                except Exception:
-                    return None, None
-
-            wav_data, wav_sr = _load_bytes_as_float32(audio_bytes)
-            if wav_data is not None:
-                with _tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as _tmp:
-                    _sf.write(_tmp.name, wav_data, wav_sr)
-                    _features = _analyze_audio(_tmp.name)
-                import os as _os
-                try:
-                    _os.unlink(_tmp.name)
-                except OSError:
-                    pass
-                _acoustic = _classify_mood(_features)
-                acoustic_hint = _acoustic.get("ai_hint")
-        except Exception as _e:
-            logger.debug("Acoustic analysis skipped: %s", _e)
+        acoustic_hint = compute_acoustic_hint(audio_bytes)
 
         try:
             title = text_context[:80] if text_context else "Voice message"

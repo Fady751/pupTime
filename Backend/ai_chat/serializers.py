@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from .models import AIChoice, Conversation, Message
-from .s3_storage import generate_presigned_url
+from .utils.s3_storage import generate_presigned_url
 
 
 class AIChoiceSerializer(serializers.ModelSerializer):

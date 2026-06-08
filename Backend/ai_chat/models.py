@@ -57,7 +57,6 @@ class Message(models.Model):
             "Contains: mood label, confidence, raw feature dict, and ai_hint string."
         ),
     )
-
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

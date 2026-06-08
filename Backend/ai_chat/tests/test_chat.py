@@ -4,14 +4,14 @@ from unittest.mock import patch
 from django.urls import reverse
 from rest_framework.test import APITestCase
 
-from .ai_provider import AIProviderRateLimitError
-from .models import AIChoice, Conversation, Message
+from ai_chat.ai.provider import AIProviderRateLimitError
+from ai_chat.models import AIChoice, Conversation, Message
 from task.models import TaskTemplate
 from user.models import User
 
 
 class _RateLimitedProvider:
-	def stream_with_tools(self, messages, tools):
+	def stream_with_tools(self, messages, tools, user=None):
 		raise AIProviderRateLimitError(
 			"Gemini quota exceeded. Please try again in about 46 seconds.",
 			retry_after_seconds=46,
@@ -20,7 +20,7 @@ class _RateLimitedProvider:
 
 
 class _ChoiceProvider:
-	def stream_with_tools(self, messages, tools):
+	def stream_with_tools(self, messages, tools, user=None):
 		yield json.dumps(
 			{
 				"message": "I can schedule that.",
@@ -49,7 +49,7 @@ class _ChoiceProvider:
 
 
 class _PlainTextProvider:
-	def stream_with_tools(self, messages, tools):
+	def stream_with_tools(self, messages, tools, user=None):
 		yield "Hello! I am your assistant. How can I help you today?"
 
 
@@ -62,8 +62,8 @@ class ChatViewTests(APITestCase):
 		)
 		self.client.force_authenticate(user=self.user)
 
-	@patch("ai_chat.services.get_task_tools", return_value=[])
-	@patch("ai_chat.services.get_ai_provider", return_value=_RateLimitedProvider())
+	@patch("ai_chat.services.chat.get_task_tools", return_value=[])
+	@patch("ai_chat.services.chat.get_ai_provider", return_value=_RateLimitedProvider())
 	def test_chat_stream_returns_rate_limit_payload(self, _mock_provider, _mock_tools):
 		response = self.client.post(reverse("ai-chat"), {"message": "Hello"}, format="json")
 
@@ -80,13 +80,12 @@ class ChatViewTests(APITestCase):
 		self.assertEqual(messages[0].role, Message.Role.USER)
 		self.assertEqual(messages[0].content, "Hello")
 
-	@patch("ai_chat.services.get_task_tools", return_value=[])
-	@patch("ai_chat.services.get_ai_provider", return_value=_ChoiceProvider())
+	@patch("ai_chat.services.chat.get_task_tools", return_value=[])
+	@patch("ai_chat.services.chat.get_ai_provider", return_value=_ChoiceProvider())
 	def test_chat_stream_persists_ai_choices(self, _mock_provider, _mock_tools):
 		response = self.client.post(reverse("ai-chat"), {"message": "Schedule a game session"}, format="json")
 
 		self.assertEqual(response.status_code, 200)
-		# No longer using streaming content
 
 		conversation = Conversation.objects.get(user=self.user)
 		assistant_message = conversation.messages.get(role=Message.Role.ASSISTANT)
@@ -106,20 +105,17 @@ class ChatViewTests(APITestCase):
 		self.assertEqual(len(assistant_payload["choices"]), 1)
 		self.assertEqual(assistant_payload["choices"][0]["id"], str(choice.id))
 
-	@patch("ai_chat.services.get_task_tools", return_value=[])
-	@patch("ai_chat.services.get_ai_provider", return_value=_PlainTextProvider())
+	@patch("ai_chat.services.chat.get_task_tools", return_value=[])
+	@patch("ai_chat.services.chat.get_ai_provider", return_value=_PlainTextProvider())
 	def test_chat_stream_handles_plain_text_response(self, _mock_provider, _mock_tools):
 		response = self.client.post(reverse("ai-chat"), {"message": "Hi"}, format="json")
 
 		self.assertEqual(response.status_code, 200)
-		
+
 		conversation = Conversation.objects.get(user=self.user)
 		assistant_message = conversation.messages.get(role=Message.Role.ASSISTANT)
-		
-		# Ensure the content is exactly the plain text, not JSON
 		self.assertEqual(assistant_message.content, "Hello! I am your assistant. How can I help you today?")
-		
-		# Verify serialized response
+
 		response_data = response.data
 		self.assertEqual(response_data["message"]["content"], "Hello! I am your assistant. How can I help you today?")
 		self.assertEqual(len(response_data["message"]["choices"]), 0)
@@ -172,7 +168,10 @@ class ChatViewTests(APITestCase):
 			item for item in conversation_response.data["messages"]
 			if item["role"] == Message.Role.ASSISTANT
 		)
-		self.assertEqual(assistant_payload["choices"], [])
+		executed_choices = assistant_payload["choices"]
+		self.assertEqual(len(executed_choices), 1)
+		self.assertTrue(executed_choices[0]["is_executed"])
+		self.assertIsNotNone(executed_choices[0]["results_payload"])
 
 		second_response = self.client.post(
 			reverse("ai-approve-choice"),
