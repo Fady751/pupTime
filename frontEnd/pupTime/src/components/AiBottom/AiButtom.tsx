@@ -30,10 +30,10 @@ const AiButton: React.FC<AiButtonProps> = ({ onPress }) => {
 
   // offsetX/Y track the persistent base position of the button
   const offsetX = useRef(
-    new Animated.Value(SCREEN_W / 2 - BTN_SIZE / 2)
+    new Animated.Value(SCREEN_W - BTN_SIZE - 20)
   ).current;
   const offsetY = useRef(
-    new Animated.Value(SCREEN_H - (Platform.OS === "ios" ? 100 : 90))
+    new Animated.Value(SCREEN_H / 2 - BTN_SIZE / 2)
   ).current;
 
   const scale = useRef(new Animated.Value(1)).current;
@@ -43,8 +43,8 @@ const AiButton: React.FC<AiButtonProps> = ({ onPress }) => {
   const translateY = Animated.add(offsetY, translationY);
 
   const lastOffset = useRef({
-    x: SCREEN_W / 2 - BTN_SIZE / 2,
-    y: SCREEN_H - (Platform.OS === "ios" ? 100 : 90),
+    x: SCREEN_W - BTN_SIZE - 20,
+    y: SCREEN_H / 2 - BTN_SIZE / 2,
   });
 
   const onGestureEvent = Animated.event(
@@ -66,58 +66,76 @@ const AiButton: React.FC<AiButtonProps> = ({ onPress }) => {
         friction: 5,
         useNativeDriver: true,
       }).start();
-    } else if (event.nativeEvent.oldState === State.ACTIVE) {
+    } else if (
+      event.nativeEvent.state === State.END ||
+      event.nativeEvent.state === State.CANCELLED ||
+      event.nativeEvent.state === State.FAILED
+    ) {
       const {
         translationX: tx,
         translationY: ty,
         velocityX,
         velocityY,
+        oldState,
       } = event.nativeEvent;
 
-      const currentX = lastOffset.current.x + tx;
-      const currentY = lastOffset.current.y + ty;
+      if (oldState === State.ACTIVE) {
+        const currentX = lastOffset.current.x + tx;
+        const currentY = lastOffset.current.y + ty;
 
-      const predictedX = currentX + velocityX * 0.08;
-      const predictedY = currentY + velocityY * 0.08;
+        const predictedX = currentX + velocityX * 0.08;
+        const predictedY = currentY + velocityY * 0.08;
 
-      const finalX = Math.max(0, Math.min(predictedX, SCREEN_W - BTN_SIZE));
-      const finalY = Math.max(0, Math.min(predictedY, SCREEN_H - BTN_SIZE));
+        const finalX = Math.max(0, Math.min(predictedX, SCREEN_W - BTN_SIZE));
+        const finalY = Math.max(0, Math.min(predictedY, SCREEN_H - BTN_SIZE));
 
-      // Update the base layout to the current drop location to prevent jumping
-      offsetX.setValue(currentX);
-      offsetY.setValue(currentY);
-      
-      // Reset the gesture delta to 0 since the base layout now represents the current position
-      translationX.setValue(0);
-      translationY.setValue(0);
+        // Update the base layout to the current drop location to prevent jumping
+        offsetX.setValue(currentX);
+        offsetY.setValue(currentY);
 
-      // Smoothly spring to the clamped/predicted final position
-      Animated.spring(offsetX, {
-        toValue: finalX,
-        bounciness: 12,
-        speed: 14,
-        useNativeDriver: true,
-      }).start();
+        // Reset the gesture delta to 0 since the base layout now represents the current position
+        translationX.setValue(0);
+        translationY.setValue(0);
 
-      Animated.spring(offsetY, {
-        toValue: finalY,
-        bounciness: 12,
-        speed: 14,
-        useNativeDriver: true,
-      }).start();
+        // Smoothly spring to the clamped/predicted final position
+        Animated.spring(offsetX, {
+          toValue: finalX,
+          bounciness: 12,
+          speed: 14,
+          useNativeDriver: true,
+        }).start();
 
-      Animated.spring(scale, {
-        toValue: 1,
-        friction: 5,
-        useNativeDriver: true,
-      }).start();
+        Animated.spring(offsetY, {
+          toValue: finalY,
+          bounciness: 12,
+          speed: 14,
+          useNativeDriver: true,
+        }).start();
 
-      lastOffset.current.x = finalX;
-      lastOffset.current.y = finalY;
+        Animated.spring(scale, {
+          toValue: 1,
+          friction: 5,
+          useNativeDriver: true,
+        }).start();
 
-      // Treat small movements as a tap
-      if (Math.abs(tx) < 5 && Math.abs(ty) < 5 && onPress) {
-        onPress();
+        lastOffset.current.x = finalX;
+        lastOffset.current.y = finalY;
+
+        // Treat small movements as a tap
+        if (Math.abs(tx) < 5 && Math.abs(ty) < 5 && onPress) {
+          onPress();
+        }
+      } else {
+        // The gesture ended but was never ACTIVE (quick tap)
+        Animated.spring(scale, {
+          toValue: 1,
+          friction: 5,
+          useNativeDriver: true,
+        }).start();
+
+        if (onPress) {
+          onPress();
+        }
       }
     }
   };
