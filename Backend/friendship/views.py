@@ -30,6 +30,7 @@ from .serializers import (
 )
 
 from notification.services import push_accept_notification , push_request_notification
+from hobby.tasks import update_user_hobby_recommendations
 
 
 class FriendshipRequestView(APIView):
@@ -100,6 +101,9 @@ class FriendshipAcceptView(APIView):
         elif notification == '400':
             return Response({"error": "Invalid data for notification"}, status=400)
         
+        update_user_hobby_recommendations.delay(friendship.sender.id)
+        update_user_hobby_recommendations.delay(friendship.receiver.id)
+        
         return Response(serializer.data , status=200)
 
 class FriendshipCancelRequestView(APIView):
@@ -163,6 +167,10 @@ class BlockFriendshipView(APIView):
 
         serializer.is_valid(raise_exception=True)
         serializer.save()
+
+        # Trigger Celery tasks to update recommendations for both friends (as they are no longer accepted friends)
+        update_user_hobby_recommendations.delay(sender.id)
+        update_user_hobby_recommendations.delay(receiver.id)
 
         return Response({ "message": "User blocked successfully"}, status=status.HTTP_200_OK)
     
@@ -239,6 +247,9 @@ class unfriendView(APIView):
             return Response({"error": "Friendship not found"}, status=404)
 
         friendship.delete()
+
+        update_user_hobby_recommendations.delay(request.user.id)
+        update_user_hobby_recommendations.delay(user_id)
 
         return Response({"message": "Friendship deleted successfully"}, status=200)
 

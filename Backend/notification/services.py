@@ -22,8 +22,15 @@ def push_accept_notification(reciever , user_acceptedFriendship , notification_t
         type = notification_type,
         data={
             'message': f'{user_acceptedFriendship.username} accepted your friend request.',
-            'user': user_acceptedFriendship,
-            'accepted_at': accepted_at.isoformat()
+            'user': {
+                'id': user_acceptedFriendship.id,
+                'username': user_acceptedFriendship.username,
+                'email': user_acceptedFriendship.email,
+                'gender': user_acceptedFriendship.gender,
+                'streak_cnt': user_acceptedFriendship.streak_cnt,
+                'joined_on': user_acceptedFriendship.joined_on.isoformat() if hasattr(user_acceptedFriendship.joined_on, 'isoformat') else str(user_acceptedFriendship.joined_on)
+            },
+            'accepted_at': accepted_at.isoformat() if hasattr(accepted_at, 'isoformat') else accepted_at
         }
     )
 

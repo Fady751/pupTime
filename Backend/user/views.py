@@ -20,6 +20,7 @@ from .serializers import (
 )
 from .models import User, Interest, InterestCategory, UserInterest
 import uuid
+from hobby.tasks import update_user_hobby_recommendations
 
 
 class RegisterView(generics.CreateAPIView):
@@ -232,6 +233,8 @@ class UserInterestsView(APIView):
             [UserInterest(user=user, interest=interest) for interest in interests]
         )
 
+        update_user_hobby_recommendations.delay(user.id)
+
         updated_interests = user.interests.select_related('category').all()
         return Response(InterestSerializer(updated_interests, many=True).data, status=status.HTTP_200_OK)
 
@@ -247,6 +250,9 @@ class UserInterestsView(APIView):
             return Response({'error': 'You can only update your own interests.'}, status=status.HTTP_403_FORBIDDEN)
 
         UserInterest.objects.filter(user=user).delete()
+
+        update_user_hobby_recommendations.delay(user.id)
+
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 

@@ -209,4 +209,8 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'friendship.tasks.delete_canceled_friendships',
         'schedule': crontab(minute=0, hour='*/2'),
     },
+    'update-hobby-recommendations-weekly': {
+        'task': 'hobby.tasks.update_all_hobby_recommendations',
+        'schedule': crontab(minute=0, hour=0, day_of_week='sunday'),
+    },
 }
