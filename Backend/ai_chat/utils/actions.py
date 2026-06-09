@@ -192,12 +192,12 @@ def _create_social_task(user, params):
     serializer.is_valid(raise_exception=True)
     data = dict(serializer.validated_data)
     sub_tasks = data.pop('sub_tasks', [])
-    data.pop('participant_ids', None)  # TODO: AI cannot set participants/friends yet
+    participant_ids = data.pop('participant_ids', [])
 
     task = create_social_task(
         initiator=user,
         data=data,
-        participant_ids=[],  # TODO: wire friend invitation into the AI flow
+        participant_ids=participant_ids,
         sub_tasks_data=[dict(st) for st in sub_tasks],
     )
     return {

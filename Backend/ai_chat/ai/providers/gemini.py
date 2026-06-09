@@ -67,8 +67,15 @@ def _build_tool_defs(tools: list) -> list:
             if isinstance(schema, dict):
                 schema.pop("additionalProperties", None)
                 schema.pop("title", None)
-                for value in schema.values():
-                    strip_additional_properties(value)
+                for key, value in list(schema.items()):
+                    if key == "properties" and isinstance(value, dict):
+                        # Recurse into each property's schema, not the properties
+                        # dict itself — otherwise a field literally named "title"
+                        # gets popped as if it were a JSON Schema metadata key.
+                        for prop_schema in value.values():
+                            strip_additional_properties(prop_schema)
+                    else:
+                        strip_additional_properties(value)
             elif isinstance(schema, list):
                 for item in schema:
                     strip_additional_properties(item)
@@ -135,7 +142,7 @@ class GeminiProvider(BaseAIProvider):
         tool_defs = _build_tool_defs(tools)
         llm_with_tools = self._llm.bind_tools(tool_defs)
 
-        MAX_TOOL_ROUNDS = 5
+        MAX_TOOL_ROUNDS = 15
         rounds = 0
 
         while rounds < MAX_TOOL_ROUNDS:

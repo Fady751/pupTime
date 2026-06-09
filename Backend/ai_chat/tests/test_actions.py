@@ -264,6 +264,37 @@ class ExecuteActionSocialCreateTests(TestCase):
         with self.assertRaises(ValidationError):
             execute_action(self.user, _action("create_SocialTask", {"title": "No duration"}))
 
+    def test_create_with_participant_ids_invites_friend(self):
+        from friendship.models import Friendship, Status
+        friend = User.objects.create_user(
+            username="friend", email="friend@example.com", password="pw12345678"
+        )
+        Friendship.objects.create(sender=self.user, receiver=friend, status=Status.ACCEPTED)
+
+        result = execute_action(
+            self.user,
+            _action("create_SocialTask", {
+                "title": "Hangout", "duration_minutes": 60,
+                "participant_ids": [friend.id],
+            }),
+        )
+        task = SocialTask.objects.get(pk=result["social_task_id"])
+        participant_usernames = list(task.participants.values_list("user__username", flat=True))
+        self.assertIn("friend", participant_usernames)
+
+    def test_create_with_non_friend_participant_raises(self):
+        stranger = User.objects.create_user(
+            username="stranger", email="stranger@example.com", password="pw12345678"
+        )
+        with self.assertRaises(ValidationError):
+            execute_action(
+                self.user,
+                _action("create_SocialTask", {
+                    "title": "Hangout", "duration_minutes": 60,
+                    "participant_ids": [stranger.id],
+                }),
+            )
+
 
 class ExecuteActionSocialUpdateTests(TestCase):
     def setUp(self):

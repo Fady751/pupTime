@@ -219,11 +219,6 @@ class SocialSubTaskSchema(BaseModel):
 
 class CreateSocialTaskSchema(BaseModel):
     model_config = {"extra": "ignore"}
-    """
-    Schema for creating a new SocialTask. Maps to the writable fields on the
-    SocialTask model. Participants/friends are NOT set here yet (handled later);
-    the task is created for the user alone.
-    """
     title: str = Field(description="The title of the social task.")
     description: str = Field(default="", description="Optional description of the social task.")
     duration_minutes: int = Field(
@@ -234,7 +229,14 @@ class CreateSocialTaskSchema(BaseModel):
         description=(
             "ISO 8601 datetime for when the social task happens (e.g. '2026-03-12T10:00:00Z'). "
             "Null if this is a container whose sub-tasks each carry their own time. "
-            "Use find_free_time first to pick a good slot."
+            "Use find_free_time or request_collaborative_schedule first to pick a good slot."
+        ),
+    )
+    participant_ids: List[int] = Field(
+        default=[],
+        description=(
+            "User IDs of friends to invite. Call get_friends first to resolve names to IDs. "
+            "Leave empty to create the task for yourself only."
         ),
     )
     sub_tasks: List[SocialSubTaskSchema] = Field(
@@ -257,4 +259,31 @@ class UpdateSocialTaskSchema(BaseModel):
     )
     scheduled_at: Optional[str] = Field(
         default=None, description="New ISO 8601 datetime, or null to clear the schedule."
+    )
+
+
+class RequestCollaborativeScheduleSchema(BaseModel):
+    model_config = {"extra": "ignore"}
+    friend_ids: List[int] = Field(
+        description="List of friend user IDs to include. Call get_friends first to resolve names to IDs."
+    )
+    duration_minutes: int = Field(
+        description="How long the activity needs, in minutes.", ge=1
+    )
+    title: str = Field(description="Name of the activity, used for scheduling context.")
+    preferred_datetime: Optional[str] = Field(
+        default=None,
+        description=(
+            "ISO 8601 datetime to validate (e.g. '2026-06-10T18:00:00Z'). "
+            "If provided, returns yes/no for that specific time. "
+            "If omitted, returns top 3 suggested slots."
+        ),
+    )
+    search_start: Optional[str] = Field(
+        default=None,
+        description="ISO 8601 start of search window. Defaults to now.",
+    )
+    search_end: Optional[str] = Field(
+        default=None,
+        description="ISO 8601 end of search window. Defaults to 7 days from now.",
     )
