@@ -10,6 +10,7 @@ from .task_schemas import (
     UpdateTaskOverrideSchema, DeleteTaskTemplateSchema, FindFreeTimeSchema,
     GetDailyLoadSummarySchema, LogVoiceMoodSchema,
     CreateSocialTaskSchema, UpdateSocialTaskSchema,
+    RequestCollaborativeScheduleSchema,
 )
 from typing import List, Dict, Any, Union, Literal, Annotated
 from pydantic import BaseModel, Field
@@ -191,6 +192,7 @@ def get_task_tools(user, voice_message=None):
         ONLY use this tool if you need to suggest task changes. For basic conversation, just reply with text.
         IMPORTANT: Before proposing a NEW task, you MUST check for conflicts using `get_tasks`.
         CRITICAL: BEFORE proposing regular task changes, call `get_task_crud_rules`. BEFORE proposing social task changes, call `get_social_task_crud_rules`.
+        CRITICAL: If the user mentioned friends by name for a social task, call `get_friends` to resolve their IDs BEFORE proposing the action.
         """
         pass
         
@@ -220,7 +222,13 @@ def get_task_tools(user, voice_message=None):
             "create_SocialTask": CreateSocialTaskSchema.model_json_schema(),
             "update_SocialTask": UpdateSocialTaskSchema.model_json_schema(),
         }
-        return "CRITICAL RULES FOR SOCIAL TASK CRUD OPERATIONS. You must conform strictly to these schemas:\n" + json.dumps(schemas, indent=2)
+        return (
+            "CRITICAL RULES FOR SOCIAL TASK CRUD OPERATIONS.\n"
+            "STEP 1 — If the user mentioned any friends by name, call `get_friends` NOW to resolve their names to user IDs. Do NOT skip this step.\n"
+            "STEP 2 — Include those IDs in `participant_ids` when proposing create_SocialTask. An empty participant_ids means the task is solo.\n"
+            "STEP 3 — Conform strictly to the schemas below:\n"
+            + json.dumps(schemas, indent=2)
+        )
     
     @tool(args_schema=FindFreeTimeSchema)
     def find_free_time(**kwargs) -> str:
@@ -333,6 +341,80 @@ def get_task_tools(user, voice_message=None):
             f"Timezone: {getattr(TaskTemplate.objects.filter(user=user).first(), 'timezone', 'UTC')}"
         )
 
+    @tool
+    def get_friends() -> str:
+        """
+        Returns the list of the user's accepted friends with their IDs and usernames.
+        Call this before request_collaborative_schedule to resolve friend names to IDs.
+        """
+        from friendship.models import Friendship, Status
+        from django.db.models import Q
+
+        friendships = Friendship.objects.filter(
+            Q(sender=user) | Q(receiver=user),
+            status=Status.ACCEPTED,
+        ).select_related("sender", "receiver")
+
+        friends = []
+        for f in friendships:
+            friend = f.receiver if f.sender_id == user.id else f.sender
+            friends.append({"id": friend.id, "username": friend.username})
+
+        if not friends:
+            return "You have no accepted friends yet."
+
+        return "Friends:\n" + "\n".join(
+            [f"- ID: {f['id']} | Username: {f['username']}" for f in friends]
+        )
+
+    @tool(args_schema=RequestCollaborativeScheduleSchema)
+    def request_collaborative_schedule(**kwargs) -> str:
+        """
+        Find the best time for a group activity considering everyone's schedule and preferences.
+        Call get_friends first to resolve friend names to IDs.
+
+        In find mode (no preferred_datetime): returns top 3 suggested slots with reasons.
+        In validate mode (preferred_datetime provided): returns yes/no for that specific time.
+
+        After getting a slot, use respond_to_user with create_SocialTask to propose it.
+        """
+        from task.views import _parse_iso
+        from ai_chat.services.schedule_negotiation import negotiate_schedule
+
+        friend_ids = kwargs.get("friend_ids", [])
+        duration_minutes = kwargs.get("duration_minutes")
+        title = kwargs.get("title", "")
+        preferred_datetime = kwargs.get("preferred_datetime")
+        search_start = _parse_iso(kwargs["search_start"]) if kwargs.get("search_start") else None
+        search_end = _parse_iso(kwargs["search_end"]) if kwargs.get("search_end") else None
+
+        result = negotiate_schedule(
+            user, friend_ids, title, duration_minutes,
+            search_start=search_start,
+            search_end=search_end,
+            preferred_datetime=preferred_datetime,
+        )
+
+        mode = result.get("mode")
+
+        if mode == "find":
+            slots = result.get("slots", [])
+            if not slots:
+                return "No suitable time slots found for all participants."
+            lines = ["Suggested times (best to worst):"]
+            for i, slot in enumerate(slots, 1):
+                lines.append(f"{i}. {slot.get('datetime')} — {slot.get('reason', '')}")
+            lines.append("\nUse respond_to_user with create_SocialTask to propose one of these.")
+            return "\n".join(lines)
+
+        if mode == "validate":
+            possible = result.get("possible", False)
+            reason = result.get("reason", "")
+            status_str = "Yes, that time works for everyone." if possible else "No, that time doesn't work for everyone."
+            return f"{status_str}\nReason: {reason}"
+
+        return f"Scheduling failed: {result.get('reason', 'Unknown error')}"
+
     @tool(args_schema=LogVoiceMoodSchema)
     def log_voice_mood(**kwargs) -> str:
         """
@@ -365,6 +447,7 @@ def get_task_tools(user, voice_message=None):
         get_today_tasks, get_task_by_id, get_tasks, respond_to_user,
         find_free_time, get_overdue_tasks, get_daily_load_summary, get_user_preferences,
         get_task_crud_rules, get_social_task_crud_rules,
+        get_friends, request_collaborative_schedule,
     ]
 
     # Only expose the mood tool on voice turns — text chats have no audio to judge.
