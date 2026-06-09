@@ -27,6 +27,7 @@ export type SocialTaskParams = {
   description?: string;
   duration_minutes?: number;
   scheduled_at?: string | null;     // ISO 8601, null = no fixed time
+  participant_ids?: number[];       // create only — friend user IDs to invite
   sub_tasks?: SocialSubTask[];      // create only
 };
 

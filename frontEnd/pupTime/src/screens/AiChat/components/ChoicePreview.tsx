@@ -177,6 +177,7 @@ const ChoicePreview: React.FC<ChoicePreviewProps> = ({ choice }) => {
           key={idx}
           actionName={action.action_name as SocialActionName}
           snapshot={action.task_snapshot as SocialTaskSnapshot}
+          params={action.params as import('../../../types/aiConversation').SocialTaskParams}
           isExecuted={isExecuted}
         />
       ))}

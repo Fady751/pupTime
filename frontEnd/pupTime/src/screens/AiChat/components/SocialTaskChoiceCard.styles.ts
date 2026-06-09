@@ -148,6 +148,64 @@ const createSocialTaskChoiceCardStyles = (colors: AppColors) =>
       color: colors.secondaryText,
       marginTop: 1,
     },
+
+    // ── Friends / invites section ──────────────────────────────
+    friendsRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 8,
+      gap: 10,
+    },
+    avatarStack: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    avatarStackItem: {
+      // marginLeft set inline per item
+    },
+    friendsSummaryText: {
+      flex: 1,
+    },
+    friendsRowLabel: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.text,
+    },
+    friendsRowSub: {
+      fontSize: 11,
+      color: colors.secondaryText,
+      marginTop: 1,
+    },
+    friendsList: {
+      marginTop: 4,
+      marginBottom: 4,
+      gap: 8,
+    },
+    friendListItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingVertical: 4,
+    },
+    friendListName: {
+      flex: 1,
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.text,
+    },
+    invitePendingBadge: {
+      backgroundColor: '#FEF3C7',   // amber-100
+      borderRadius: 10,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderWidth: 1,
+      borderColor: '#F59E0B',       // amber-400
+    },
+    invitePendingText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: '#B45309',             // amber-700
+    },
   });
 
 export default createSocialTaskChoiceCardStyles;
