@@ -10,7 +10,6 @@ from drf_yasg import openapi
 from friendship.models import Friendship, Status
 from .serializers import HobbySerializer
 from .models import HobbyRecommendation
-from .recommend import get_similar_friends_knn, find_friends_associated_with_hobby
 
 
 class FriendHobbyView(APIView):
@@ -32,10 +31,6 @@ class FriendHobbyView(APIView):
         if not friendships.exists():
             return Response({"message": "User does not have any friends."}, status=status.HTTP_200_OK)
 
-        
-        friend_users = [f.receiver if f.sender == request.user else f.sender for f in friendships]
-        similar_friends = get_similar_friends_knn(request.user, friend_users)
-
         rec = HobbyRecommendation.objects.filter(user=request.user, rec_type='friend').first()
         if not rec or not rec.hobbies.exists():
             from .recommend import calculate_friend_recommendations
@@ -53,19 +48,8 @@ class FriendHobbyView(APIView):
 
         response_data = []
         for hobby in sliced_hobbies:
-            associated = find_friends_associated_with_hobby(hobby, similar_friends)
-            if not associated:
-                associated = similar_friends[:1]  # fallback to the top ranked similar friend
-
             hobby_data = HobbySerializer(hobby).data
             hobby_data.pop('id', None)
-            hobby_data['based_on'] = [
-                {
-                    'id': f.id,
-                    'username': f.username
-                }
-                for f in associated
-            ]
             response_data.append(hobby_data)
 
         return Response(response_data, status=status.HTTP_200_OK)
@@ -90,8 +74,13 @@ class SelfHobbyView(APIView):
         else:
             self_hobbies = list(rec.hobbies.all())
 
-        serializer = HobbySerializer(self_hobbies, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        response_data = []
+        for hobby in self_hobbies:
+            hobby_data = HobbySerializer(hobby).data
+            hobby_data.pop('id', None)
+            response_data.append(hobby_data)
+
+        return Response(response_data, status=status.HTTP_200_OK)
 
 
 class HobbyListView(APIView):
