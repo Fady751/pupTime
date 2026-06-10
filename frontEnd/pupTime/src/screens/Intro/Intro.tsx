@@ -10,7 +10,6 @@ import {
   StatusBar,
   Easing,
 } from 'react-native';
-import Video from 'react-native-video';
 import { getColors } from '../../constants/colors';
 import { Sparkles, BrainCircuit, Mic, Layers, ArrowRight, CheckCircle2 } from 'lucide-react-native';
 import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
@@ -304,12 +303,6 @@ export default function IntroScreen({ onComplete }: IntroScreenProps) {
     }).start();
   };
 
-  // Video 3D Tilt Parallax bound to the physics engine
-  const videoRotateX = physicsY.interpolate({ inputRange: [0, height], outputRange: ['15deg', '-15deg'], extrapolate: 'clamp' });
-  const videoRotateY = physicsX.interpolate({ inputRange: [0, width], outputRange: ['-15deg', '15deg'], extrapolate: 'clamp' });
-  const videoTranslateX = physicsX.interpolate({ inputRange: [0, width], outputRange: [-20, 20], extrapolate: 'clamp' });
-  const videoTranslateY = physicsY.interpolate({ inputRange: [0, height], outputRange: [-20, 20], extrapolate: 'clamp' });
-
   return (
     <View 
       style={[styles.container, { backgroundColor: colors.background }]}
@@ -318,36 +311,6 @@ export default function IntroScreen({ onComplete }: IntroScreenProps) {
       <StatusBar barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
 
       <AntiGravityEnvironment colors={colors} physicsX={physicsX} physicsY={physicsY} />
-
-      {/* Cinematic Video Container */}
-      <Animated.View 
-        style={[
-          styles.videoContainer, 
-          { 
-            shadowColor: colors.primary,
-            transform: [
-              { perspective: 1200 },
-              { rotateX: videoRotateX }, 
-              { rotateY: videoRotateY },
-              { translateX: videoTranslateX },
-              { translateY: videoTranslateY }
-            ] 
-          }
-        ]}
-      >
-        <Video
-          source={{ uri: 'https://d23dyxeqlo5psv.cloudfront.net/big_buck_bunny.mp4' }} // Replace with actual AI demo video
-          style={styles.video}
-          muted
-          repeat
-          resizeMode="cover"
-          playInBackground={false}
-          playWhenInactive={false}
-        />
-        <View style={styles.videoOverlay}>
-           <Text style={styles.videoOverlayText}>LIVE AI DEMO</Text>
-        </View>
-      </Animated.View>
 
       {/* Slide Content */}
       <View style={styles.carouselContainer}>
@@ -390,52 +353,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000',
   },
-  videoContainer: {
-    width: width * 0.85,
-    height: height * 0.45,
-    alignSelf: 'center',
-    marginTop: height * 0.1,
-    borderRadius: 24,
-    overflow: 'hidden',
-    shadowOffset: { width: 0, height: 25 },
-    shadowOpacity: 0.4,
-    shadowRadius: 35,
-    elevation: 25,
-    backgroundColor: '#0B110D',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.15)',
-  },
-  video: {
-    width: '100%',
-    height: '100%',
-  },
-  videoOverlay: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-  },
-  videoOverlayText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: 'bold',
-    letterSpacing: 1,
-  },
   carouselContainer: {
     flex: 1,
-    marginTop: 20,
+    justifyContent: 'center',
   },
   itemContainer: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'flex-start',
+    justifyContent: 'center',
     paddingHorizontal: 32,
-    paddingTop: 20,
   },
   iconWrapper: {
     marginBottom: 24,
