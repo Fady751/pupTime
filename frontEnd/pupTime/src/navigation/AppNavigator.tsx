@@ -27,6 +27,7 @@ import AiConversationListScreen from '../screens/AiChat/AiConversationListScreen
 import AiChatScreen from '../screens/AiChat/AiChatScreen';
 // import TimerScreen from '../screens/Timer/TimerScreen';
 import SocialTasksScreen from '../screens/SocialTasks/SocialTasks';
+import IntroNavigator from '../screens/PermissionsIntro/IntroNavigator';
 
 
 export type AppStackParamList = {
@@ -110,8 +111,8 @@ const AppNavigator: React.FC = () => {
           },
         }}
       >
-        <Stack.Screen name="Home" component={HomeScreen} />
         {/* <Stack.Screen name="Intro" component={IntroNavigator} /> */}
+        <Stack.Screen name="Home" component={HomeScreen} />
         <Stack.Screen name="Profile" component={ProfileScreen} />
         <Stack.Screen name="EditProfile" component={EditProfileScreen} />
         <Stack.Screen name="Schedule" component={ScheduleScreen} />

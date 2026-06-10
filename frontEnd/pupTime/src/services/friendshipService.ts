@@ -272,7 +272,7 @@ export const acceptFriendRequest = async (
 };
 
 export const cancelFriendRequest = async (friendshipId: number): Promise<void> => {
-  await api.delete(`/friendship/cancel/${friendshipId}/`, { data: {} });
+  await api.post(`/friendship/cancel/${friendshipId}/`, { data: {} });
 };
 
 export const blockUser = async (userId: number): Promise<void> => {

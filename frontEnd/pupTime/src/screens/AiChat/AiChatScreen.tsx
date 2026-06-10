@@ -89,6 +89,7 @@ const AiChatScreen: React.FC = () => {
 
   // ── Helpers ────────────────────────────────────────────
   const hasPendingChoices = (): boolean => {
+    return false;
     const lastMessage = messages[messages.length - 1];
     return !!(
       lastMessage?.role === 'assistant' &&
