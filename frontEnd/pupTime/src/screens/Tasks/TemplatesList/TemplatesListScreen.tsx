@@ -12,7 +12,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Swipeable } from "react-native-gesture-handler";
 import { createStyles } from "./TemplatesList.styles";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, DrawerActions } from "@react-navigation/native";
+import { Menu } from "lucide-react-native";
 import useTheme from "../../../Hooks/useTheme";
 import { useTasks } from "../../../Hooks/useTasks";
 import { useSelector } from "react-redux";
@@ -193,8 +194,8 @@ const TemplatesListScreen: React.FC = () => {
               Manage your hobbies
             </Text>
           </View>
-          <Pressable style={styles.backBtn} onPress={() => navigation.goBack()}>
-            <Text style={styles.backBtnText}>←</Text>
+          <Pressable style={styles.backBtn} onPress={() => navigation.dispatch(DrawerActions.openDrawer())}>
+            <Menu color={colors.primaryDark} size={28} strokeWidth={2.5} />
           </Pressable>
         </View>
 

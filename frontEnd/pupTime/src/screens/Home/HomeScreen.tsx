@@ -9,7 +9,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useSelector } from "react-redux";
-import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
+import { useFocusEffect, useNavigation, useRoute, DrawerActions } from "@react-navigation/native";
+import { Menu } from "lucide-react-native";
 import type { RootState } from "../../redux/store";
 import useTheme from "../../Hooks/useTheme";
 import { useTasks } from "../../Hooks/useTasks";
@@ -233,9 +234,17 @@ const HomeScreen: React.FC = () => {
       >
         {/* ========== HERO HEADER ========== */}
         <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.headerGreeting}>{getGreeting()} ☀️</Text>
-            <Text style={styles.headerTitle}>{user?.username || "Hany"}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Pressable
+              onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
+              style={{ marginRight: 12, padding: 4 }}
+            >
+              <Menu size={28} color={colors.text} />
+            </Pressable>
+            <View>
+              <Text style={styles.headerGreeting}>{getGreeting()} ☀️</Text>
+              <Text style={styles.headerTitle}>{user?.username || "Hany"}</Text>
+            </View>
           </View>
           <View style={styles.headerIcons}>
             <Pressable style={styles.iconButton} onPress={() => navigation.navigate("Friends")}>

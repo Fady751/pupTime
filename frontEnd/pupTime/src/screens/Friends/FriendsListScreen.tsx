@@ -10,7 +10,8 @@ import {
   RefreshControl,
 } from "react-native";
 import { useSelector } from "react-redux";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, DrawerActions } from "@react-navigation/native";
+import { Menu } from "lucide-react-native";
 import useTheme from "../../Hooks/useTheme";
 import createStyles from "./FriendsList.styles";
 import type { RootState } from "../../redux/store";
@@ -152,7 +153,12 @@ const FriendsListScreen = ({ navigation }: { navigation: any }) => {
 
         <View style={styles.header}>
           <View>
-            <Text style={styles.kicker}>Social Hub</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+              <Pressable onPress={() => navigation.dispatch(DrawerActions.openDrawer())} style={{ marginRight: 12 }}>
+                <Menu size={26} color={colors.text} />
+              </Pressable>
+              <Text style={[styles.kicker, { marginBottom: 0 }]}>Social Hub</Text>
+            </View>
             <Text style={styles.title}>Friends</Text>
             <Text style={styles.subtitle}>Your accountability circle</Text>
           </View>
