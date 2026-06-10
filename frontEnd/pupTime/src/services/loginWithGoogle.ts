@@ -6,7 +6,7 @@ GoogleSignin.configure({
   webClientId: googleWebClientId,
   offlineAccess: true,
 });
-``
+
 export type GoogleUserInfo = {
   idToken: string;
   scopes: string[];
@@ -24,6 +24,14 @@ export type GoogleUserInfo = {
 const signInWithGoogle = async (): Promise<GoogleUserInfo | null> => {
   try {
     await GoogleSignin.hasPlayServices();
+    
+    // Force account selection prompt every time
+    try {
+      await GoogleSignin.signOut();
+    } catch (e) {
+      // Ignore if not signed in
+    }
+
     const userInfo = await GoogleSignin.signIn();
 
     return userInfo?.data as GoogleUserInfo;
