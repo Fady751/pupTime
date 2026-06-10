@@ -41,7 +41,7 @@ USE_SQLITE = config('USE_SQLITE', default=False, cast=bool)
 # hint alongside the audio, so Gemini fuses both the measured signal and its own native
 # audio understanding. When False, skip librosa and let Gemini judge mood from the audio
 # alone. Both modes are multilingual (Arabic + English).
-VOICE_ACOUSTIC_HINT_ENABLED = config('VOICE_ACOUSTIC_HINT_ENABLED', default=True, cast=bool)
+VOICE_ACOUSTIC_HINT_ENABLED = config('VOICE_ACOUSTIC_HINT_ENABLED', default=False, cast=bool)
 
 ALLOWED_HOSTS = ["*"]
 
