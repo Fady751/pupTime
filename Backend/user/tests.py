@@ -1,3 +1,6 @@
+import uuid
+from unittest.mock import patch
+
 from django.test import TestCase
 from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
@@ -1290,3 +1293,66 @@ class UserE2ETests(APITestCase):
         }, format='json')
         self.assertEqual(login2.status_code, status.HTTP_200_OK)
         self.assertNotEqual(login1.data['user_id'], login2.data['user_id'])
+
+
+class GoogleAuthFcmTokenTests(APITestCase):
+    """Google sign-in/sign-up registers the device's FCM token, like login does."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.url = reverse('google-auth')
+        self.idinfo = {
+            'iss': 'https://accounts.google.com',
+            'sub': 'google-sub-123',
+            'email': 'guser@example.com',
+            'email_verified': True,
+            'name': 'Google User',
+            'picture': '',
+        }
+
+    def _post(self, body, idinfo=None):
+        with patch('user.serializers.id_token.verify_oauth2_token',
+                   return_value=idinfo or self.idinfo):
+            return self.client.post(self.url, body, format='json')
+
+    def test_new_user_stores_fcm_token(self):
+        """First-time Google user has the supplied fcm_token persisted."""
+        response = self._post({'id_token': 'x', 'fcm_token': 'fcm-new'})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data['is_new_user'])
+        self.assertEqual(response.data['fcm_token'], 'fcm-new')
+        user = User.objects.get(email='guser@example.com')
+        self.assertEqual(user.fcm_token, 'fcm-new')
+
+    def test_existing_user_updates_fcm_token(self):
+        """Returning Google user gets their fcm_token refreshed."""
+        user = User.objects.create_user(
+            username='guser', email='guser@example.com',
+            password=uuid.uuid4().hex, google_auth_id='google-sub-123',
+            fcm_token='fcm-old',
+        )
+        response = self._post({'id_token': 'x', 'fcm_token': 'fcm-fresh'})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data['is_new_user'])
+        user.refresh_from_db()
+        self.assertEqual(user.fcm_token, 'fcm-fresh')
+
+    def test_fcm_token_moves_from_another_user(self):
+        """A token already held by another user is moved to the signing-in user."""
+        other = User.objects.create_user(
+            username='other', email='other@example.com',
+            password=uuid.uuid4().hex, fcm_token='shared-token',
+        )
+        response = self._post({'id_token': 'x', 'fcm_token': 'shared-token'})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        other.refresh_from_db()
+        self.assertIsNone(other.fcm_token)
+        new_user = User.objects.get(email='guser@example.com')
+        self.assertEqual(new_user.fcm_token, 'shared-token')
+
+    def test_without_fcm_token_still_succeeds(self):
+        """fcm_token is optional; omitting it does not break Google auth."""
+        response = self._post({'id_token': 'x'})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        user = User.objects.get(email='guser@example.com')
+        self.assertIsNone(user.fcm_token)

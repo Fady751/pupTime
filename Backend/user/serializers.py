@@ -8,6 +8,7 @@ from .models import User, InterestCategory, Interest, UserInterest
 
 class GoogleAuthSerializer(serializers.Serializer):
     id_token = serializers.CharField(required=True, help_text='Google ID token from frontend')
+    fcm_token = serializers.CharField(required=False, allow_null=True, allow_blank=True)
 
     def validate_id_token(self, value):
         try:

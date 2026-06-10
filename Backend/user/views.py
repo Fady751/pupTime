@@ -23,6 +23,21 @@ import uuid
 from hobby.tasks import update_user_hobby_recommendations
 
 
+def register_fcm_token(user, fcm_token):
+    """Attach an FCM token to a user, ensuring it is unique across users.
+
+    A token identifies a single device, so it can belong to at most one user
+    at a time. Logging in (email/password or Google) on a device moves the
+    token off whoever held it before.
+    """
+    if not fcm_token:
+        return
+    User.objects.filter(fcm_token=fcm_token).exclude(pk=user.pk).update(fcm_token=None)
+    if user.fcm_token != fcm_token:
+        user.fcm_token = fcm_token
+        user.save(update_fields=['fcm_token'])
+
+
 class RegisterView(generics.CreateAPIView):
     serializer_class = UserSerializer
 
@@ -76,11 +91,7 @@ class LoginView(APIView):
         user = authenticate(email=email, password=password)
 
         if user:
-            if fcm_token:
-                User.objects.filter(fcm_token=fcm_token).exclude(pk=user.pk).update(fcm_token=None)
-                if user.fcm_token != fcm_token:
-                    user.fcm_token = fcm_token
-                    user.save(update_fields=['fcm_token'])
+            register_fcm_token(user, fcm_token)
 
             token, created = Token.objects.get_or_create(user=user)
             return Response({
@@ -269,6 +280,7 @@ class GoogleAuthView(APIView):
                     'user_id': openapi.Schema(type=openapi.TYPE_INTEGER),
                     'username': openapi.Schema(type=openapi.TYPE_STRING),
                     'email': openapi.Schema(type=openapi.TYPE_STRING),
+                    'fcm_token': openapi.Schema(type=openapi.TYPE_STRING),
                     'is_new_user': openapi.Schema(type=openapi.TYPE_BOOLEAN),
                 }
             )),
@@ -280,6 +292,7 @@ class GoogleAuthView(APIView):
         serializer.is_valid(raise_exception=True)
 
         google_info = serializer.validated_data['id_token']
+        fcm_token = serializer.validated_data.get('fcm_token')
         google_id = google_info['google_id']
         email = google_info['email'].lower()
         name = google_info['name']
@@ -310,6 +323,8 @@ class GoogleAuthView(APIView):
                     google_auth_id=google_id,
                 )
 
+        register_fcm_token(user, fcm_token)
+
         token, _ = Token.objects.get_or_create(user=user)
 
         return Response({
@@ -317,6 +332,7 @@ class GoogleAuthView(APIView):
             'user_id': user.id,
             'username': user.username,
             'email': user.email,
+            'fcm_token': user.fcm_token,
             'is_new_user': is_new_user,
             'has_interests': user.user_interests.exists(),
         }, status=status.HTTP_200_OK)
