@@ -152,7 +152,7 @@ const AddFriendScreen = () => {
   const handleCancelRequest = async (request: FriendRequest) => {
     try {
       setCancellingRequestId(request.friendshipId);
-      await cancelFriendRequest(request.friendshipId);
+      await cancelFriendRequest(request.userId);
       await loadData(false);
 
       setSearchResults(prev =>

@@ -15,6 +15,7 @@ export type LoginResponse = {
   token?: string;
   fcm_token?: string;
   error: string | null;
+  has_interests?: boolean;
 };
 
 export async function requestNotificationPermission(): Promise<boolean> {
@@ -82,6 +83,7 @@ export const loginUser = async (
       id: response.data?.user_id,
       token: response.data?.token,
       fcm_token: response.data?.fcm_token ?? fcmToken ?? undefined,
+      has_interests: response.data?.has_interests,
       error: null,
     };
   } catch (error: any) {

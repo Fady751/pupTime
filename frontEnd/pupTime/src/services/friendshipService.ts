@@ -271,8 +271,8 @@ export const acceptFriendRequest = async (
   await api.post(`/friendship/accept/${friendshipId}/`, payload);
 };
 
-export const cancelFriendRequest = async (friendshipId: number): Promise<void> => {
-  await api.post(`/friendship/cancel/${friendshipId}/`, { data: {} });
+export const cancelFriendRequest = async (userId: number): Promise<void> => {
+  await api.delete(`/friendship/unfriend/${userId}/`, { data: {} });
 };
 
 export const blockUser = async (userId: number): Promise<void> => {

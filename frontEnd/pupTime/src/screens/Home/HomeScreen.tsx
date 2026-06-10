@@ -17,6 +17,7 @@ import { useTasks } from "../../Hooks/useTasks";
 import createHomeStyles from "./HomeScreen.styles";
 
 import { listChatRooms } from "../../services/chatService";
+import { getUnreadNotificationCount } from "../../services/notificationApiService";
 import {
   type TaskTemplate,
   type TaskOverride,
@@ -113,6 +114,7 @@ const HomeScreen: React.FC = () => {
   const userId = user?.id;
   const [chatSpotlight, setChatSpotlight] = useState<ChatSpotlight | null>(null);
   const [chatSpotlightLoading, setChatSpotlightLoading] = useState(false);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
 
   // Today's date string in local timezone
     const dateStr = useMemo(() => floorDateByTimezone(new Date().toISOString()), []);
@@ -220,10 +222,24 @@ const HomeScreen: React.FC = () => {
     }
   }, [userId]);
 
+  const loadUnreadCount = useCallback(async () => {
+    if (!userId) {
+      setUnreadCount(0);
+      return;
+    }
+    try {
+      const count = await getUnreadNotificationCount();
+      setUnreadCount(count);
+    } catch {
+      // Quietly ignore
+    }
+  }, [userId]);
+
   useFocusEffect(
     useCallback(() => {
       loadChatSpotlight();
-    }, [loadChatSpotlight]),
+      loadUnreadCount();
+    }, [loadChatSpotlight, loadUnreadCount]),
   );
 
   return (
@@ -249,6 +265,14 @@ const HomeScreen: React.FC = () => {
           <View style={styles.headerIcons}>
             <Pressable style={styles.iconButton} onPress={() => navigation.navigate("Friends")}>
               <Text style={styles.iconText}>👥</Text>
+            </Pressable>
+            <Pressable style={styles.iconButton} onPress={() => navigation.navigate("Notifications")}>
+              <Text style={styles.iconText}>🔔</Text>
+              {unreadCount > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{unreadCount > 99 ? "99+" : unreadCount}</Text>
+                </View>
+              )}
             </Pressable>
             {/* <Pressable style={styles.pillButton}>
               <Text style={styles.pillText}>🔥 {user?.streak_cnt ?? 0}</Text>

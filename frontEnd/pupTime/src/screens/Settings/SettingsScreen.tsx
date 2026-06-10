@@ -266,7 +266,7 @@ const SettingsScreen = ({ navigation }: { navigation: any }) => {
               onPress={() => navigation.navigate("Notifications")}
               isFirst
             />
-            <SettingsSwitchItem
+            {/* <SettingsSwitchItem
               label="Enable Notifications"
               value={settings.notifications.enabled}
               onToggle={value => handleToggleNotification("enabled", value)}
@@ -286,7 +286,7 @@ const SettingsScreen = ({ navigation }: { navigation: any }) => {
               label="Vibration"
               value={settings.notifications.vibration}
               onToggle={value => handleToggleNotification("vibration", value)}
-            />
+            /> */}
           </SettingsSection>
 
           {/* 6. Task Preferences */}

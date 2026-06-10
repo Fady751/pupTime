@@ -1,12 +1,13 @@
 import { useDispatch } from 'react-redux';
 import { AppDispatch } from '../redux/store';
-import { fetchUser } from '../redux/slices/userSlice';
+import { fetchUser, setNeedsIntro } from '../redux/slices/userSlice';
 import { AppMetaRepository } from '../DB';
 import { downloadCategories } from '../services/TaskService/syncService';
 
 export type LoginData = {
     token: string;
     id: number;
+    needsIntro?: boolean;
 };
 
 export function useLogin() {
@@ -17,6 +18,7 @@ export function useLogin() {
         await AppMetaRepository.set('id', data.id.toString());
         await downloadCategories();
 
+        dispatch(setNeedsIntro(data.needsIntro ?? false));
         await dispatch(fetchUser());
     };
 }

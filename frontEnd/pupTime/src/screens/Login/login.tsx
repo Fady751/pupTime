@@ -36,7 +36,7 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
       if(!data.success || !data.token || !data.id) {
         throw new Error(data.error || 'Login failed');
       }
-      await login({ token: data.token, id: data.id });
+      await login({ token: data.token, id: data.id, needsIntro: data.has_interests === false });
     } catch (e: any) {
       setError(e.message || 'Login failed');
     } finally {

@@ -2,6 +2,9 @@ import React from 'react';
 import { createNativeStackNavigator, NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import { useNavigation, useNavigationState } from '@react-navigation/native';
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState } from '../redux/store';
+import { setNeedsIntro } from '../redux/slices/userSlice';
 
 import HomeScreen from '../screens/Home/HomeScreen';
 import ProfileScreen from '../screens/ProfileScreen/ProfileScreen';
@@ -31,6 +34,7 @@ import RecommendationTypesScreen from '../screens/Recommendations/Recommendation
 import RecommendedTasksListScreen from '../screens/Recommendations/RecommendedTasksListScreen';
 import RecommendationDetailsScreen from '../screens/Recommendations/RecommendationDetailsScreen';
 import EditRecommendationScreen from '../screens/Recommendations/EditRecommendationScreen';
+import IntroNavigator from '../screens/PermissionsIntro/IntroNavigator';
 
 export type AppStackParamList = {
   Home: undefined;
@@ -141,6 +145,7 @@ const MainStack = () => (
     <Stack.Screen name="RecommendedTasksList" component={RecommendedTasksListScreen} />
     <Stack.Screen name="RecommendationDetails" component={RecommendationDetailsScreen} />
     <Stack.Screen name="EditRecommendation" component={EditRecommendationScreen} />
+    <Stack.Screen name="Intro" component={IntroNavigator} />
   </Stack.Navigator>
 );
 
@@ -153,6 +158,17 @@ const AppNavigator: React.FC = () => {
       routeChangeCallback = null;
     };
   }, []);
+
+  const needsIntro = useSelector((state: RootState) => state.user.needsIntro);
+  const dispatch = useDispatch();
+  const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
+
+  React.useEffect(() => {
+    if (needsIntro) {
+      dispatch(setNeedsIntro(false));
+      navigation.navigate('Intro');
+    }
+  }, [needsIntro, dispatch, navigation]);
 
   const isDrawerEnabled = !CHAT_SCREENS.includes(currentRoute);
 

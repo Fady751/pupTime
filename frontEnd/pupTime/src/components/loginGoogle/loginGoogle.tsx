@@ -37,7 +37,7 @@ export default function LoginGoogle() {
         if (!response?.token || !response?.id) {
           throw new Error('Failed to login with Google');
         }
-        await login({ token: response.token, id: response.id });
+        await login({ token: response.token, id: response.id, needsIntro: response.is_new_user });
       }
     } catch (error) {
       console.error('Google sign in failed:', error);

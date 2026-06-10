@@ -52,6 +52,26 @@ export const createHomeStyles = (colors: AppColors) =>
     iconText: {
       fontSize: 18,
     },
+    badge: {
+      position: "absolute",
+      top: -4,
+      right: -4,
+      minWidth: 18,
+      height: 18,
+      borderRadius: 9,
+      backgroundColor: "#EF4444",
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 4,
+      borderWidth: 1.5,
+      borderColor: colors.background,
+    },
+    badgeText: {
+      color: "#FFF",
+      fontSize: 9,
+      fontWeight: "800",
+      lineHeight: 11,
+    },
     pillButton: {
       flexDirection: "row",
       alignItems: "center",

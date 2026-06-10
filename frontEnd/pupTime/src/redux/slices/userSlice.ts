@@ -7,12 +7,14 @@ type UserState = {
   data: User | null;
   loading: boolean;
   error: string | null;
+  needsIntro: boolean;
 };
 
 const initialState: UserState = {
   data: null,
   loading: false,
   error: null,
+  needsIntro: false,
 };
 
 export const fetchUser = createAsyncThunk<User | null>(
@@ -49,6 +51,11 @@ const userSlice = createSlice({
     clearUser(state) {
       state.data = null;
       state.error = null;
+      state.needsIntro = false;
+    },
+    // 3: set needsIntro flag
+    setNeedsIntro(state, action: PayloadAction<boolean>) {
+      state.needsIntro = action.payload;
     },
   },
   extraReducers: (builder) => {
@@ -69,6 +76,6 @@ const userSlice = createSlice({
   },
 });
 
-export const { setUser, clearUser } = userSlice.actions;
+export const { setUser, clearUser, setNeedsIntro } = userSlice.actions;
 export default userSlice.reducer;
 export const selectUser = (state: { user: UserState }) => state.user.data;

@@ -10,6 +10,7 @@ export type GoogleLoginResponse = {
   id?: number;
   token?: string;
   error: string | null;
+  is_new_user?: boolean;
 };
 
 export const loginWithGoogle = async (
@@ -24,6 +25,7 @@ export const loginWithGoogle = async (
       message: response.data?.message || 'Login completed',
       id: response.data?.user_id,
       token: response.data?.token,
+      is_new_user: response.data?.is_new_user,
       error: null,
     };
   } catch (error: any) {
