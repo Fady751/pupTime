@@ -9,10 +9,10 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Shapes } from "lucide-react-native";
+import { Shapes, Menu } from "lucide-react-native";
 import { Swipeable } from "react-native-gesture-handler";
 import { createStyles } from "./Tasks.styles";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, DrawerActions } from "@react-navigation/native";
 import useTheme from "../../Hooks/useTheme";
 import { useTasks } from "../../Hooks/useTasks";
 import { useSelector } from "react-redux";
@@ -277,8 +277,8 @@ const TasksScreen: React.FC = () => {
               you have {todayOverrides.length} task{todayOverrides.length !== 1 ? "s" : ""} to do!
             </Text>
           </View>
-          <Pressable style={styles.backBtn} onPress={() => navigation.navigate("TemplatesList")}>
-            <Shapes color={colors.primaryDark} size={22} strokeWidth={2.5} />
+          <Pressable style={styles.backBtn} onPress={() => navigation.dispatch(DrawerActions.openDrawer())}>
+            <Menu color={colors.primaryDark} size={28} strokeWidth={2.5} />
           </Pressable>
         </View>
 

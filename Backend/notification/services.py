@@ -1,20 +1,15 @@
-from time import timezone
-import firebase_admin
+import logging
 from firebase_admin import messaging
-
 from .models import Notification
-from django.utils.timezone import timezone
 
-from .models import User
-
-
-def push_accept_notification(reciever , fcm_token , user_acceptedFriendship , notification_type , accepted_at):
+logger = logging.getLogger(__name__)
 
 
-    if not reciever or not user_acceptedFriendship or not notification_type or not fcm_token:
-        return ('400') 
+def push_accept_notification(reciever, fcm_token, user_acceptedFriendship, notification_type, accepted_at):
+
+    if not reciever or not user_acceptedFriendship or not notification_type:
+        return '400' 
     
-
     notification = Notification.objects.create(
         receiver = reciever,
         type = notification_type,
@@ -32,26 +27,31 @@ def push_accept_notification(reciever , fcm_token , user_acceptedFriendship , no
         }
     )
 
-    try:
-        message_obj = messaging.Message(
-            notification=messaging.Notification(title= notification_type , body=notification.data),
-            token=fcm_token
-        )
-        messaging.send(message_obj)
-        notification.is_sent = True
-        notification.save()
-    except Exception as e:
-        return ('500')
+    if fcm_token:
+        try:
+            message_obj = messaging.Message(
+                notification=messaging.Notification(
+                    title=notification_type,
+                    body=notification.data.get('message', '')
+                ),
+                token=fcm_token
+            )
+            messaging.send(message_obj)
+            notification.is_sent = True
+            notification.save()
+            
+        except Exception as e:
+            logger.warning(f"Failed to send push notification: {e}")
+            return '200'
 
-    return ('200')
+    return '200'
 
 
 
-def push_request_notification(reciever , fcm_token ,user_sentFriendship , notification_type , sent_at):
+def push_request_notification(reciever, fcm_token, user_sentFriendship, notification_type, sent_at):
 
-    if not reciever or not user_sentFriendship or not notification_type or not fcm_token:
-        return ('400') 
-
+    if not reciever or not user_sentFriendship or not notification_type:
+        return '400' 
 
     notification = Notification.objects.create(
         receiver = reciever,
@@ -64,22 +64,27 @@ def push_request_notification(reciever , fcm_token ,user_sentFriendship , notifi
                 'email': user_sentFriendship.email,
                 'gender': user_sentFriendship.gender,
                 'streak_cnt': user_sentFriendship.streak_cnt,
-                'joined_on': user_sentFriendship.joined_on.isoformat()
+                'joined_on': user_sentFriendship.joined_on.isoformat() if hasattr(user_sentFriendship.joined_on, 'isoformat') else str(user_sentFriendship.joined_on)
             },
-            'sent_at': sent_at
+            'sent_at': sent_at.isoformat() if hasattr(sent_at, 'isoformat') else sent_at
         }
     )
 
-    try:
-        message_obj = messaging.Message(
-            notification=messaging.Notification(title= notification_type , body=notification.data),
-            token=fcm_token
-        )
-        messaging.send(message_obj)
-        notification.is_sent = True
-        notification.save()
+    if fcm_token:
+        try:
+            message_obj = messaging.Message(
+                notification=messaging.Notification(
+                    title=notification_type,
+                    body=notification.data.get('message', '')
+                ),
+                token=fcm_token
+            )
+            messaging.send(message_obj)
+            notification.is_sent = True
+            notification.save()
+            
+        except Exception as e:
+            logger.warning(f"Failed to send push notification: {e}")
+            return '200'
 
-    except Exception as e:
-        return ('500')
-
-    return ('200')
+    return '200'

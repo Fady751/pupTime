@@ -213,7 +213,7 @@ CELERY_TIMEZONE = 'UTC'
 CELERY_BEAT_SCHEDULE = {
     'delete-canceled-friendships-every-2-hours': {
         'task': 'friendship.tasks.delete_canceled_friendships',
-        'schedule': crontab(minute=3, hour=0),
+        'schedule': crontab(minute=0, hour='*/2'),
     },
     'update-hobby-recommendations-weekly': {
         'task': 'hobby.tasks.update_all_hobby_recommendations',

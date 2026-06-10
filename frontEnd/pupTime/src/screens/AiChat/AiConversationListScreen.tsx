@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, DrawerActions } from '@react-navigation/native';
+import { Menu } from 'lucide-react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AppStackParamList } from '../../navigation/AppNavigator';
 import { getConversations, deleteConversation } from '../../services/aiConversationService/aiConversationService';
@@ -83,19 +84,23 @@ const AiConversationListScreen: React.FC = () => {
                     {dayjs(item.updated_at).format('MMM D, h:mm A')}
                 </Text>
             </View>
-            <Text style={[styles.messagePreview, { color: colors.secondaryText }]} numberOfLines={1}>
+            {/* <Text style={[styles.messagePreview, { color: colors.secondaryText }]} numberOfLines={1}>
                 {item.messages && item.messages.length > 0
                     ? item.messages[item.messages.length - 1].content
                     : "No messages yet"}
-            </Text>
+            </Text> */}
         </TouchableOpacity>
     );
 
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
             <View style={[styles.header, { backgroundColor: colors.surface }]}>
-
-                <Text style={[styles.headerTitle, { color: colors.text }]}>AI Conversations</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.openDrawer())} style={{ marginRight: 12 }}>
+                        <Menu color={colors.text} size={28} strokeWidth={2.5} />
+                    </TouchableOpacity>
+                    <Text style={[styles.headerTitle, { color: colors.text }]}>AI Conversations</Text>
+                </View>
                 <TouchableOpacity onPress={handleCreateNewChat} style={styles.newChatButton}>
                     <Text style={styles.newChatButtonText}>+</Text>
                 </TouchableOpacity>

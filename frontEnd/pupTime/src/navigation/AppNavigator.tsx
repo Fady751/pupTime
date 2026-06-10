@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { createNativeStackNavigator, NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useNavigation } from '@react-navigation/native';
+import { createDrawerNavigator } from '@react-navigation/drawer';
+import { useNavigation, useNavigationState } from '@react-navigation/native';
 
 import HomeScreen from '../screens/Home/HomeScreen';
-// import IntroNavigator from '../screens/PermissionsIntro/IntroNavigator';
 import ProfileScreen from '../screens/ProfileScreen/ProfileScreen';
 import EditProfileScreen from '../screens/ProfileScreen/editProfile/EditProfile';
 import ScheduleScreen from '../screens/Schedule/ScheduleScreen';
@@ -25,10 +25,8 @@ import BlockedListScreen from '../screens/Friends/BlockedListScreen';
 import NotificationsScreen from '../screens/Notifications/NotificationsScreen';
 import AiConversationListScreen from '../screens/AiChat/AiConversationListScreen';
 import AiChatScreen from '../screens/AiChat/AiChatScreen';
-// import TimerScreen from '../screens/Timer/TimerScreen';
 import SocialTasksScreen from '../screens/SocialTasks/SocialTasks';
-import IntroNavigator from '../screens/PermissionsIntro/IntroNavigator';
-
+import CustomDrawerContent from '../components/Sidebar/CustomDrawerContent';
 
 export type AppStackParamList = {
   Home: undefined;
@@ -57,11 +55,10 @@ export type AppStackParamList = {
 };
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
+const Drawer = createDrawerNavigator();
 
-// Screens where we hide the bottom bar and AI button
 const CHAT_SCREENS: string[] = ['ChatRoom', 'ChatRoomDetails', 'AiChat', 'AiConversations'];
 
-// Map routes to their BottomBar "current" tab name
 const ROUTE_TO_TAB: Record<string, string> = {
   Home: 'Home',
   Schedule: 'Schedule',
@@ -76,69 +73,88 @@ const ROUTE_TO_TAB: Record<string, string> = {
   EditProfile: 'Profile',
 };
 
-// Wrapper that receives currentRoute as a prop to avoid useNavigationState issues
-const AiButtonWithNavigation = () => {
+let routeChangeCallback: ((route: string) => void) | null = null;
+
+const AiButtonWithNavigation = ({ currentRoute }: { currentRoute: string }) => {
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
+  if (CHAT_SCREENS.includes(currentRoute)) return null;
   return <AiButton onPress={() => navigation.navigate('AiConversations')} />;
 };
 
 const BottomBarWrapper = ({ currentRoute }: { currentRoute: string }) => {
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
+  if (currentRoute !== 'Home') return null;
+  
   const currentTab = ROUTE_TO_TAB[currentRoute] || '';
   return <BottomBar current={currentTab} navigation={navigation} />;
 };
 
-const AppNavigator: React.FC = () => {
-  // Track current route to determine visibility & active tab
-  const [currentRoute, setCurrentRoute] = useState('Home');
+const MainStack = () => (
+  <Stack.Navigator 
+    screenOptions={{ headerShown: false }}
+    screenListeners={{
+      focus: (e) => {
+        const target = e.target;
+        if (target) {
+          const routeName = target.split('-')[0];
+          if (routeName && routeChangeCallback) {
+            routeChangeCallback(routeName);
+          }
+        }
+      },
+    }}
+  >
+    <Stack.Screen name="Home" component={HomeScreen} />
+    <Stack.Screen name="Profile" component={ProfileScreen} />
+    <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+    <Stack.Screen name="Schedule" component={ScheduleScreen} />
+    <Stack.Screen name="Friends" component={FriendsListScreen} />
+    <Stack.Screen name="ChatRooms" component={ChatRoomsScreen} />
+    <Stack.Screen name="ChatRoom" component={ChatRoomScreen} />
+    <Stack.Screen name="ChatRoomDetails" component={ChatRoomDetailsScreen} />
+    <Stack.Screen name="Tasks" component={TasksScreen} />
+    <Stack.Screen name="AddTask" component={AddTaskScreen} />
+    <Stack.Screen name="EditTask" component={EditTaskScreen} />
+    <Stack.Screen name="TemplatesList" component={TemplatesListScreen} />
+    <Stack.Screen name="TemplateDetails" component={TemplateDetailsScreen} />
+    <Stack.Screen name="OverrideDetails" component={OverrideDetailsScreen} />
+    <Stack.Screen name="AddFriend" component={AddFriendScreen} />
+    <Stack.Screen name="BlockedFriends" component={BlockedListScreen} />
+    <Stack.Screen name="Settings" component={SettingsScreen} />
+    <Stack.Screen name="Notifications" component={NotificationsScreen} />
+    <Stack.Screen name="AiConversations" component={AiConversationListScreen} />
+    <Stack.Screen name="AiChat" component={AiChatScreen} />
+    <Stack.Screen name="SocialTask" component={SocialTasksScreen} />
+  </Stack.Navigator>
+);
 
-  const showAiButton = !CHAT_SCREENS.includes(currentRoute);
-  const showBottomBar = currentRoute === 'Home';
+const AppNavigator: React.FC = () => {
+  const [currentRoute, setCurrentRoute] = React.useState('Home');
+
+  React.useEffect(() => {
+    routeChangeCallback = setCurrentRoute;
+    return () => {
+      routeChangeCallback = null;
+    };
+  }, []);
+
+  const isDrawerEnabled = !CHAT_SCREENS.includes(currentRoute);
 
   return (
     <>
-      <Stack.Navigator
-        screenOptions={{ headerShown: false }}
-        screenListeners={{
-          focus: (e) => {
-            // e.target contains "RouteName-uniqueId", extract the route name
-            const target = e.target;
-            if (target) {
-              const routeName = target.split('-')[0];
-              if (routeName) {
-                setCurrentRoute(routeName);
-              }
-            }
-          },
+      <Drawer.Navigator
+        drawerContent={(props) => <CustomDrawerContent {...props} />}
+        screenOptions={{ 
+          headerShown: false, 
+          drawerType: 'slide',
+          swipeEnabled: isDrawerEnabled
         }}
       >
-        {/* <Stack.Screen name="Intro" component={IntroNavigator} /> */}
-        <Stack.Screen name="Home" component={HomeScreen} />
-        <Stack.Screen name="Profile" component={ProfileScreen} />
-        <Stack.Screen name="EditProfile" component={EditProfileScreen} />
-        <Stack.Screen name="Schedule" component={ScheduleScreen} />
-        {/* <Stack.Screen name="Timer" component={TimerScreen} /> */}
-        <Stack.Screen name="Friends" component={FriendsListScreen} />
-        <Stack.Screen name="ChatRooms" component={ChatRoomsScreen} />
-        <Stack.Screen name="ChatRoom" component={ChatRoomScreen} />
-        <Stack.Screen name="ChatRoomDetails" component={ChatRoomDetailsScreen} />
-        <Stack.Screen name="Tasks" component={TasksScreen} />
-        <Stack.Screen name="AddTask" component={AddTaskScreen} />
-        <Stack.Screen name="EditTask" component={EditTaskScreen} />
-        <Stack.Screen name="TemplatesList" component={TemplatesListScreen} />
-        <Stack.Screen name="TemplateDetails" component={TemplateDetailsScreen} />
-        <Stack.Screen name="OverrideDetails" component={OverrideDetailsScreen} />
-        <Stack.Screen name="AddFriend" component={AddFriendScreen} />
-        <Stack.Screen name="BlockedFriends" component={BlockedListScreen} />
-        <Stack.Screen name="Settings" component={SettingsScreen} />
-        <Stack.Screen name="Notifications" component={NotificationsScreen} />
-        <Stack.Screen name="AiConversations" component={AiConversationListScreen} />
-        <Stack.Screen name="AiChat" component={AiChatScreen} />
-        <Stack.Screen name="SocialTask" component={SocialTasksScreen} />
-      </Stack.Navigator>
+        <Drawer.Screen name="MainStack" component={MainStack} />
+      </Drawer.Navigator>
       
-      {showBottomBar && <BottomBarWrapper currentRoute={currentRoute} />}
-      {showAiButton && <AiButtonWithNavigation />}
+      <BottomBarWrapper currentRoute={currentRoute} />
+      <AiButtonWithNavigation currentRoute={currentRoute} />
     </>
   );
 };
