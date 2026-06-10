@@ -34,12 +34,16 @@ def push_accept_notification(reciever, fcm_token, user_acceptedFriendship, notif
                     title=notification_type,
                     body=notification.data.get('message', '')
                 ),
+                data={
+                    'type': notification_type,
+                    'notification_id': str(notification.id),
+                },
                 token=fcm_token
             )
             messaging.send(message_obj)
             notification.is_sent = True
             notification.save()
-            
+
         except Exception as e:
             logger.warning(f"Failed to send push notification: {e}")
             return '200'
@@ -77,12 +81,16 @@ def push_request_notification(reciever, fcm_token, user_sentFriendship, notifica
                     title=notification_type,
                     body=notification.data.get('message', '')
                 ),
+                data={
+                    'type': notification_type,
+                    'notification_id': str(notification.id),
+                },
                 token=fcm_token
             )
             messaging.send(message_obj)
             notification.is_sent = True
             notification.save()
-            
+
         except Exception as e:
             logger.warning(f"Failed to send push notification: {e}")
             return '200'
