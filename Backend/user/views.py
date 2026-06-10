@@ -59,6 +59,7 @@ class LoginView(APIView):
                     'username': openapi.Schema(type=openapi.TYPE_STRING),
                     'email': openapi.Schema(type=openapi.TYPE_STRING),
                     'fcm_token': openapi.Schema(type=openapi.TYPE_STRING),
+                    'has_interests': openapi.Schema(type=openapi.TYPE_BOOLEAN),
                 }
             )),
             401: openapi.Response('Invalid credentials'),
@@ -88,6 +89,7 @@ class LoginView(APIView):
                 'username': user.username,
                 'email': user.email,
                 'fcm_token': user.fcm_token,
+                'has_interests': user.user_interests.exists(),
             }, status=status.HTTP_200_OK)
 
         return Response({'error': 'Invalid credentials. Please check your email and password.'}, status=status.HTTP_401_UNAUTHORIZED)
