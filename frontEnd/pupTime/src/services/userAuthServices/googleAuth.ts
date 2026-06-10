@@ -1,4 +1,5 @@
 import api from '../api';
+import { getFCMToken } from './login';
 
 export type GooglePayload = {
     id_token: string;
@@ -9,6 +10,7 @@ export type GoogleLoginResponse = {
   message: string;
   id?: number;
   token?: string;
+  fcm_token?: string;
   error: string | null;
   is_new_user?: boolean;
 };
@@ -18,13 +20,21 @@ export const loginWithGoogle = async (
 ): Promise<GoogleLoginResponse> => {
 
   try {
-    const response = await api.post(`/user/auth/google`, payload);
+    const fcmToken = await getFCMToken();
+
+    const requestBody: GooglePayload & { fcm_token?: string } = { ...payload };
+    if (fcmToken) {
+      requestBody.fcm_token = fcmToken;
+    }
+
+    const response = await api.post(`/user/auth/google`, requestBody);
 
     return {
       success: response.data?.success ?? true,
       message: response.data?.message || 'Login completed',
       id: response.data?.user_id,
       token: response.data?.token,
+      fcm_token: response.data?.fcm_token ?? fcmToken ?? undefined,
       is_new_user: response.data?.is_new_user,
       error: null,
     };
