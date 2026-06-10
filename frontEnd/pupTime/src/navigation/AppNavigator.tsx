@@ -92,7 +92,8 @@ const AppNavigator: React.FC = () => {
   // Track current route to determine visibility & active tab
   const [currentRoute, setCurrentRoute] = useState('Home');
 
-  const showBarAndButton = !CHAT_SCREENS.includes(currentRoute);
+  const showAiButton = !CHAT_SCREENS.includes(currentRoute);
+  const showBottomBar = currentRoute === 'Home';
 
   return (
     <>
@@ -136,8 +137,8 @@ const AppNavigator: React.FC = () => {
         <Stack.Screen name="SocialTask" component={SocialTasksScreen} />
       </Stack.Navigator>
       
-      {showBarAndButton && <BottomBarWrapper currentRoute={currentRoute} />}
-      {showBarAndButton && <AiButtonWithNavigation />}
+      {showBottomBar && <BottomBarWrapper currentRoute={currentRoute} />}
+      {showAiButton && <AiButtonWithNavigation />}
     </>
   );
 };
