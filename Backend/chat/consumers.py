@@ -51,6 +51,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
             }
         )
 
+        await self.push_message_notifications(message)
+
     async def chat_message(self, event):
         # Send message to WebSocket
         await self.send(text_data=json.dumps({
@@ -72,3 +74,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
     def save_message(self, room_id, user, content):
         room = ChatRoom.objects.get(id=room_id)
         return Message.objects.create(room=room, sender=user, content=content)
+
+    @database_sync_to_async
+    def push_message_notifications(self, message):
+        from notification.services import push_message_notification
+        recipients = message.room.users.exclude(id=message.sender_id)
+        for user in recipients:
+            push_message_notification(user, user.fcm_token, message.sender, message)
