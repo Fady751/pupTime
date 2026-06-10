@@ -1,7 +1,11 @@
 import pandas as pd
+from django.utils import timezone
+from datetime import timedelta
+from django.db.models import Q
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.neighbors import NearestNeighbors
-from django.db.models import Q
+
+from task.models import TaskOverride
 
 from .models import Hobby
 from friendship.models import Friendship, Status
@@ -156,3 +160,62 @@ def find_friends_associated_with_hobby(hobby, similar_friends):
 
     return associated
 
+
+def get_free_time_slots(user, count=3, duration_minutes=120):
+    now = timezone.now()
+    start_dt = now
+    end_dt = now + timedelta(days=3)
+    slot_delta = timedelta(minutes=duration_minutes)
+
+    overrides = (
+        TaskOverride.objects
+        .filter(task__user=user, is_deleted=False)
+        .filter(
+            Q(instance_datetime__gte=start_dt, instance_datetime__lte=end_dt) |
+            Q(new_datetime__gte=start_dt,      new_datetime__lte=end_dt)
+        )
+        .exclude(status__in=[TaskOverride.STATUS_SKIPPED, TaskOverride.STATUS_FAILED])
+        .select_related('task')
+    )
+
+    raw = []
+    for ov in overrides:
+        ov_start = (
+            ov.new_datetime
+            if ov.status == TaskOverride.STATUS_RESCHEDULED and ov.new_datetime
+            else ov.instance_datetime
+        )
+        if not ov_start:
+            continue
+        ov_end = ov_start + timedelta(minutes=ov.task.duration_minutes or 30)
+        s, e = max(ov_start, start_dt), min(ov_end, end_dt)
+        if s < e:
+            raw.append((s, e))
+    raw.sort(key=lambda x: x[0])
+    merged = []
+    for s, e in raw:
+        if merged and s <= merged[-1][1]:
+            merged[-1][1] = max(merged[-1][1], e)   
+        else:
+            merged.append([s, e])
+
+    slots = []
+    curr  = start_dt
+    idx   = 0
+    n     = len(merged)
+
+    while len(slots) < count:
+       
+        while idx < n and merged[idx][1] <= curr:
+            idx += 1
+
+        if idx < n and merged[idx][0] < curr + slot_delta:
+           
+            curr = merged[idx][1]
+            idx += 1
+        else:
+            
+            slots.append(curr)
+            curr += slot_delta
+
+    return slots

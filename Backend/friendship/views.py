@@ -120,14 +120,16 @@ class FriendshipCancelRequestView(APIView):
     def post(self, request, friendship_id):
         friendship = get_object_or_404(Friendship, id=friendship_id)
 
-        if friendship.sender != request.user:
+        if friendship.sender == request.user:
             return Response({"error": "You are not authorized to cancel this request"}, status=400)
         
         if friendship.status != Status.PENDING:
             return Response({"error": "Only pending requests can be cancelled"}, status=400)
 
         serializer = FriendshipCancelRequestSerializer(friendship, data=request.data, partial=True, context={'request': request})
-        return Response(serializer.data , status=200)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({"message": "Friendship request cancelled successfully"} , status=200)
 
 
 class BlockFriendshipView(APIView):
