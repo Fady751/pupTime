@@ -259,7 +259,7 @@ const SettingsScreen = ({ navigation }: { navigation: any }) => {
 
 
           {/* 5. Notifications */}
-          {/* <SettingsSection title="Notifications">
+          <SettingsSection title="Notifications">
             <SettingsNavItem
               label="Notification Inbox"
               icon="🔔"
@@ -287,7 +287,7 @@ const SettingsScreen = ({ navigation }: { navigation: any }) => {
               value={settings.notifications.vibration}
               onToggle={value => handleToggleNotification("vibration", value)}
             />
-          </SettingsSection> */}
+          </SettingsSection>
 
           {/* 6. Task Preferences */}
           {/* <SettingsSection title="Task Preferences">

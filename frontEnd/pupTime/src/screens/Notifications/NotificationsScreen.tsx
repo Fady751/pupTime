@@ -110,6 +110,11 @@ const NotificationsScreen = ({ navigation }: { navigation: any }) => {
   const [markingId, setMarkingId] = useState<number | null>(null);
   const [markingAll, setMarkingAll] = useState(false);
 
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+
   const loadData = useCallback(async (withSpinner = false) => {
     if (withSpinner) {
       setLoading(true);
@@ -119,16 +124,18 @@ const NotificationsScreen = ({ navigation }: { navigation: any }) => {
       setError(null);
 
       const [notificationsData, unread] = await Promise.all([
-        getNotifications(),
+        getNotifications(1),
         getUnreadNotificationCount(),
       ]);
 
-      const sortedNotifications = [...notificationsData].sort((a, b) => {
+      const sortedNotifications = [...notificationsData.results].sort((a, b) => {
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       });
 
       setNotifications(sortedNotifications);
       setUnreadCount(unread);
+      setPage(1);
+      setHasMore(!!notificationsData.next);
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to load notifications.'));
     } finally {
@@ -147,6 +154,29 @@ const NotificationsScreen = ({ navigation }: { navigation: any }) => {
     await loadData(false);
     setRefreshing(false);
   }, [loadData]);
+
+  const loadMore = async () => {
+    if (!hasMore || loadingMore || loading || refreshing) return;
+
+    setLoadingMore(true);
+    try {
+      const nextPage = page + 1;
+      const data = await getNotifications(nextPage);
+
+      setNotifications(prev => {
+        const combined = [...prev, ...data.results];
+        const unique = Array.from(new Map(combined.map(item => [item.id, item])).values());
+        return unique.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      });
+
+      setHasMore(!!data.next);
+      setPage(nextPage);
+    } catch (err) {
+      // Ignore load more errors for now
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const handleMarkAsRead = async (notification: ApiNotification) => {
     if (notification.is_read) {
@@ -182,7 +212,8 @@ const NotificationsScreen = ({ navigation }: { navigation: any }) => {
 
     try {
       setMarkingAll(true);
-      await markAllNotificationsAsRead();
+      const unreadIds = notifications.filter(n => !n.is_read).map(n => n.id);
+      await markAllNotificationsAsRead(unreadIds);
       setNotifications(prev => prev.map(item => ({ ...item, is_read: true })));
       setUnreadCount(0);
     } catch (err) {
@@ -192,51 +223,96 @@ const NotificationsScreen = ({ navigation }: { navigation: any }) => {
     }
   };
 
+  const handleNotificationPress = async (notification: ApiNotification) => {
+    // Mark as read (fire-and-forget so navigation isn't delayed)
+    if (!notification.is_read) {
+      try {
+        await markNotificationAsRead(notification.id);
+        setNotifications(prev =>
+          prev.map(item =>
+            item.id === notification.id ? { ...item, is_read: true } : item,
+          ),
+        );
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      } catch {
+        // ignore — still navigate
+      }
+    }
+
+    // Navigate based on type
+    switch (notification.type) {
+      case 'Friend_Request':
+      case 'Friend_Accepted':
+        navigation.navigate('Friends');
+        break;
+      case 'Invitation':
+        navigation.navigate('SocialTask');
+        break;
+      case 'Message': {
+        const roomId = Number((notification.data as any)?.room_id);
+        if (roomId) {
+          navigation.navigate('ChatRoom', { roomId });
+        }
+        break;
+      }
+      default:
+        break;
+    }
+  };
+
   const renderItem = ({ item }: { item: ApiNotification }) => {
     const typeLabel = NOTIFICATION_TYPE_LABELS[item.type] ?? 'Update';
     const unread = !item.is_read;
     const isMarkingThis = markingId === item.id;
 
     return (
-      <View style={[styles.notificationCard, unread && styles.notificationCardUnread]}>
-        <View style={styles.cardHeaderRow}>
-          <View style={styles.cardIdentityRow}>
-            <View style={[styles.avatarBubble, unread && styles.avatarBubbleUnread]}>
-              <Text style={styles.avatarText}>{getActorInitials(item)}</Text>
-            </View>
-            <View>
-              <View style={styles.typePill}>
-                <Text style={styles.typePillText}>{typeLabel}</Text>
+      <Pressable
+        onPress={() => handleNotificationPress(item)}
+        style={({ pressed }) => [{ opacity: pressed ? 0.88 : 1 }]}
+      >
+        <View style={[styles.notificationCard, unread && styles.notificationCardUnread]}>
+          <View style={styles.cardHeaderRow}>
+            <View style={styles.cardIdentityRow}>
+              <View style={[styles.avatarBubble, unread && styles.avatarBubbleUnread]}>
+                <Text style={styles.avatarText}>{getActorInitials(item)}</Text>
               </View>
-              <Text style={styles.timestampText}>{formatTimestamp(item.created_at)}</Text>
+              <View>
+                <View style={styles.typePill}>
+                  <Text style={styles.typePillText}>{typeLabel}</Text>
+                </View>
+                <Text style={styles.timestampText}>{formatTimestamp(item.created_at)}</Text>
+              </View>
+            </View>
+
+            <View style={[styles.statusBadge, unread ? styles.statusBadgeUnread : styles.statusBadgeRead]}>
+              <Text style={[styles.statusBadgeText, unread ? styles.statusBadgeTextUnread : styles.statusBadgeTextRead]}>
+                {unread ? 'Unread' : 'Read'}
+              </Text>
             </View>
           </View>
 
-          <View style={[styles.statusBadge, unread ? styles.statusBadgeUnread : styles.statusBadgeRead]}>
-            <Text style={[styles.statusBadgeText, unread ? styles.statusBadgeTextUnread : styles.statusBadgeTextRead]}>
-              {unread ? 'Unread' : 'Read'}
-            </Text>
-          </View>
+          <Text style={styles.messageText}>{getNotificationMessage(item)}</Text>
+
+          {!item.is_read && (
+            <Pressable
+              disabled={isMarkingThis}
+              onPress={e => {
+                e.stopPropagation?.();
+                handleMarkAsRead(item);
+              }}
+              style={({ pressed }) => [
+                styles.markAsReadButton,
+                isMarkingThis && styles.disabledButton,
+                { opacity: pressed ? 0.86 : 1 },
+              ]}
+            >
+              <Text style={styles.markAsReadButtonText}>
+                {isMarkingThis ? 'Marking...' : 'Mark as read'}
+              </Text>
+            </Pressable>
+          )}
         </View>
-
-        <Text style={styles.messageText}>{getNotificationMessage(item)}</Text>
-
-        {!item.is_read && (
-          <Pressable
-            disabled={isMarkingThis}
-            onPress={() => handleMarkAsRead(item)}
-            style={({ pressed }) => [
-              styles.markAsReadButton,
-              isMarkingThis && styles.disabledButton,
-              { opacity: pressed ? 0.86 : 1 },
-            ]}
-          >
-            <Text style={styles.markAsReadButtonText}>
-              {isMarkingThis ? 'Marking...' : 'Mark as read'}
-            </Text>
-          </Pressable>
-        )}
-      </View>
+      </Pressable>
     );
   };
 
@@ -326,6 +402,15 @@ const NotificationsScreen = ({ navigation }: { navigation: any }) => {
                 onRefresh={onRefresh}
                 tintColor={colors.primary}
               />
+            }
+            onEndReached={loadMore}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={
+              loadingMore ? (
+                <View style={{ paddingVertical: 20 }}>
+                  <ActivityIndicator color={colors.primary} />
+                </View>
+              ) : null
             }
             ListEmptyComponent={
               <View style={styles.emptyStateCard}>

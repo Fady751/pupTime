@@ -5,7 +5,7 @@ import { PermissionsAndroid, Platform } from 'react-native';
 export type LoginPayload = {
   email: string;
   password: string;
-    fcmToken: string;
+  fcmToken?: string;
 };
 
 export type LoginResponse = {

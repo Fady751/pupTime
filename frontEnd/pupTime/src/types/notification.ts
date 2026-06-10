@@ -1,4 +1,4 @@
-export type NotificationTypeCode = 'FR' | 'FA' | 'IN' | 'RP' | 'MS' | string;
+export type NotificationTypeCode = 'Friend_Request' | 'Friend_Accepted' | 'Invitation' | 'Report' | 'Message' | string;
 
 export type ApiNotification = {
   id: number;
@@ -10,9 +10,9 @@ export type ApiNotification = {
 };
 
 export const NOTIFICATION_TYPE_LABELS: Record<string, string> = {
-  FR: 'Friend Request',
-  FA: 'Friend Accepted',
-  IN: 'Invitation',
-  RP: 'Report',
-  MS: 'Message',
+  Friend_Request: 'Friend Request',
+  Friend_Accepted: 'Friend Accepted',
+  Invitation: 'Invitation',
+  Report: 'Report',
+  Message: 'Message',
 };

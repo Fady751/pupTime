@@ -3,6 +3,7 @@ import { useSelector } from 'react-redux';
 import { RootState } from '../redux/store';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
+import { navigationRef } from './navigationRef';
 import AuthNavigator from '../navigation/AuthNavigator';
 import AppNavigator from '../navigation/AppNavigator';
 import LoadingScreen from '../screens/Loading/loading';
@@ -52,7 +53,7 @@ export default function Root() {
 
   return (
     <>
-      <NavigationContainer>
+      <NavigationContainer ref={navigationRef}>
         <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
           {data ? <AppNavigator /> : <AuthNavigator />}
         </SafeAreaView>

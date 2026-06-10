@@ -20,18 +20,22 @@ class NotificationService {
   /**
    * 1. Send a notification immediately (Now)
    */
-  async showNow(title: string, body: string, channelId: string = 'general') {
+  async showNow(title: string, body: string, channelId: string = 'general', data?: any) {
     await notifee.requestPermission();
     await this.ensureChannel(channelId, 'General');
 
     await notifee.displayNotification({
       title,
       body,
+      data,
       android: {
         channelId,
         smallIcon: 'ic_stat_sync', // The custom icon we set up earlier
         color: '#ff9900', // pupTime orange
         importance: AndroidImportance.HIGH, // <-- This handles everything you need
+        pressAction: {
+          id: 'default',
+        },
       },
     });
   }
