@@ -2,11 +2,11 @@ from django.db import models
 from user.models import User 
 
 class NotificationType(models.TextChoices):
-    FRIEND_REQUEST = 'FR', 'Friend_Request'
-    FRIEND_ACCEPTED = 'FA', 'Friend_Accepted'
-    INVITATION = 'IN', 'Invitation'
-    REPORT = 'RP', 'Report'
-    MESSAGE = 'MS', 'Message'
+    FRIEND_REQUEST = 'Friend_Request', 'Friend_Request'
+    FRIEND_ACCEPTED = 'Friend_Accepted', 'Friend_Accepted'
+    INVITATION = 'Invitation', 'Invitation'
+    REPORT = 'Report', 'Report'
+    MESSAGE = 'Message', 'Message'
 
 
 
@@ -15,7 +15,7 @@ class Notification(models.Model):
     is_read = models.BooleanField(default=False)
     is_sent = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
-    type = models.CharField(max_length=2, choices=NotificationType.choices)
+    type = models.CharField(max_length=20, choices=NotificationType.choices)
     data = models.JSONField()
     
     

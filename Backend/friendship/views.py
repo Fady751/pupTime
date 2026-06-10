@@ -63,7 +63,7 @@ class FriendshipRequestView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        notification = push_request_notification(receiver , sender , 'FR' , serializer.data['sent_at']) 
+        notification = push_request_notification(receiver , receiver.fcm_token ,sender , 'Friend_Request' , serializer.data['sent_at']) 
 
         if notification == '500':
             return Response({"error": "Failed to send notification"}, status=500)
@@ -94,7 +94,7 @@ class FriendshipAcceptView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        notification = push_accept_notification(friendship.sender , request.user , 'FA', friendship.sent_at )
+        notification = push_accept_notification(friendship.sender , friendship.sender.fcm_token , request.user , 'Friend_Accepted', friendship.sent_at )
 
         if notification == '500':
             return Response({"error": "Failed to send notification"}, status=500)
@@ -170,7 +170,6 @@ class BlockFriendshipView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        # Trigger Celery tasks to update recommendations for both friends (as they are no longer accepted friends)
         update_user_hobby_recommendations.delay(sender.id)
         update_user_hobby_recommendations.delay(receiver.id)
 
@@ -255,6 +254,8 @@ class unfriendView(APIView):
 
         return Response({"message": "Friendship deleted successfully"}, status=200)
 
+
+### for testing ### 
 class check(APIView):
 
     def get(self, request,):
