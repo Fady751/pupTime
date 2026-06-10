@@ -14,7 +14,7 @@ def get_user_by_id(user_id):
 
 def get_friendship_by_id(friendship_id):
     try: 
-        friendship = Friendship.objects.get(id=friendship_id)
+        friendship = Friendship.objects.filter(id=friendship_id).first()
     except Friendship.DoesNotExist:
         return Response({"error": "Friendship not found."}, status=404)
     return friendship

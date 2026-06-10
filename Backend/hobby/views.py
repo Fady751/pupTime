@@ -11,7 +11,7 @@ from drf_yasg import openapi
 from friendship.models import Friendship, Status
 from .models import Hobby, HobbyRecommendation
 from .serializers import HobbySerializer
-from .recommend import calculate_self_recommendations, calculate_friend_recommendations , get_free_time_slots
+from .recommend import calculate_self_recommendations, calculate_friend_recommendations , suggest_time_slots
 from task.models import TaskTemplate
 from task.serializers import TaskSerializer
 from ai_chat.ai.provider import ChatMessage, get_ai_provider
@@ -52,7 +52,7 @@ class FriendHobbyView(APIView):
 
         sliced_hobbies = friend_hobbies[start:start + 3]
 
-        free_slots = get_free_time_slots(request.user, count=len(sliced_hobbies), duration_minutes=60)
+        free_slots = suggest_time_slots(request.user, sliced_hobbies, duration_minutes=60)
         response_data = []
 
         for i, hobby in enumerate(sliced_hobbies):
@@ -104,7 +104,7 @@ class SelfHobbyView(APIView):
         if not self_hobbies:
             return Response([], status=status.HTTP_200_OK)
 
-        free_slots = get_free_time_slots(request.user, count=len(self_hobbies), duration_minutes=60)
+        free_slots = suggest_time_slots(request.user, self_hobbies, duration_minutes=60)
         response_data = []
 
         for i, hobby in enumerate(self_hobbies):
