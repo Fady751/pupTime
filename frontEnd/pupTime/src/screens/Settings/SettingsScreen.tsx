@@ -1,6 +1,8 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScrollView, View, Text, Pressable } from "react-native";
+import { DrawerActions } from "@react-navigation/native";
+import { Menu } from "lucide-react-native";
 import createStyles from "./SettingsScreen.styles";
 import useTheme from "../../Hooks/useTheme";
 import SettingsSection from "../../components/Settings/SettingsSection";
@@ -215,7 +217,12 @@ const SettingsScreen = ({ navigation }: { navigation: any }) => {
           contentContainerStyle={styles.scrollContent}
         >
           <View style={styles.header}>
-            <Text style={styles.headerTitle}>Settings</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+              <Pressable onPress={() => navigation.dispatch(DrawerActions.openDrawer())} style={{ marginRight: 12 }}>
+                <Menu color={colors.text} size={28} strokeWidth={2.5} />
+              </Pressable>
+              <Text style={[styles.headerTitle, { marginBottom: 0 }]}>Settings</Text>
+            </View>
             <Text style={styles.headerSubtitle}>Customize your PupTime experience</Text>
           </View>
 

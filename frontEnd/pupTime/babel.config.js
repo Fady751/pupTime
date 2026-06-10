@@ -9,5 +9,6 @@ module.exports = {
       },
     ],
     ['inline-import', { extensions: ['.sql'] }],
+    'react-native-worklets/plugin',
   ],
 };

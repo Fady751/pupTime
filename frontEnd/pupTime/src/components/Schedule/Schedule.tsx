@@ -12,6 +12,8 @@ import {
   StyleSheet,
   LayoutChangeEvent,
 } from "react-native";
+import { useNavigation, DrawerActions } from "@react-navigation/native";
+import { Menu } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   type TaskTemplate,
@@ -175,6 +177,7 @@ const Schedule: React.FC<ScheduleProps> = ({
   embedded,
 }) => {
   const { colors } = useTheme();
+  const navigation = useNavigation<any>();
   const [containerWidth, setContainerWidth] = useState(0);
   const styles = useMemo(
     () => createScheduleStyles(colors, embedded, containerWidth || undefined),
@@ -506,7 +509,12 @@ const Schedule: React.FC<ScheduleProps> = ({
       <View style={styles.header}>
         {/* Title row + Today pill */}
         <View style={headerRow}>
-          <Text style={styles.headerTitle}>📅 Schedule</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Pressable onPress={() => navigation.dispatch(DrawerActions.openDrawer())} style={{ marginRight: 12 }}>
+              <Menu size={28} color={colors.text} />
+            </Pressable>
+            <Text style={styles.headerTitle}>📅 Schedule</Text>
+          </View>
           {!isTodayMonth && (
             <Pressable onPress={goToToday} style={todayPill}>
               <Text style={todayPillText}>Today</Text>

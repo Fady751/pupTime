@@ -8,7 +8,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, DrawerActions } from '@react-navigation/native';
+import { Menu } from 'lucide-react-native';
 
 import useTheme from '../../Hooks/useTheme';
 import {
@@ -248,9 +249,9 @@ const NotificationsScreen = ({ navigation }: { navigation: any }) => {
         <View style={styles.headerCard}>
           <Pressable
             style={({ pressed }) => [styles.backButton, { opacity: pressed ? 0.8 : 1 }]}
-            onPress={() => navigation.goBack()}
+            onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
           >
-            <Text style={styles.backButtonText}>{'‹'}</Text>
+            <Menu color={colors.text} size={28} strokeWidth={2.5} />
           </Pressable>
 
           <View style={styles.headerTextBlock}>
