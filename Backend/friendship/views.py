@@ -194,7 +194,7 @@ class UnblockFriendshipView(APIView):
             return Response({"error": "User not found"}, status=404)
 
         try:
-            friendship = Friendship.objects.get(blocked_by = user , status=Status.BLOCKED)
+            friendship = Friendship.objects.filter(blocked_by = user , status=Status.BLOCKED).first()
         except Friendship.DoesNotExist:
             return Response({"error": "can not unblock user you did not block him"}, status=404)
 
