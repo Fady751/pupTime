@@ -53,31 +53,43 @@ class HobbyRecommendationsTests(APITestCase):
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        # Verify that response is a list
         self.assertIsInstance(response.data, list)
         self.assertTrue(len(response.data) > 0)
 
-        # Verify that each item only has the 'name' key, and not 'id' or 'based_on'
         for item in response.data:
-            self.assertIn('name', item)
-            self.assertEqual(item['name'], 'Coding')
-            self.assertNotIn('id', item)
-            self.assertNotIn('based_on', item)
-            self.assertEqual(list(item.keys()), ['name'])
+            self.assertIn('title', item)
+            self.assertEqual(item['title'], 'Coding')
+            self.assertIn('id', item)
+            self.assertIsNone(item['timezone'])
+            self.assertEqual(item['override'], 1)
+            self.assertFalse(item['is_overriding'])
+            self.assertIn('start_datetime', item)
+            self.assertIn('created_at', item)
+            self.assertEqual(item['emoji'], '💻')
+            self.assertEqual(item['duration_minutes'], 60)
+            self.assertFalse(item['is_deleted'])
+            self.assertFalse(item['is_recurring'])
+            self.assertIsNone(item['rrule'])
 
     def test_self_hobby_view_format(self):
         url = reverse('hobby:self-hobby-suggestions')
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        # Verify that response is a list
         self.assertIsInstance(response.data, list)
         self.assertTrue(len(response.data) > 0)
 
-        # Verify that each item only has the 'name' key, and not 'id' or 'based_on'
         for item in response.data:
-            self.assertIn('name', item)
-            self.assertEqual(item['name'], 'Quantum Physics')
-            self.assertNotIn('id', item)
-            self.assertNotIn('based_on', item)
-            self.assertEqual(list(item.keys()), ['name'])
+            self.assertIn('title', item)
+            self.assertEqual(item['title'], 'Quantum Physics')
+            self.assertIn('id', item)
+            self.assertIsNone(item['timezone'])
+            self.assertEqual(item['override'], 1)
+            self.assertFalse(item['is_overriding'])
+            self.assertIn('start_datetime', item)
+            self.assertIn('created_at', item)
+            self.assertEqual(item['emoji'], '⚛️')
+            self.assertEqual(item['duration_minutes'], 60)
+            self.assertFalse(item['is_deleted'])
+            self.assertFalse(item['is_recurring'])
+            self.assertIsNone(item['rrule'])

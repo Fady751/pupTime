@@ -57,9 +57,6 @@ class FriendshipCancelRequestSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'sender', 'receiver' , 'status']
 
     def update(self, instance, validated_data):
-
-        if instance.sender != self.context['request'].user:
-            raise serializers.ValidationError("You can only cancel friend requests you have sent.")
         
         if instance.status != Status.PENDING:
             raise serializers.ValidationError(f"Relationship is not pending, but {instance.status}.")
