@@ -153,10 +153,10 @@ const ProfileSettingsScreen = ({ navigation }: { navigation: any }) => {
 
         {/* STATS */}
         <View style={styles.statsRow}>
-          <View style={styles.statCard}>
+          {/* <View style={styles.statCard}>
             <Text style={styles.statNum}>{data?.streak_cnt ?? 0}🔥</Text>
             <Text style={styles.statLabel}>Streak</Text>
-          </View>
+          </View> */}
 
           <View style={styles.statCard}>
             <Text style={styles.statNum}>{pendingCount}</Text>

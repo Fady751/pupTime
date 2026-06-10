@@ -252,7 +252,7 @@ const SettingsScreen = ({ navigation }: { navigation: any }) => {
 
 
           {/* 5. Notifications */}
-          <SettingsSection title="Notifications">
+          {/* <SettingsSection title="Notifications">
             <SettingsNavItem
               label="Notification Inbox"
               icon="🔔"
@@ -280,10 +280,10 @@ const SettingsScreen = ({ navigation }: { navigation: any }) => {
               value={settings.notifications.vibration}
               onToggle={value => handleToggleNotification("vibration", value)}
             />
-          </SettingsSection>
+          </SettingsSection> */}
 
           {/* 6. Task Preferences */}
-          <SettingsSection title="Task Preferences">
+          {/* <SettingsSection title="Task Preferences">
             <SettingsSelectItem
               label="Default Priority"
               selectedValue={priorityLabel}
@@ -307,7 +307,7 @@ const SettingsScreen = ({ navigation }: { navigation: any }) => {
               options={[...sortByOptions]}
               onSelect={handleSelectSortBy}
             />
-          </SettingsSection>
+          </SettingsSection> */}
 
           {/* 7. Appearance */}
           <SettingsSection title="Appearance">
@@ -359,7 +359,7 @@ const SettingsScreen = ({ navigation }: { navigation: any }) => {
           </SettingsSection>
 
           {/* 8. Productivity Mode */}
-          <SettingsSection title="Productivity Mode">
+          {/* <SettingsSection title="Productivity Mode">
             <SettingsSwitchItem
               label="Focus Mode (Disable distractions)"
               value={settings.productivity.focusMode}
@@ -377,7 +377,7 @@ const SettingsScreen = ({ navigation }: { navigation: any }) => {
               value={settings.productivity.weeklySummary}
               onToggle={value => handleToggleProductivity("weeklySummary", value)}
             />
-          </SettingsSection>
+          </SettingsSection> */}
 
 
 

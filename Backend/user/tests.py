@@ -3,7 +3,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from rest_framework.authtoken.models import Token
-from .models import User
+from .models import User, Interest, InterestCategory, UserInterest
 
 
 class UserModelTests(TestCase):
@@ -259,6 +259,30 @@ class LoginViewTests(APITestCase):
         response1 = self.client.post(self.login_url, data, format='json')
         response2 = self.client.post(self.login_url, data, format='json')
         self.assertEqual(response1.data['token'], response2.data['token'])
+
+    def test_login_has_interests_false_when_no_interests(self):
+        """Login reports has_interests=False when the user has no interests."""
+        data = {
+            'email': 'test@example.com',
+            'password': 'testpass123'
+        }
+        response = self.client.post(self.login_url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data['has_interests'])
+
+    def test_login_has_interests_true_when_user_has_interests(self):
+        """Login reports has_interests=True once the user has selected interests."""
+        category = InterestCategory.objects.create(name='Sports')
+        interest = Interest.objects.create(title='Running', category=category)
+        UserInterest.objects.create(user=self.user, interest=interest)
+
+        data = {
+            'email': 'test@example.com',
+            'password': 'testpass123'
+        }
+        response = self.client.post(self.login_url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data['has_interests'])
 
 
 class UserSerializerTests(TestCase):
