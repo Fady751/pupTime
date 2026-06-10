@@ -46,7 +46,7 @@ class FriendshipRequestView(APIView):
     def post(self, request, user_id):
         sender = request.user
         
-        receiver = get_user_by_id(user_id)
+        receiver = get_object_or_404(User , id=user_id)
 
         existing_friendship = check_existing_friendship(sender.id, receiver.id) 
     
@@ -56,15 +56,13 @@ class FriendshipRequestView(APIView):
             
             return Response({"error": "relation already exists" , "status": existing_friendship.status}, status=400)
 
-        
-
         serializer = FriendshipRequestSerializer(data={'sender': sender.id, 'receiver': receiver.id, 'status': Status.PENDING} , context={'request': request})
         
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
+        print(receiver , receiver.fcm_token ,sender , 'Friend_Request' , serializer.data['sent_at'])
         notification = push_request_notification(receiver , receiver.fcm_token ,sender , 'Friend_Request' , serializer.data['sent_at']) 
-
         if notification == '500':
             return Response({"error": "Failed to send notification"}, status=500)
         elif notification == '400':
@@ -90,18 +88,19 @@ class FriendshipAcceptView(APIView):
         friendship = get_object_or_404(Friendship, id=friendship_id)
 
 
+        serializer = FriendshipAcceptSerializer(friendship, data=request.data, partial=True, context={'request': request})
 
-        notification = push_accept_notification(friendship.sender , friendship.sender.fcm_token , request.user , 'Friend_Accepted', friendship.accepted_at )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        notification = push_accept_notification(friendship.sender , friendship.sender.fcm_token , request.user , 'Friend_Accepted', serializer.data['accepted_at'] )
 
         if notification == '500':
             return Response({"error": "Failed to send notification"}, status=500)
         elif notification == '400':
             return Response({"error": "Invalid data for notification"}, status=400)
         
-        serializer = FriendshipAcceptSerializer(friendship, data=request.data, partial=True, context={'request': request})
 
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
 
         # update_user_hobby_recommendations.delay(friendship.sender.id)
         # update_user_hobby_recommendations.delay(friendship.receiver.id)
