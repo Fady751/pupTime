@@ -239,14 +239,13 @@ class unfriendView(APIView):
         user = get_object_or_404(User , id = user_id)
 
         friendship = Friendship.objects.filter(
-            Q(sender=request.user, receiver_id=user_id) | Q(sender_id=user_id, receiver=request.user) & Q(status=Status.ACCEPTED)
+            Q(sender=request.user, receiver_id=user_id) | Q(sender_id=user_id, receiver=request.user) & Q(status=Status.ACCEPTED )| Q(status=Status.PENDING)
         ).first()
 
         if not friendship:
             return Response({"error": "user is not your friend"}, status=404)
 
         friendship.delete()
-
         # update_user_hobby_recommendations.delay(request.user.id)
         # update_user_hobby_recommendations.delay(user_id)
 
