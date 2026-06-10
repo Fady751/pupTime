@@ -1,6 +1,7 @@
 from django.utils import timezone as tz
 
 from task.models import TaskTemplate
+from notification.services import push_invitation_notification
 from .models import (
     SocialTask, SocialTaskParticipant, SocialTaskNodeTask,
     SocialTaskStatus, ParticipantStatus,
@@ -62,7 +63,7 @@ def create_social_task(
     for uid in participant_ids:
         user = User.objects.get(id=uid)
         SocialTaskParticipant.objects.create(social_task=root, user=user)
-        # TODO: send invitation notification
+        push_invitation_notification(user, user.fcm_token, initiator, root)
 
     for sub_data in sub_tasks_data:
         SocialTask.objects.create(
@@ -101,7 +102,7 @@ def add_sub_task(root: SocialTask, data: dict) -> SocialTask:
 
 def invite_participant(root: SocialTask, user) -> SocialTaskParticipant:
     participant = SocialTaskParticipant.objects.create(social_task=root, user=user)
-    # TODO: notify user of invite
+    push_invitation_notification(user, user.fcm_token, root.initiator, root)
     return participant
 
 
