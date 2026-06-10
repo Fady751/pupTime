@@ -27,6 +27,10 @@ import AiConversationListScreen from '../screens/AiChat/AiConversationListScreen
 import AiChatScreen from '../screens/AiChat/AiChatScreen';
 import SocialTasksScreen from '../screens/SocialTasks/SocialTasks';
 import CustomDrawerContent from '../components/Sidebar/CustomDrawerContent';
+import RecommendationTypesScreen from '../screens/Recommendations/RecommendationTypesScreen';
+import RecommendedTasksListScreen from '../screens/Recommendations/RecommendedTasksListScreen';
+import RecommendationDetailsScreen from '../screens/Recommendations/RecommendationDetailsScreen';
+import EditRecommendationScreen from '../screens/Recommendations/EditRecommendationScreen';
 
 export type AppStackParamList = {
   Home: undefined;
@@ -52,6 +56,10 @@ export type AppStackParamList = {
   AiConversations: undefined;
   AiChat: { conversationId?: string } | undefined;
   SocialTask: undefined;
+  RecommendationTypes: undefined;
+  RecommendedTasksList: { type: 'self' | 'friends'; updatedTask?: any; updatedIndex?: number; removedIndex?: number };
+  RecommendationDetails: { task: any; index: number; updatedTask?: any };
+  EditRecommendation: { task: any; index: number };
 };
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
@@ -71,6 +79,10 @@ const ROUTE_TO_TAB: Record<string, string> = {
   EditTask: 'Tasks',
   Profile: 'Profile',
   EditProfile: 'Profile',
+  RecommendationTypes: 'Home',
+  RecommendedTasksList: 'Home',
+  RecommendationDetails: 'Home',
+  EditRecommendation: 'Home',
 };
 
 let routeChangeCallback: ((route: string) => void) | null = null;
@@ -125,6 +137,10 @@ const MainStack = () => (
     <Stack.Screen name="AiConversations" component={AiConversationListScreen} />
     <Stack.Screen name="AiChat" component={AiChatScreen} />
     <Stack.Screen name="SocialTask" component={SocialTasksScreen} />
+    <Stack.Screen name="RecommendationTypes" component={RecommendationTypesScreen} />
+    <Stack.Screen name="RecommendedTasksList" component={RecommendedTasksListScreen} />
+    <Stack.Screen name="RecommendationDetails" component={RecommendationDetailsScreen} />
+    <Stack.Screen name="EditRecommendation" component={EditRecommendationScreen} />
   </Stack.Navigator>
 );
 

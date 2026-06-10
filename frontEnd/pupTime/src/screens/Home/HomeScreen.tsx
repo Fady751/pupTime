@@ -294,6 +294,7 @@ const HomeScreen: React.FC = () => {
               // { icon: "⏱", label: "Focus", route: "Timer" },
               { icon: "👥", label: "Friends", route: "Friends" },
               { icon: socialIcon, label: "Social", route: "SocialTask", isImage: true },
+              { icon: "💡", label: "Discover", route: "RecommendationTypes" },
             ].map((action, idx) => (
               <Pressable
                 key={action.route}

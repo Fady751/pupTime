@@ -294,6 +294,16 @@ const OverrideDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
 
           <View style={styles.detailRow}>
+            <Text style={styles.detailIcon}>⏱️</Text>
+            <Text style={styles.detailLabel}>Duration</Text>
+            <Text style={styles.detailValue}>
+              {template.duration_minutes
+                ? `${template.duration_minutes} minutes`
+                : "—"}
+            </Text>
+          </View>
+
+          <View style={styles.detailRow}>
             <Text style={styles.detailIcon}>📊</Text>
             <Text style={styles.detailLabel}>Status</Text>
             <Text style={[styles.detailValue, { color: statusColor }]}>

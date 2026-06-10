@@ -41,6 +41,7 @@ import {
 	AppMetaRepository,
 	getDrizzleDb,
 	taskOverrides,
+	taskTemplates,
 	taskTemplateCategories,
 	categories,
 	syncQueue,
@@ -69,6 +70,7 @@ import {
 	type TaskOverride,
 	getCurrentTimezone,
 	getTaskOccurrences,
+	getExactlyTime,
 } from '../../types/task';
 import type { Category } from '../../types/category';
 import { getCategories } from '../interestService/getCategories';
@@ -671,6 +673,66 @@ export const fullSync = async (): Promise<boolean> => {
 export const resetSyncState = async (): Promise<void> => {
 	await SyncQueueRepository.clear();
 	await AppMetaRepository.delete(LAST_SYNC_KEY);
+};
+
+export const processWeeklyTasks = async (): Promise<void> => {
+	const db = await getDrizzleDb();
+	const LAST_RUN_KEY = 'last_weekly_task_run';
+
+	const lastRunMeta = await AppMetaRepository.get(LAST_RUN_KEY);
+	const now = new Date();
+
+	if (lastRunMeta?.value) {
+		const lastRunDate = new Date(lastRunMeta.value);
+		const diffTime = Math.abs(now.getTime() - lastRunDate.getTime());
+		const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+		if (diffDays < 7) {
+			return;
+		}
+	}
+
+	const allTemplates = await db
+		.select()
+		.from(taskTemplates)
+		.where(eq(taskTemplates.is_deleted, false));
+
+	const todayIso = now.toISOString();
+
+	for (const template of allTemplates) {
+		if (!template.start_datetime) continue;
+
+		const occurrences = getTaskOccurrences(template as TaskTemplate, now, 30);
+
+		if (occurrences.length === 0) continue;
+
+		const allOverrides = await db
+			.select()
+			.from(taskOverrides)
+			.where(
+				and(
+					eq(taskOverrides.template_id, template.id),
+					eq(taskOverrides.is_deleted, false)
+				)
+			);
+
+		const existingDates = new Set(allOverrides.map(ov => getExactlyTime(ov.instance_datetime)));
+
+		const toInsert = occurrences
+			.filter(dt => !existingDates.has(getExactlyTime(dt)))
+			.map(dt => ({
+				template_id: template.id,
+				instance_datetime: dt,
+			} as NewTaskOverride));
+
+		if (toInsert.length > 0) {
+			const { inserted } = await TaskService.createOverrides(template.id, toInsert);
+			await enqueueOperation('UPDATE', 'TASK_TEMPLATE', template.id, {
+				overrides: inserted,
+			});
+		}
+	}
+
+	await AppMetaRepository.set(LAST_RUN_KEY, todayIso);
 };
 
 export default {

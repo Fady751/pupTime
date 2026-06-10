@@ -13,6 +13,7 @@ import { useEffect, useState } from 'react';
 import { AppMetaRepository } from '../DB/Repositories/AppMetaRepository';
 import IntroScreen from '../screens/Intro/Intro';
 import useTheme from '../Hooks/useTheme';
+import { processWeeklyTasks } from '../services/TaskService/syncService';
 
 export default function Root() {
   const { data, loading } = useSelector((s: RootState) => s.user);
@@ -38,6 +39,7 @@ export default function Root() {
       }
     };
     checkFirstLaunch();
+    processWeeklyTasks().catch(e => console.error("Weekly tasks error", e));
   }, []);
 
   const { colors } = useTheme();
