@@ -89,20 +89,22 @@ class FriendshipAcceptView(APIView):
 
         friendship = get_object_or_404(Friendship, id=friendship_id)
 
-        serializer = FriendshipAcceptSerializer(friendship, data=request.data, partial=True, context={'request': request})
 
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
 
-        notification = push_accept_notification(friendship.sender , friendship.sender.fcm_token , request.user , 'Friend_Accepted', friendship.sent_at )
+        notification = push_accept_notification(friendship.sender , friendship.sender.fcm_token , request.user , 'Friend_Accepted', friendship.accepted_at )
 
         if notification == '500':
             return Response({"error": "Failed to send notification"}, status=500)
         elif notification == '400':
             return Response({"error": "Invalid data for notification"}, status=400)
         
-        update_user_hobby_recommendations.delay(friendship.sender.id)
-        update_user_hobby_recommendations.delay(friendship.receiver.id)
+        serializer = FriendshipAcceptSerializer(friendship, data=request.data, partial=True, context={'request': request})
+
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        # update_user_hobby_recommendations.delay(friendship.sender.id)
+        # update_user_hobby_recommendations.delay(friendship.receiver.id)
         
         return Response(serializer.data , status=200)
 
@@ -235,22 +237,19 @@ class unfriendView(APIView):
 
     def delete(self, request, user_id):
 
-        try :
-            User.objects.get(id=user_id)
-        except User.DoesNotExist:
-            return Response({"error": "User not found"}, status=404)
+        user = get_object_or_404(User , id = user_id)
 
         friendship = Friendship.objects.filter(
             Q(sender=request.user, receiver_id=user_id) | Q(sender_id=user_id, receiver=request.user) & Q(status=Status.ACCEPTED)
         ).first()
 
         if not friendship:
-            return Response({"error": "Friendship not found"}, status=404)
+            return Response({"error": "user is not your friend"}, status=404)
 
         friendship.delete()
 
-        update_user_hobby_recommendations.delay(request.user.id)
-        update_user_hobby_recommendations.delay(user_id)
+        # update_user_hobby_recommendations.delay(request.user.id)
+        # update_user_hobby_recommendations.delay(user_id)
 
         return Response({"message": "Friendship deleted successfully"}, status=200)
 
