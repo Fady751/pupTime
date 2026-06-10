@@ -154,6 +154,8 @@ const CustomDrawerContent = (props: DrawerContentComponentProps) => {
               </React.Fragment>
             );
           })}
+          <View style={[styles.separator, { backgroundColor: colors.border }]} />
+          <View style={[styles.separator, { backgroundColor: colors.border }]} />
         </View>
       </DrawerContentScrollView>
     </View>

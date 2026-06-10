@@ -250,9 +250,9 @@ const HomeScreen: React.FC = () => {
             <Pressable style={styles.iconButton} onPress={() => navigation.navigate("Friends")}>
               <Text style={styles.iconText}>👥</Text>
             </Pressable>
-            <Pressable style={styles.pillButton}>
+            {/* <Pressable style={styles.pillButton}>
               <Text style={styles.pillText}>🔥 {user?.streak_cnt ?? 0}</Text>
-            </Pressable>
+            </Pressable> */}
           </View>
         </View>
 
