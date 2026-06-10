@@ -1,12 +1,12 @@
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { googleWebClientId } from '@env';
 
-// // console.log("googleWebClientId: ", googleWebClientId);
+// console.log("googleWebClientId: ", googleWebClientId);
 GoogleSignin.configure({
   webClientId: googleWebClientId,
   offlineAccess: true,
 });
-
+``
 export type GoogleUserInfo = {
   idToken: string;
   scopes: string[];

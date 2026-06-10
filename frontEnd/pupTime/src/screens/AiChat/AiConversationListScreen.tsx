@@ -84,11 +84,11 @@ const AiConversationListScreen: React.FC = () => {
                     {dayjs(item.updated_at).format('MMM D, h:mm A')}
                 </Text>
             </View>
-            <Text style={[styles.messagePreview, { color: colors.secondaryText }]} numberOfLines={1}>
+            {/* <Text style={[styles.messagePreview, { color: colors.secondaryText }]} numberOfLines={1}>
                 {item.messages && item.messages.length > 0
                     ? item.messages[item.messages.length - 1].content
                     : "No messages yet"}
-            </Text>
+            </Text> */}
         </TouchableOpacity>
     );
 
