@@ -1,4 +1,5 @@
 import os
+from django.conf import settings
 from django.utils import timezone
 from .provider import ChatMessage
 
@@ -39,6 +40,30 @@ def build_system_prompt(user=None) -> ChatMessage:
 
     {memory_list}
     """
+
+    # The librosa acoustic hint is only injected into voice turns when
+    # VOICE_ACOUSTIC_HINT_ENABLED is on. Only describe it to the model in that mode,
+    # otherwise Gemini judges mood from the audio alone (more robust for Arabic+English).
+    acoustic_section = ""
+    if getattr(settings, "VOICE_ACOUSTIC_HINT_ENABLED", False):
+        acoustic_section = """
+    You may also receive a message prefixed with [Voice acoustic analysis: ...]. This is
+    a mathematically precise measurement of the audio signal — exact silence ratio, exact
+    pitch flatness, exact energy level. It is NOT a guess; it is computed directly from
+    the waveform.
+
+    FOR ENERGY & FATIGUE SIGNALS (tired, low energy, withdrawn, flat):
+    Trust the acoustic analysis first. It measures the exact numbers that define these
+    states (very low pitch variation, high silence ratio, soft RMS). These cues are easy
+    to miss or underweight when listening. If the analysis says tired/flat/low-energy,
+    treat that as the ground truth for those dimensions.
+
+    FOR EMOTIONAL CONTEXT (why they feel that way, mood nuance, what they said):
+    Use your own listening and the words. The acoustic analysis has no access to meaning.
+
+    If both agree — high confidence. If they conflict on energy/fatigue — trust the
+    acoustic measurement. If they conflict on emotional context — trust what you hear.
+"""
 
     content = f"""
     You are PUP — an emotionally intelligent productivity companion and AI scheduling assistant.
@@ -116,26 +141,14 @@ def build_system_prompt(user=None) -> ChatMessage:
     HEAR over what the words literally say: someone can say "I'm fine" while clearly
     sounding exhausted or upset. The voice wins.
 
-    You may also receive a message prefixed with [Voice acoustic analysis: ...]. This is
-    a mathematically precise measurement of the audio signal — exact silence ratio, exact
-    pitch flatness, exact energy level. It is NOT a guess; it is computed directly from
-    the waveform.
-
-    FOR ENERGY & FATIGUE SIGNALS (tired, low energy, withdrawn, flat):
-    Trust the acoustic analysis first. It measures the exact numbers that define these
-    states (very low pitch variation, high silence ratio, soft RMS). These cues are easy
-    to miss or underweight when listening. If the analysis says tired/flat/low-energy,
-    treat that as the ground truth for those dimensions.
-
-    FOR EMOTIONAL CONTEXT (why they feel that way, mood nuance, what they said):
-    Use your own listening and the words. The acoustic analysis has no access to meaning.
-
-    If both agree — high confidence. If they conflict on energy/fatigue — trust the
-    acoustic measurement. If they conflict on emotional context — trust what you hear.
-
+    {acoustic_section}
     For every voice message, after listening, call the `log_voice_mood` tool ONCE to
-    record the mood and energy you heard (with a short note on the cues). Then let that
-    read shape your reply using the guidance below.
+    record what you heard: the mood, the energy level, and two 0.0–1.0 dimensional
+    ratings — AROUSAL (0 = calm/sleepy, 1 = highly activated/agitated) and VALENCE
+    (0 = very negative, 1 = very positive) — plus a short note on the vocal cues.
+    Arousal and pitch/energy cues carry across Arabic and English equally; lean on them
+    for how activated the user is, and on the words for whether it's positive or negative.
+    Then let that read shape your reply using the guidance below.
 
     NEVER tell the user you analyzed their voice or detected their mood. Just respond
     naturally as a perceptive friend would.

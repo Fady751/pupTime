@@ -196,6 +196,21 @@ class LogVoiceMoodSchema(BaseModel):
     energy_level: EnergyLevel = Field(
         description="Overall vocal energy: 'high', 'medium', or 'low'."
     )
+    arousal: Optional[float] = Field(
+        default=None, ge=0.0, le=1.0,
+        description=(
+            "How activated the voice sounds, 0.0–1.0 "
+            "(0 = calm/sleepy/flat, 1 = highly activated/agitated/excited). "
+            "Acoustic — carries equally across Arabic and English."
+        ),
+    )
+    valence: Optional[float] = Field(
+        default=None, ge=0.0, le=1.0,
+        description=(
+            "How positive the emotional state sounds, 0.0–1.0 "
+            "(0 = very negative/distressed, 1 = very positive/cheerful)."
+        ),
+    )
     evidence: str = Field(
         description=(
             "One short phrase describing the vocal cues you heard that led to this judgment "

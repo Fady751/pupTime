@@ -427,12 +427,16 @@ def get_task_tools(user, voice_message=None):
         """
         mood = kwargs.get("mood")
         energy = kwargs.get("energy_level")
+        arousal = kwargs.get("arousal")
+        valence = kwargs.get("valence")
         evidence = (kwargs.get("evidence") or "").strip()
 
         if voice_message is not None:
             voice_message.voice_mood = {
                 "mood": mood,
                 "energy_level": energy,
+                "arousal": arousal,
+                "valence": valence,
                 "evidence": evidence,
                 "source": "gemini_audio",
             }

@@ -37,6 +37,11 @@ DEBUG = config('DEBUG', default=False, cast=bool)
 # Database backend switch: when True use local SQLite, otherwise use Supabase/PostgreSQL
 USE_SQLITE = config('USE_SQLITE', default=False, cast=bool)
 
+# Voice emotion: when True, run the librosa hand-crafted acoustic classifier and inject
+# its hint alongside the audio. When False (default), skip it and let Gemini's native
+# multilingual audio understanding judge mood directly — more robust for Arabic+English.
+VOICE_ACOUSTIC_HINT_ENABLED = config('VOICE_ACOUSTIC_HINT_ENABLED', default=False, cast=bool)
+
 ALLOWED_HOSTS = ["*"]
 
 APPEND_SLASH = True

@@ -2,6 +2,7 @@ import json
 import logging
 import uuid
 
+from django.conf import settings
 from django.db import transaction
 from django.db.models import Prefetch
 from django.utils import timezone
@@ -412,7 +413,10 @@ class VoiceChatView(APIView):
             logger.error(f"Audio conversion failed: {e}")
             return Response({'error': 'Failed to process audio format.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        acoustic_hint = compute_acoustic_hint(audio_bytes)
+        if settings.VOICE_ACOUSTIC_HINT_ENABLED:
+            acoustic_hint = compute_acoustic_hint(audio_bytes)
+        else:
+            acoustic_hint = None
 
         try:
             title = text_context[:80] if text_context else "Voice message"
