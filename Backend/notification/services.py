@@ -150,3 +150,26 @@ def push_message_notification(receiver, fcm_token, sender, message, notification
         },
     )
     return '200'
+
+
+def push_warning_notification(receiver, fcm_token, reason):
+    if not receiver:
+        return '400'
+
+    notification = Notification.objects.create(
+        receiver=receiver,
+        type='Report',
+        data={
+            'message': f'You have received a warning due to: {reason}',
+            'reason': reason,
+        },
+    )
+
+    _send_push(
+        fcm_token, notification,
+        title='Warning Notification',
+        body=notification.data['message'],
+        data={'reason': reason},
+    )
+    return '200'
+

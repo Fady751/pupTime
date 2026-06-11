@@ -3,7 +3,7 @@ from rest_framework import serializers
 from django.conf import settings
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
-from .models import User, InterestCategory, Interest, UserInterest
+from .models import User, InterestCategory, Interest, UserInterest, UserReport
 
 
 class GoogleAuthSerializer(serializers.Serializer):
@@ -170,3 +170,11 @@ class SearchUserByUsernameSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'username', 'email', 'gender', 'birth_day', 'streak_cnt', 'joined_on']
+
+
+class UserReportSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserReport
+        fields = ['id', 'reason', 'created_at', 'status', 'action_taken']
+        read_only_fields = ['id', 'created_at', 'status', 'action_taken']
+

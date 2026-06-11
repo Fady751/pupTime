@@ -16,9 +16,9 @@ from friendship.models import Friendship, Status
 from .serializers import (
     UserFriendsSerializer, UserReqeustsSerializer, UserSerializer, LoginSerializer, UserUpdateSerializer,
     InterestSerializer, InterestCategorySerializer, UserInterestSerializer,
-    GoogleAuthSerializer, UserFriendsSerializer, SearchUserByUsernameSerializer
+    GoogleAuthSerializer, SearchUserByUsernameSerializer, UserReportSerializer
 )
-from .models import User, Interest, InterestCategory, UserInterest
+from .models import User, Interest, InterestCategory, UserInterest, UserReport
 import uuid
 from hobby.tasks import update_user_hobby_recommendations
 
@@ -439,3 +439,49 @@ class SearchUserByUsernameView(APIView):
         serializer = SearchUserByUsernameSerializer(users, many=True)
 
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class UserReportCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        manual_parameters=[
+            openapi.Parameter(
+                'reported-user-id', openapi.IN_HEADER,
+                description='ID of the user being reported',
+                type=openapi.TYPE_INTEGER,
+                required=True,
+            ),
+        ],
+        request_body=UserReportSerializer,
+        responses={
+            201: openapi.Response('Report created successfully', UserReportSerializer),
+            400: openapi.Response('Bad request'),
+            404: openapi.Response('Reported user not found'),
+        }
+    )
+    def post(self, request):
+        reported_user_id = request.headers.get('reported-user-id')
+        if not reported_user_id:
+            return Response({'error': 'reported-user-id header is required.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        try:
+            reported_user_id = int(reported_user_id)
+        except (ValueError, TypeError):
+            return Response({'error': 'reported-user-id header must be a valid integer.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            reported_user = User.objects.get(pk=reported_user_id)
+        except User.DoesNotExist:
+            return Response({'error': 'Reported user not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if request.user == reported_user:
+            return Response({'error': 'You cannot report yourself.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        serializer = UserReportSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save(reporter=request.user, reported_user=reported_user)
+        
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+

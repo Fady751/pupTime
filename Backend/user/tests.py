@@ -1356,3 +1356,105 @@ class GoogleAuthFcmTokenTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         user = User.objects.get(email='guser@example.com')
         self.assertIsNone(user.fcm_token)
+
+
+class UserReportCreateViewTests(APITestCase):
+    """Test cases for the UserReportCreateView endpoint."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.reporter = User.objects.create_user(
+            username='reporter_user',
+            email='reporter@example.com',
+            password='password123'
+        )
+        self.reported = User.objects.create_user(
+            username='reported_user',
+            email='reported@example.com',
+            password='password123'
+        )
+        self.token = Token.objects.create(user=self.reporter)
+        self.url = reverse('report-user')
+
+    def test_report_user_success(self):
+        """Test successfully reporting another user."""
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        response = self.client.post(
+            self.url,
+            {'reason': 'Inappropriate behavior.'},
+            format='json',
+            HTTP_REPORTED_USER_ID=str(self.reported.id)
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['reason'], 'Inappropriate behavior.')
+        
+        # Verify db record
+        from .models import UserReport
+        self.assertTrue(UserReport.objects.filter(reporter=self.reporter, reported_user=self.reported).exists())
+        report = UserReport.objects.get(reporter=self.reporter, reported_user=self.reported)
+        self.assertEqual(report.reason, 'Inappropriate behavior.')
+        self.assertEqual(report.status, UserReport.Status.PENDING)
+
+    def test_report_user_missing_header_fails(self):
+        """Test reporting a user without the reported-user-id header fails."""
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        response = self.client.post(
+            self.url,
+            {'reason': 'Some reason'},
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('error', response.data)
+        self.assertEqual(response.data['error'], 'reported-user-id header is required.')
+
+    def test_report_user_invalid_header_format_fails(self):
+        """Test reporting a user with a non-integer header value fails."""
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        response = self.client.post(
+            self.url,
+            {'reason': 'Some reason'},
+            format='json',
+            HTTP_REPORTED_USER_ID='not-an-integer'
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('error', response.data)
+        self.assertEqual(response.data['error'], 'reported-user-id header must be a valid integer.')
+
+    def test_report_user_nonexistent_user_fails(self):
+        """Test reporting a non-existent user ID fails with 404."""
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        response = self.client.post(
+            self.url,
+            {'reason': 'Some reason'},
+            format='json',
+            HTTP_REPORTED_USER_ID='999999'
+        )
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertIn('error', response.data)
+        self.assertEqual(response.data['error'], 'Reported user not found.')
+
+    def test_report_self_fails(self):
+        """Test that a user cannot report themselves."""
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        response = self.client.post(
+            self.url,
+            {'reason': 'I want to report myself.'},
+            format='json',
+            HTTP_REPORTED_USER_ID=str(self.reporter.id)
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('error', response.data)
+        self.assertEqual(response.data['error'], 'You cannot report yourself.')
+
+    def test_report_missing_reason_fails(self):
+        """Test that submitting a report without a reason fails."""
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        response = self.client.post(
+            self.url,
+            {},
+            format='json',
+            HTTP_REPORTED_USER_ID=str(self.reported.id)
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('reason', response.data)
+

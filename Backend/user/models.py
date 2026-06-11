@@ -60,3 +60,24 @@ class UserInterest(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.interest.title}"
+
+
+class UserReport(models.Model):
+    class Status(models.TextChoices):
+        PENDING = 'PENDING', 'Pending'
+        RESOLVED = 'RESOLVED', 'Resolved'
+
+    class ActionTaken(models.TextChoices):
+        NONE = 'NONE', 'None'
+        WARNED = 'WARNED', 'Warned'
+        BLOCKED = 'BLOCKED', 'Blocked'
+
+    reporter = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reports_sent')
+    reported_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reports_received')
+    reason = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    action_taken = models.CharField(max_length=20, choices=ActionTaken.choices, default=ActionTaken.NONE)
+
+    def __str__(self):
+        return f"Report by {self.reporter.username} against {self.reported_user.username}"
