@@ -1,5 +1,8 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
+from django.db.models import Count, Q
+
+
 
 from .models import User, InterestCategory, Interest, UserInterest, UserReport
 from notification.services import push_warning_notification
@@ -57,8 +60,34 @@ class UserReportAdmin(admin.ModelAdmin):
 
 
 
-admin.site.register(User, UserAdmin)
+class CustomUserAdmin(UserAdmin):
+    list_display = ('username', 'email', 'is_active', 'is_staff', 'joined_on', 'num_reports')
+    readonly_fields = UserAdmin.readonly_fields + ('joined_on',)
+
+    fieldsets = UserAdmin.fieldsets + (
+        ('Custom Info', {'fields': ('google_auth_id', 'fcm_token', 'gender', 'birth_day', 'joined_on')}),
+    )
+
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.annotate(
+            num_reports=Count(
+                'reports_received',
+                filter=Q(reports_received__action_taken=UserReport.ActionTaken.WARNED)
+            )
+        )
+
+    def num_reports(self, obj):
+        return obj.num_reports
+    num_reports.short_description = 'Warnings Received'
+    num_reports.admin_order_field = 'num_reports'
+
+
+
+admin.site.register(User, CustomUserAdmin)
 admin.site.register(InterestCategory)
 admin.site.register(Interest)
 admin.site.register(UserInterest)
+
 
