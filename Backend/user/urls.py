@@ -28,3 +28,4 @@ urlpatterns = [
     path('report/', UserReportCreateView.as_view(), name='report-user'),
 ]
 
+

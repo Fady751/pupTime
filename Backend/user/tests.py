@@ -1374,16 +1374,15 @@ class UserReportCreateViewTests(APITestCase):
             password='password123'
         )
         self.token = Token.objects.create(user=self.reporter)
-        self.url = reverse('report-user')
 
     def test_report_user_success(self):
-        """Test successfully reporting another user."""
+        """Test successfully reporting another user via URL path parameter."""
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        url = reverse('report-user', kwargs={'reported_user_id': self.reported.id})
         response = self.client.post(
-            self.url,
+            url,
             {'reason': 'Inappropriate behavior.'},
-            format='json',
-            HTTP_REPORTED_USER_ID=str(self.reported.id)
+            format='json'
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['reason'], 'Inappropriate behavior.')
@@ -1395,52 +1394,25 @@ class UserReportCreateViewTests(APITestCase):
         self.assertEqual(report.reason, 'Inappropriate behavior.')
         self.assertEqual(report.status, UserReport.Status.PENDING)
 
-    def test_report_user_missing_header_fails(self):
-        """Test reporting a user without the reported-user-id header fails."""
+    def test_report_user_nonexistent_user_fails(self):
+        """Test reporting a non-existent user ID returns 404."""
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        url = reverse('report-user', kwargs={'reported_user_id': 999999})
         response = self.client.post(
-            self.url,
+            url,
             {'reason': 'Some reason'},
             format='json'
         )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('error', response.data)
-        self.assertEqual(response.data['error'], 'reported-user-id header is required.')
-
-    def test_report_user_invalid_header_format_fails(self):
-        """Test reporting a user with a non-integer header value fails."""
-        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
-        response = self.client.post(
-            self.url,
-            {'reason': 'Some reason'},
-            format='json',
-            HTTP_REPORTED_USER_ID='not-an-integer'
-        )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('error', response.data)
-        self.assertEqual(response.data['error'], 'reported-user-id header must be a valid integer.')
-
-    def test_report_user_nonexistent_user_fails(self):
-        """Test reporting a non-existent user ID fails with 404."""
-        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
-        response = self.client.post(
-            self.url,
-            {'reason': 'Some reason'},
-            format='json',
-            HTTP_REPORTED_USER_ID='999999'
-        )
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-        self.assertIn('error', response.data)
-        self.assertEqual(response.data['error'], 'Reported user not found.')
 
     def test_report_self_fails(self):
         """Test that a user cannot report themselves."""
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        url = reverse('report-user', kwargs={'reported_user_id': self.reporter.id})
         response = self.client.post(
-            self.url,
+            url,
             {'reason': 'I want to report myself.'},
-            format='json',
-            HTTP_REPORTED_USER_ID=str(self.reporter.id)
+            format='json'
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('error', response.data)
@@ -1449,12 +1421,14 @@ class UserReportCreateViewTests(APITestCase):
     def test_report_missing_reason_fails(self):
         """Test that submitting a report without a reason fails."""
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        url = reverse('report-user', kwargs={'reported_user_id': self.reported.id})
         response = self.client.post(
-            self.url,
+            url,
             {},
-            format='json',
-            HTTP_REPORTED_USER_ID=str(self.reported.id)
+            format='json'
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('reason', response.data)
+
+
 
