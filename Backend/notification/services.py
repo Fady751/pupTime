@@ -1,3 +1,4 @@
+from celery.utils import functional
 import logging
 from firebase_admin import messaging
 from .models import Notification
@@ -17,12 +18,7 @@ def _user_payload(user):
 
 
 def _send_push(fcm_token, notification, title, body, data):
-    """Send the FCM push for an already-persisted notification.
 
-    FCM data values must be strings, so everything is coerced. `type` and
-    `notification_id` are always included so the frontend can route the tap and
-    fetch the full record from the notifications endpoint.
-    """
     if not fcm_token:
         return
 
@@ -153,14 +149,14 @@ def push_message_notification(receiver, fcm_token, sender, message, notification
 
 
 def push_warning_notification(receiver, fcm_token, reason):
-    if not receiver:
+    if not receiver or not fcm_token:
         return '400'
 
     notification = Notification.objects.create(
         receiver=receiver,
         type='Report',
         data={
-            'message': f'You have received a warning due to: {reason}',
+            'message': f'You have received a warning',
             'reason': reason,
         },
     )

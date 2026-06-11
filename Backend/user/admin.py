@@ -45,6 +45,17 @@ class UserReportAdmin(admin.ModelAdmin):
             deleted_count += 1
         self.message_user(request, f"Successfully deleted {deleted_count} reported user(s) literally.")
 
+    def save_model(self, request, obj, form, change):
+        if obj.action_taken != UserReport.ActionTaken.NONE:
+            if obj.action_taken == UserReport.ActionTaken.WARNED and obj.status == UserReport.Status.PENDING:
+                push_warning_notification(obj.reported_user, obj.reported_user.fcm_token, obj.reason)
+            obj.status = UserReport.Status.RESOLVED
+        else:
+            obj.status = UserReport.Status.PENDING
+        super().save_model(request, obj, form, change)
+
+
+
 
 admin.site.register(User, UserAdmin)
 admin.site.register(InterestCategory)
