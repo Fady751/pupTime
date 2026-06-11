@@ -1,7 +1,7 @@
 import { StyleSheet } from "react-native";
 import type { AppColors } from "../../constants/colors";
 
-export const createHomeStyles = (colors: AppColors) =>
+export const createHomeStyles = (colors: AppColors, theme?: string) =>
   StyleSheet.create({
     safe: {
       flex: 1,
@@ -119,11 +119,11 @@ export const createHomeStyles = (colors: AppColors) =>
     companionTitle: {
       fontSize: 18,
       fontWeight: "800",
-      color: colors.primaryDark,
+      color: theme === "dark" ? "#FFFFFF" : colors.primaryDark,
     },
     companionSubtitle: {
       fontSize: 13,
-      color: colors.primaryDark,
+      color: theme === "dark" ? "#FFFFFF" : colors.primaryDark,
       opacity: 0.8,
     },
     companionBodyRow: {
@@ -136,7 +136,7 @@ export const createHomeStyles = (colors: AppColors) =>
       flex: 1,
       fontSize: 15,
       lineHeight: 22,
-      color: colors.primaryDark,
+      color: theme === "dark" ? "#FFFFFF" : colors.primaryDark,
       marginRight: 16,
       fontWeight: "500",
     },
@@ -200,7 +200,7 @@ export const createHomeStyles = (colors: AppColors) =>
       elevation: 8,
     },
     quickActionItem: {
-      width: "33.33%",
+      width: "25%",
       alignItems: "center",
     },
     quickActionIcon: {
@@ -323,7 +323,7 @@ export const createHomeStyles = (colors: AppColors) =>
       fontWeight: "500",
     },
     bottomSpacer: {
-      height: 80,
+      height: 115,
     },
   });
 

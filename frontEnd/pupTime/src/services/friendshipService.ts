@@ -297,3 +297,7 @@ export const searchUsers = async (query: string): Promise<SearchUser[]> => {
 
   return response.data as SearchUser[];
 };
+
+export const reportUser = async (reportedUserId: string | number, reason: string): Promise<void> => {
+  await api.post(`/user/report/${reportedUserId}/`, { reason });
+};
