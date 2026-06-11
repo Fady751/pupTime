@@ -25,7 +25,7 @@ urlpatterns = [
     path('<int:user_id>/friends/', UserFreindsView.as_view(), name='user-friends'),
     path('requests/', UserReqeustsView.as_view(), name='user-requests'),
     path('search/<str:name>/', SearchUserByUsernameView.as_view(), name='user-detail-By-username'),
-    path('report/', UserReportCreateView.as_view(), name='report-user'),
+    path('report/<int:reported_user_id>/', UserReportCreateView.as_view(), name='report-user'),
 ]
 
 
