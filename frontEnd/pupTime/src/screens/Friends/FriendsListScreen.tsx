@@ -306,6 +306,7 @@ const FriendsListScreen = ({ navigation }: { navigation: any }) => {
                     friend={friend}
                     onPress={handlePressFriend}
                     onBlock={handleBlockFriend}
+                    onRefreshList={() => loadData(false)}
                   />
                 ))
               ) : (

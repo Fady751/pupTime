@@ -31,6 +31,8 @@ function buildPendingNavigation(data) {
             }
             return JSON.stringify({ screen: 'ChatRoom', params: { roomId } });
         }
+        case 'Report':
+            return JSON.stringify({ showReportReason: data.reason });
         default:
             return null;
     }
