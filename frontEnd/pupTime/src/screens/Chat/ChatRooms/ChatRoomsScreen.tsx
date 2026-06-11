@@ -141,7 +141,7 @@ const ChatRoomsScreen: React.FC = () => {
     });
   };
 
-  const handleLongPressRoom = (room: ChatRoom) => {
+  const handleOpenDetails = (room: ChatRoom) => {
     navigation.navigate('ChatRoomDetails', {
       roomId: room.id,
     });
@@ -164,7 +164,6 @@ const ChatRoomsScreen: React.FC = () => {
       <Pressable
         style={({ pressed }) => [styles.roomCard, { opacity: pressed ? 0.85 : 1 }]}
         onPress={() => handleOpenRoom(item)}
-        onLongPress={() => handleLongPressRoom(item)}
       >
         <View style={styles.roomAvatar}>
           <Text style={styles.roomAvatarText}>{initials}</Text>
@@ -179,6 +178,16 @@ const ChatRoomsScreen: React.FC = () => {
         </View>
         <View style={styles.roomMeta}>
           <Text style={styles.roomTime}>{timeStr}</Text>
+          <Pressable
+            onPress={() => handleOpenDetails(item)}
+            style={({ pressed }) => [
+              styles.infoButton,
+              { opacity: pressed ? 0.6 : 1 }
+            ]}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Text style={styles.infoIcon}>ⓘ</Text>
+          </Pressable>
         </View>
       </Pressable>
     );

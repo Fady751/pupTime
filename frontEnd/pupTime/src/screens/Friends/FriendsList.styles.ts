@@ -34,19 +34,30 @@ export const createFriendsListStyles = (colors: AppColors) =>
     header: {
       marginHorizontal: 20,
       marginTop: 20,
-      marginBottom: 20,
+      marginBottom: 12,
       paddingHorizontal: 24,
       paddingVertical: 24,
       borderRadius: 32,
       backgroundColor: colors.surface,
-      flexDirection: "row",
-      alignItems: "flex-start",
-      justifyContent: "space-between",
       shadowColor: "#000",
       shadowOffset: { width: 0, height: 10 },
       shadowOpacity: 0.05,
       shadowRadius: 20,
       elevation: 7,
+    },
+    tabsContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 12,
+      marginBottom: 16,
+      marginHorizontal: 20,
+    },
+    headerActions: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingTop: 8,
+      gap: 10,
     },
     kicker: {
       fontSize: 12,
@@ -68,12 +79,6 @@ export const createFriendsListStyles = (colors: AppColors) =>
       color: colors.secondaryText,
       fontWeight: "500",
     },
-    headerActions: {
-      flexDirection: "row",
-      alignItems: "center",
-      paddingTop: 8,
-      gap: 10,
-    },
     headerActionButton: {
       minWidth: 90,
       alignItems: "center",
@@ -94,9 +99,12 @@ export const createFriendsListStyles = (colors: AppColors) =>
       fontWeight: "800",
       letterSpacing: 0.3,
     },
+    scrollContainer: {
+      flexGrow: 1,
+      paddingBottom: 40,
+    },
     listContainer: {
       paddingHorizontal: 20,
-      paddingBottom: 40,
     },
     loadingState: {
       flex: 1,

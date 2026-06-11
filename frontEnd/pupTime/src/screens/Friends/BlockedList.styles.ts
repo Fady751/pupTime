@@ -64,9 +64,12 @@ export const createBlockedListStyles = (colors: AppColors) =>
       color: colors.secondaryText,
       fontWeight: "500",
     },
+    scrollContainer: {
+      flexGrow: 1,
+      paddingBottom: 40,
+    },
     listContainer: {
       paddingHorizontal: 20,
-      paddingBottom: 40,
     },
     sectionCard: {
       borderRadius: 32,

@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import type { AppColors } from '../../constants/colors';
+import type { AppColors } from '../../../constants/colors';
 
 const createChatRoomsStyles = (colors: AppColors) =>
   StyleSheet.create({
@@ -256,13 +256,27 @@ const createChatRoomsStyles = (colors: AppColors) =>
       fontWeight: '500',
     },
     roomMeta: {
+      flexDirection: 'column',
       alignItems: 'flex-end',
+      gap: 6,
       marginLeft: 12,
     },
     roomTime: {
       fontSize: 12,
       color: colors.secondaryText,
       fontWeight: '600',
+    },
+    infoButton: {
+      padding: 4,
+      borderRadius: 999,
+      backgroundColor: colors.background,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    infoIcon: {
+      fontSize: 18,
+      color: colors.primary,
+      fontWeight: '800',
     },
 
     /* ──── empty & loading ──── */

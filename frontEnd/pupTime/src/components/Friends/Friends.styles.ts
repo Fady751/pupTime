@@ -106,6 +106,52 @@ export const createFriendsStyles = (colors: AppColors) =>
       fontWeight: "800",
       fontSize: 13,
     },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: "rgba(0, 0, 0, 0.4)",
+      justifyContent: "center",
+      alignItems: "center",
+      paddingHorizontal: 20,
+    },
+    modalCard: {
+      width: "100%",
+      backgroundColor: colors.surface,
+      borderRadius: 24,
+      paddingHorizontal: 24,
+      paddingVertical: 24,
+      flexDirection: "column",
+      alignItems: "stretch",
+      gap: 20,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.1,
+      shadowRadius: 20,
+      elevation: 8,
+    },
+    modalTitle: {
+      fontSize: 18,
+      fontWeight: "800",
+      color: colors.text,
+      alignSelf: "flex-start",
+    },
+    modalActions: {
+      flexDirection: "column",
+      alignItems: "flex-end",
+      gap: 16,
+    },
+    modalButton: {
+      paddingVertical: 4,
+    },
+    destructiveActionText: {
+      fontSize: 15,
+      fontWeight: "800",
+      color: colors.error,
+    },
+    standardActionText: {
+      fontSize: 15,
+      fontWeight: "800",
+      color: colors.secondaryText,
+    },
   });
 
 export default createFriendsStyles;

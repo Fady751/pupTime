@@ -117,9 +117,12 @@ export const createAddFriendStyles = (colors: AppColors) =>
       alignItems: "center",
       justifyContent: "center",
     },
+    scrollContainer: {
+      flexGrow: 1,
+      paddingBottom: 40,
+    },
     listContainer: {
       paddingHorizontal: 20,
-      paddingBottom: 40,
     },
     sectionCard: {
       borderRadius: 24,

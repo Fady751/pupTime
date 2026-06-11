@@ -173,7 +173,18 @@ const AddFriendScreen = () => {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <View style={styles.container}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
+        }
+      >
         <View style={styles.glowOrbTop} />
         <View style={styles.glowOrbBottom} />
 
@@ -222,17 +233,7 @@ const AddFriendScreen = () => {
             <Text style={styles.emptyText}>{error}</Text>
           </View>
         ) : (
-          <ScrollView
-            contentContainerStyle={styles.listContainer}
-            showsVerticalScrollIndicator={false}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                tintColor={colors.primary}
-              />
-            }
-          >
+          <View style={styles.listContainer}>
             <View style={styles.sectionCard}>
               <Text style={styles.sectionTitle}>Search Results</Text>
 
@@ -313,9 +314,9 @@ const AddFriendScreen = () => {
                 </View>
               )}
             </View>
-          </ScrollView>
+          </View>
         )}
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 };

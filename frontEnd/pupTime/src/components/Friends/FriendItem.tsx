@@ -1,5 +1,5 @@
-import React, { useMemo } from "react";
-import { Pressable, Text, View, Alert } from "react-native";
+import React, { useMemo, useState } from "react";
+import { Pressable, Text, View, Alert, Modal, TouchableOpacity } from "react-native";
 import useTheme from "../../Hooks/useTheme";
 import createFriendsStyles from "./Friends.styles";
 import type { Friend } from "../../types/friend";
@@ -19,29 +19,7 @@ export const FriendItem: React.FC<FriendItemProps> = ({
 }) => {
   const { colors } = useTheme();
   const styles = useMemo(() => createFriendsStyles(colors), [colors]);
-
-  const handleMenuPress = () => {
-    const actions = [] as { text: string; onPress?: () => void; style?: "destructive" | "default" }[];
-
-    if (onRemove) {
-      actions.push({
-        text: "Remove Friend",
-        onPress: () => onRemove(friend),
-        style: "destructive",
-      });
-    }
-    if (onBlock) {
-      actions.push({
-        text: "Block Friend",
-        onPress: () => onBlock(friend),
-        style: "destructive",
-      });
-    }
-
-    actions.push({ text: "Cancel", style: "default" });
-
-    Alert.alert("Friend options", undefined, actions);
-  };
+  const [menuVisible, setMenuVisible] = useState(false);
 
   const initials = friend.name
     .split(" ")
@@ -53,33 +31,82 @@ export const FriendItem: React.FC<FriendItemProps> = ({
   const statusLabel = friend.status === "active" ? "Active" : friend.status === "offline" ? "Offline" : undefined;
 
   return (
-    <Pressable
-      onPress={() => onPress?.(friend)}
-      style={({ pressed }) => [
-        styles.row,
-        styles.rowBorder,
-        { opacity: pressed ? 0.85 : 1 },
-      ]}
-    >
-      <View style={styles.left}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{friend.avatar || initials || "👤"}</Text>
-        </View>
-        <View>
-          <Text style={styles.name}>{friend.name}</Text>
-          {statusLabel && <Text style={styles.status}>{statusLabel}</Text>}
-        </View>
-      </View>
+    <>
       <Pressable
-        onPress={handleMenuPress}
+        onPress={() => onPress?.(friend)}
         style={({ pressed }) => [
-          styles.menuButton,
-          { opacity: pressed ? 0.6 : 1 },
+          styles.row,
+          styles.rowBorder,
+          { opacity: pressed ? 0.85 : 1 },
         ]}
       >
-        <Text style={styles.menuText}>⋮</Text>
+        <View style={styles.left}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{friend.avatar || initials || "👤"}</Text>
+          </View>
+          <View>
+            <Text style={styles.name}>{friend.name}</Text>
+            {statusLabel && <Text style={styles.status}>{statusLabel}</Text>}
+          </View>
+        </View>
+        <Pressable
+          onPress={() => setMenuVisible(true)}
+          style={({ pressed }) => [
+            styles.menuButton,
+            { opacity: pressed ? 0.6 : 1 },
+          ]}
+        >
+          <Text style={styles.menuText}>⋮</Text>
+        </Pressable>
       </Pressable>
-    </Pressable>
+
+      <Modal
+        visible={menuVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMenuVisible(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setMenuVisible(false)}>
+          <Pressable style={styles.modalCard} onPress={() => {}}>
+            <Text style={styles.modalTitle}>Friend Options</Text>
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={() => {
+                  setMenuVisible(false);
+                  Alert.alert(
+                    "Reported",
+                    `Thank you. We have received your report regarding ${friend.name} and will review it shortly.`,
+                    [{ text: "OK" }]
+                  );
+                }}
+              >
+                <Text style={styles.destructiveActionText}>Report Friend</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={() => {
+                  setMenuVisible(false);
+                  if (onBlock) {
+                    onBlock(friend);
+                  }
+                }}
+              >
+                <Text style={styles.destructiveActionText}>Block Friend</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={() => setMenuVisible(false)}
+              >
+                <Text style={styles.standardActionText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </>
   );
 };
 

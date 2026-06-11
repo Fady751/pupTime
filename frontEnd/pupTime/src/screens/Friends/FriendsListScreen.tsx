@@ -147,7 +147,18 @@ const FriendsListScreen = ({ navigation }: { navigation: any }) => {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <View style={styles.container}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
+        }
+      >
         <View style={styles.glowOrbTop} />
         <View style={styles.glowOrbBottom} />
 
@@ -162,41 +173,42 @@ const FriendsListScreen = ({ navigation }: { navigation: any }) => {
             <Text style={styles.title}>Friends</Text>
             <Text style={styles.subtitle}>Your accountability circle</Text>
           </View>
-          <View style={styles.headerActions}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.headerActionButton,
-                { opacity: pressed ? 0.8 : 1 },
-              ]}
-              onPress={() => navigation.navigate("ChatRooms")}
-            >
-              <Text style={styles.headerActionText}>
-                Chats
-              </Text>
-            </Pressable>
-            <Pressable
-              style={({ pressed }) => [
-                styles.headerActionButton,
-                { opacity: pressed ? 0.8 : 1 },
-              ]}
-              onPress={() => navigation.navigate("AddFriend")}
-            >
-              <Text style={styles.headerActionText}>
-                + Add
-              </Text>
-            </Pressable>
-            <Pressable
-              style={({ pressed }) => [
-                styles.headerActionButton,
-                { opacity: pressed ? 0.8 : 1 },
-              ]}
-              onPress={() => navigation.navigate("BlockedFriends")}
-            >
-              <Text style={styles.headerActionText}>
-                Blocked
-              </Text>
-            </Pressable>
-          </View>
+        </View>
+
+        <View style={styles.tabsContainer}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.headerActionButton,
+              { opacity: pressed ? 0.8 : 1 },
+            ]}
+            onPress={() => navigation.navigate("ChatRooms")}
+          >
+            <Text style={styles.headerActionText}>
+              Chats
+            </Text>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [
+              styles.headerActionButton,
+              { opacity: pressed ? 0.8 : 1 },
+            ]}
+            onPress={() => navigation.navigate("AddFriend")}
+          >
+            <Text style={styles.headerActionText}>
+              + Add
+            </Text>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [
+              styles.headerActionButton,
+              { opacity: pressed ? 0.8 : 1 },
+            ]}
+            onPress={() => navigation.navigate("BlockedFriends")}
+          >
+            <Text style={styles.headerActionText}>
+              Blocked
+            </Text>
+          </Pressable>
         </View>
 
         {loading ? (
@@ -218,17 +230,7 @@ const FriendsListScreen = ({ navigation }: { navigation: any }) => {
             </Pressable>
           </View>
         ) : (
-          <ScrollView
-            contentContainerStyle={styles.listContainer}
-            showsVerticalScrollIndicator={false}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                tintColor={colors.primary}
-              />
-            }
-          >
+          <View style={styles.listContainer}>
             {incomingRequests.length > 0 && (
               <View style={styles.sectionCard}>
                 <View style={styles.sectionHeaderRow}>
@@ -314,9 +316,9 @@ const FriendsListScreen = ({ navigation }: { navigation: any }) => {
                 </View>
               )}
             </View>
-          </ScrollView>
+          </View>
         )}
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 };

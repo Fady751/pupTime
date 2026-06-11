@@ -48,7 +48,7 @@ export const sendMessage = async (request: { conversation_id?: string, message: 
     }
 };
 
-export const approveChoice = async (choice_id: string): Promise<Message> => {
+export const approveChoice = async (choice_id: string): Promise<any> => {
     try {
         const response = await api.post(`/ai/chat/approve-choice/`, { choice_id });
         return response.data;

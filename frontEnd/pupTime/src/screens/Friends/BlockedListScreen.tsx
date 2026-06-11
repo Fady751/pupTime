@@ -89,7 +89,18 @@ const BlockedListScreen = () => {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <View style={styles.container}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
+        }
+      >
         <View style={styles.glowOrbTop} />
         <View style={styles.glowOrbBottom} />
 
@@ -108,17 +119,7 @@ const BlockedListScreen = () => {
             <Text style={styles.emptyText}>{error}</Text>
           </View>
         ) : hasBlocked ? (
-          <ScrollView
-            contentContainerStyle={styles.listContainer}
-            showsVerticalScrollIndicator={false}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                tintColor={colors.primary}
-              />
-            }
-          >
+          <View style={styles.listContainer}>
             <View style={styles.sectionCard}>
               <View style={styles.sectionHeaderRow}>
                 <Text style={styles.sectionLabel}>Blocked Accounts</Text>
@@ -133,13 +134,13 @@ const BlockedListScreen = () => {
                 />
               ))}
             </View>
-          </ScrollView>
+          </View>
         ) : (
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>You have no blocked users.</Text>
           </View>
         )}
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 };

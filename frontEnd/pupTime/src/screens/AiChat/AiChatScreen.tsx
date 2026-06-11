@@ -91,11 +91,11 @@ const AiChatScreen: React.FC = () => {
   const hasPendingChoices = (): boolean => {
     return false;
     const lastMessage = messages[messages.length - 1];
-    return !!(
-      lastMessage?.role === 'assistant' &&
-      lastMessage.choices?.length &&
-      !lastMessage.choices.some(c => c.is_executed)
-    );
+    const choices = lastMessage?.choices;
+    if (lastMessage?.role !== 'assistant' || !choices) {
+      return false;
+    }
+    return (choices as Choice[]).length > 0 && !(choices as Choice[]).some(c => c.is_executed);
   };
 
   // ── Send text message ─────────────────────────────────
@@ -216,9 +216,16 @@ const AiChatScreen: React.FC = () => {
       );
       if (msgIndex === -1) return;
 
-      const updatedMessage = await approveChoice(choice.id);
+      await approveChoice(choice.id);
+
       const newMessages = [...messages];
-      newMessages[msgIndex] = updatedMessage;
+      const targetMessage = { ...newMessages[msgIndex] };
+      if (targetMessage.choices) {
+        targetMessage.choices = targetMessage.choices.map(c =>
+          c.id === choice.id ? { ...c, is_executed: true } : c,
+        );
+      }
+      newMessages[msgIndex] = targetMessage;
       setMessages(newMessages);
     } catch (error) {
       console.error('Failed to approve choice', error);
@@ -340,7 +347,7 @@ const AiChatScreen: React.FC = () => {
   return (
     <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: colors.border, backgroundColor: colors.surface }]}>
