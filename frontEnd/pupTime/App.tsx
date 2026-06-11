@@ -10,7 +10,7 @@ import { ThemeProvider } from './src/context/ThemeContext';
 import notifee, { EventType } from '@notifee/react-native';
 import { navigate, navigationRef } from './src/navigation/navigationRef';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AppState } from 'react-native';
+import { AppState, Modal, Pressable, View, Text, TouchableOpacity } from 'react-native';
 
 const messaging = getMessaging();
 
@@ -41,6 +41,7 @@ function routeFromData(data?: Record<string, any>) {
 
 const AppContent = () => {
   const { colors } = useTheme();
+  const [activeWarningReason, setActiveWarningReason] = React.useState<string | null>(null);
 
   useEffect(() => {
     // ─── Handle resume from background via AsyncStorage ─────────────────────
@@ -50,14 +51,19 @@ const AppContent = () => {
         if (pending) {
           await AsyncStorage.removeItem('pending_navigation');
           try {
-            const { screen, params } = JSON.parse(pending);
-            const checkNav = setInterval(() => {
-              if (navigationRef.isReady()) {
-                clearInterval(checkNav);
-                navigate(screen, params);
-              }
-            }, 100);
-            setTimeout(() => clearInterval(checkNav), 5000);
+            const parsed = JSON.parse(pending);
+            if (parsed.showReportReason) {
+              setActiveWarningReason(parsed.showReportReason);
+            } else {
+              const { screen, params } = parsed;
+              const checkNav = setInterval(() => {
+                if (navigationRef.isReady()) {
+                  clearInterval(checkNav);
+                  navigate(screen, params);
+                }
+              }, 100);
+              setTimeout(() => clearInterval(checkNav), 5000);
+            }
           } catch {
             // ignore parse errors
           }
@@ -81,7 +87,12 @@ const AppContent = () => {
     // ─── Foreground notifee press (user taps in-app banner) ─────────────────
     const unsubscribeNotifee = notifee.onForegroundEvent(({ type, detail }) => {
       if (type === EventType.PRESS) {
-        routeFromData(detail.notification?.data as Record<string, any>);
+        const data = detail.notification?.data as Record<string, any> | undefined;
+        if (data?.type === 'Report' && data.reason) {
+          setActiveWarningReason(data.reason);
+        } else {
+          routeFromData(data);
+        }
       }
     });
 
@@ -89,13 +100,18 @@ const AppContent = () => {
     const checkInitialNotification = async () => {
       const initialNotification = await notifee.getInitialNotification();
       if (initialNotification?.notification?.data) {
-        const checkNav = setInterval(() => {
-          if (navigationRef.isReady()) {
-            clearInterval(checkNav);
-            routeFromData(initialNotification.notification!.data as Record<string, any>);
-          }
-        }, 100);
-        setTimeout(() => clearInterval(checkNav), 5000);
+        const data = initialNotification.notification.data as Record<string, any>;
+        if (data.type === 'Report' && data.reason) {
+          setActiveWarningReason(data.reason);
+        } else {
+          const checkNav = setInterval(() => {
+            if (navigationRef.isReady()) {
+              clearInterval(checkNav);
+              routeFromData(data);
+            }
+          }, 100);
+          setTimeout(() => clearInterval(checkNav), 5000);
+        }
       }
     };
 
@@ -111,6 +127,84 @@ const AppContent = () => {
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
       <Root />
+
+      <Modal
+        visible={activeWarningReason !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setActiveWarningReason(null)}
+      >
+        <Pressable 
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0, 0, 0, 0.4)",
+            justifyContent: "center",
+            alignItems: "center",
+            paddingHorizontal: 20,
+          }}
+          onPress={() => setActiveWarningReason(null)}
+        >
+          <Pressable 
+            style={{
+              width: "100%",
+              backgroundColor: colors.surface,
+              borderRadius: 24,
+              padding: 24,
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 10 },
+              shadowOpacity: 0.1,
+              shadowRadius: 20,
+              elevation: 8,
+              gap: 16,
+            }}
+            onPress={() => {}}
+          >
+            <Text style={{ fontSize: 20, fontWeight: "800", color: colors.error }}>
+              ⚠️ System Warning
+            </Text>
+            
+            <Text style={{ fontSize: 15, color: colors.text, fontWeight: "600", lineHeight: 22 }}>
+              Your account has been reported. Here is the reason provided:
+            </Text>
+
+            <View 
+              style={{
+                backgroundColor: colors.background,
+                borderRadius: 16,
+                padding: 16,
+                borderWidth: 1.5,
+                borderColor: colors.border,
+              }}
+            >
+              <Text 
+                style={{ 
+                  fontSize: 15, 
+                  color: colors.text, 
+                  lineHeight: 22, 
+                  fontWeight: "500" 
+                }}
+              >
+                {activeWarningReason}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={{
+                backgroundColor: colors.primary,
+                borderRadius: 999,
+                paddingVertical: 12,
+                alignItems: "center",
+                marginTop: 8,
+              }}
+              onPress={() => setActiveWarningReason(null)}
+            >
+              <Text style={{ color: "#FFFFFF", fontWeight: "800", fontSize: 15 }}>
+                Understood
+              </Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </GestureHandlerRootView>
   );
 };

@@ -106,8 +106,8 @@ const formatTime = (isoString: string): string => {
 
 const HomeScreen: React.FC = () => {
   const navigation = useNavigation<any>();
-  const { colors } = useTheme();
-  const styles = useMemo(() => createHomeStyles(colors), [colors]);
+  const { colors, theme } = useTheme();
+  const styles = useMemo(() => createHomeStyles(colors, theme), [colors, theme]);
   const route = useRoute();
 
   const user = useSelector((state: RootState) => state.user.data);
