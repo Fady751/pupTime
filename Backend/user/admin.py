@@ -31,7 +31,7 @@ class UserReportAdmin(admin.ModelAdmin):
         warned_count = 0
         for report in queryset.filter(status=UserReport.Status.PENDING):
             reported_user = report.reported_user
-            push_warning_notification(reported_user, reported_user.fcm_token, report.reason)
+            push_warning_notification(reported_user, reported_user.fcm_token)
             report.status = UserReport.Status.RESOLVED
             report.action_taken = UserReport.ActionTaken.WARNED
             report.save(update_fields=['status', 'action_taken'])
@@ -51,7 +51,7 @@ class UserReportAdmin(admin.ModelAdmin):
     def save_model(self, request, obj, form, change):
         if obj.action_taken != UserReport.ActionTaken.NONE:
             if obj.action_taken == UserReport.ActionTaken.WARNED and obj.status == UserReport.Status.PENDING:
-                push_warning_notification(obj.reported_user, obj.reported_user.fcm_token, obj.reason)
+                push_warning_notification(obj.reported_user, obj.reported_user.fcm_token)
             obj.status = UserReport.Status.RESOLVED
         else:
             obj.status = UserReport.Status.PENDING

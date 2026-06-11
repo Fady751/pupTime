@@ -148,7 +148,7 @@ def push_message_notification(receiver, fcm_token, sender, message, notification
     return '200'
 
 
-def push_warning_notification(receiver, fcm_token, reason):
+def push_warning_notification(receiver, fcm_token ):
     if not receiver or not fcm_token:
         return '400'
 
@@ -157,7 +157,7 @@ def push_warning_notification(receiver, fcm_token, reason):
         type='Report',
         data={
             'message': f'You have received a warning',
-            'reason': reason,
+            'reason': 'This is a warning for violating the community guidelines, please follow the rules otherwise you will be banned',
         },
     )
 
@@ -165,7 +165,7 @@ def push_warning_notification(receiver, fcm_token, reason):
         fcm_token, notification,
         title='Warning Notification',
         body=notification.data['message'],
-        data={'reason': reason},
+        data={'reason': 'This is a warning for violating the community guidelines, please follow the rules otherwise you will be banned'},
     )
     return '200'
 
