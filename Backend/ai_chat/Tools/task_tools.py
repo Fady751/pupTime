@@ -38,12 +38,19 @@ class Action(BaseModel):
 class Choice(BaseModel):
     model_config = {"extra": "ignore"}
     id: str = Field(description="Unique ID for this choice, e.g., 'choice_1'")
-    actions: List[Action] = Field(description="List of actions to execute if this choice is selected")
+    actions: List[Action] = Field(
+        description=(
+            "Actions that ALL run together when the user approves this single choice. "
+            "If the user wants several tasks done together (e.g. 'create task 1 and task 2'), "
+            "put them ALL here as multiple actions in ONE choice — do NOT split them into "
+            "separate choices."
+        )
+    )
 
 class RespondToUserSchema(BaseModel):
     model_config = {"extra": "ignore"}
     message: str = Field(description="The conversational text message to show the user.")
-    choices: List[Choice] = Field(default=[], description="Proposed actions. Provide choices if the user wants to create, update, or delete tasks or create or edit social tasks.")
+    choices: List[Choice] = Field(default=[], description="Proposed actions. Provide choices if the user wants to create, update, or delete tasks or create or edit social tasks. Use MULTIPLE choices ONLY for mutually-exclusive alternatives the user picks between (e.g. 6 PM vs 8 PM). When the user wants several things done together, use ONE choice with multiple actions.")
 
 def get_task_tools(user, voice_message=None):
     """
