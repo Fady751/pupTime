@@ -30,6 +30,7 @@ import VoicePlayer from '../../components/VoicePlayer/VoicePlayer';
 import VoiceRecorderPanel from './components/VoiceRecorderPanel';
 import { useAudioRecorder } from '../../Hooks/useAudioRecorder';
 import useTheme from '../../Hooks/useTheme';
+import { fullSync } from '../../services/TaskService/syncService';
 import dayjs from 'dayjs';
 import { RootState } from '../../redux/store';
 
@@ -217,6 +218,13 @@ const AiChatScreen: React.FC = () => {
       if (msgIndex === -1) return;
 
       await approveChoice(choice.id);
+
+      // Trigger sync immediately to pull the new tasks/overrides from backend
+      try {
+        await fullSync();
+      } catch (syncError) {
+        console.warn('Background sync after choice approval failed:', syncError);
+      }
 
       const newMessages = [...messages];
       const targetMessage = { ...newMessages[msgIndex] };

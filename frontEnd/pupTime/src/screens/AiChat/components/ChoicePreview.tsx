@@ -34,8 +34,26 @@ const ChoicePreview: React.FC<ChoicePreviewProps> = ({ choice }) => {
 
   const actions: Action[] = useMemo(() => choice.actions_payload || [], [choice]);
 
-  const taskActions = useMemo(() => actions.filter(isTaskAction), [actions]);
   const socialActions = useMemo(() => actions.filter(isSocialAction), [actions]);
+  const taskActions = useMemo(() => {
+    const rawTaskActions = actions.filter(isTaskAction);
+    const hasSocialCreate = socialActions.some(sa => sa.action_name === 'create_SocialTask');
+    if (!hasSocialCreate) return rawTaskActions;
+
+    const socialCreateAction = socialActions.find(sa => sa.action_name === 'create_SocialTask');
+    const socialTitle = (socialCreateAction?.task_snapshot as SocialTaskSnapshot)?.title?.trim().toLowerCase() || '';
+
+    return rawTaskActions.filter(ta => {
+      if (ta.action_name === 'create_TaskTemplate') {
+        const tplTitle = (ta.task_snapshot as TaskTemplate)?.title?.trim().toLowerCase() || '';
+        if (tplTitle === socialTitle) {
+          console.log(`ChoicePreview: filtering out duplicate create_TaskTemplate action for social task: "${tplTitle}"`);
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [actions, socialActions]);
 
   const isExecuted = choice.is_executed;
 
@@ -49,59 +67,92 @@ const ChoicePreview: React.FC<ChoicePreviewProps> = ({ choice }) => {
     if (taskActions.length === 0) return; // no task actions → skip
 
     let updatedTasks = baseTasks ? [...baseTasks] : [];
-    console.log("Applying actions to base tasks for choice preview:", { baseTasks, taskActions });
 
-    for (const action of taskActions) {
-      if (action.action_name === 'create_TaskTemplate') {
-        const new_TaskTemplate = action.task_snapshot as TaskTemplate;
-        for (let i = 0; i < new_TaskTemplate.overrides.length; i++) {
-          new_TaskTemplate.overrides[i].id = uuid.v4().toString();
-          new_TaskTemplate.overrides[i].instance_datetime = new_TaskTemplate.overrides[i].date;
-        }
-        updatedTasks.unshift(new_TaskTemplate);
-      }
-      else if (action.action_name === 'update_TaskTemplate') {
-        const new_TaskTemplate = action.task_snapshot as TaskTemplate;
-        for (let i = 0; i < new_TaskTemplate.overrides.length; i++) {
-          new_TaskTemplate.overrides[i].id = uuid.v4().toString();
-          new_TaskTemplate.overrides[i].instance_datetime = new_TaskTemplate.overrides[i].date;
-        }
+    if (!choice.is_executed) {
+      console.log("Applying actions to base tasks for choice preview:", { baseTasks, taskActions });
 
-        const index = updatedTasks.findIndex(t => t.id === action.task_snapshot.id);
-        if (index !== -1) {
-          const now = floorDateByTimezone(new Date().toISOString());
-          const overrides = updatedTasks[index].overrides.filter(o => o.instance_datetime < now);
-          overrides.push(...new_TaskTemplate.overrides);
-          updatedTasks[index] = { ...updatedTasks[index], ...new_TaskTemplate, overrides };
+      for (const action of taskActions) {
+        if (action.action_name === 'create_TaskTemplate') {
+          const new_TaskTemplate = action.task_snapshot as TaskTemplate;
+          if (!updatedTasks.some(t => t.id === new_TaskTemplate.id)) {
+            const clonedOverrides = (new_TaskTemplate.overrides || []).map(o => ({
+              ...o,
+              id: o.id || uuid.v4().toString(),
+              instance_datetime: (o as any).date || o.instance_datetime,
+            }));
+            updatedTasks.unshift({
+              ...new_TaskTemplate,
+              overrides: clonedOverrides,
+            });
+          }
         }
-        else {
-          updatedTasks.unshift(new_TaskTemplate);
+        else if (action.action_name === 'update_TaskTemplate') {
+          const new_TaskTemplate = action.task_snapshot as TaskTemplate;
+          const index = updatedTasks.findIndex(t => t.id === action.task_snapshot.id);
+          if (index !== -1) {
+            const now = floorDateByTimezone(new Date().toISOString());
+            const overrides = updatedTasks[index].overrides.filter(o => o.instance_datetime < now);
+            const clonedNewOverrides = (new_TaskTemplate.overrides || []).map(o => ({
+              ...o,
+              id: o.id || uuid.v4().toString(),
+              instance_datetime: (o as any).date || o.instance_datetime,
+            }));
+            overrides.push(...clonedNewOverrides);
+            updatedTasks[index] = { ...updatedTasks[index], ...new_TaskTemplate, overrides };
+          }
+          else {
+            const clonedOverrides = (new_TaskTemplate.overrides || []).map(o => ({
+              ...o,
+              id: o.id || uuid.v4().toString(),
+              instance_datetime: (o as any).date || o.instance_datetime,
+            }));
+            updatedTasks.unshift({
+              ...new_TaskTemplate,
+              overrides: clonedOverrides,
+            });
+          }
         }
-      }
-      else if (action.action_name === 'delete_TaskTemplate') {
-        updatedTasks = updatedTasks.filter(t => t.id !== action.task_snapshot.id);
-      }
-      else if (action.action_name === 'update_TaskOverride') {
-        const new_TaskTemplate = action.task_snapshot as TaskTemplate;
-        for (let i = 0; i < new_TaskTemplate.overrides.length; i++) {
-          new_TaskTemplate.overrides[i].id = uuid.v4().toString();
-          new_TaskTemplate.overrides[i].instance_datetime = new_TaskTemplate.overrides[i].date;
+        else if (action.action_name === 'delete_TaskTemplate') {
+          updatedTasks = updatedTasks.filter(t => t.id !== action.task_snapshot.id);
         }
-
-        const index = updatedTasks.findIndex(t => t.id === action.task_snapshot.id);
-        if (index !== -1) {
-          const now = floorDateByTimezone(new Date().toISOString());
-          const overrides = updatedTasks[index].overrides.filter(o => o.instance_datetime < now);
-          overrides.push(...new_TaskTemplate.overrides);
-          updatedTasks[index] = { ...updatedTasks[index], ...new_TaskTemplate, overrides };
-        }
-        else {
-          updatedTasks.unshift(new_TaskTemplate);
+        else if (action.action_name === 'update_TaskOverride') {
+          const new_TaskTemplate = action.task_snapshot as TaskTemplate;
+          const index = updatedTasks.findIndex(t => t.id === action.task_snapshot.id);
+          if (index !== -1) {
+            const now = floorDateByTimezone(new Date().toISOString());
+            const overrides = updatedTasks[index].overrides.filter(o => o.instance_datetime < now);
+            const clonedNewOverrides = (new_TaskTemplate.overrides || []).map(o => ({
+              ...o,
+              id: o.id || uuid.v4().toString(),
+              instance_datetime: (o as any).date || o.instance_datetime,
+            }));
+            overrides.push(...clonedNewOverrides);
+            updatedTasks[index] = { ...updatedTasks[index], ...new_TaskTemplate, overrides };
+          }
+          else {
+            const clonedOverrides = (new_TaskTemplate.overrides || []).map(o => ({
+              ...o,
+              id: o.id || uuid.v4().toString(),
+              instance_datetime: (o as any).date || o.instance_datetime,
+            }));
+            updatedTasks.unshift({
+              ...new_TaskTemplate,
+              overrides: clonedOverrides,
+            });
+          }
         }
       }
     }
-    setPreviewTasks(updatedTasks);
-  }, [baseTasks, taskActions]);
+
+    // Deduplicate the entire updatedTasks array by template ID
+    const uniqueTasksMap = new Map<string, TaskTemplate>();
+    for (const t of updatedTasks) {
+      if (!uniqueTasksMap.has(t.id)) {
+        uniqueTasksMap.set(t.id, t);
+      }
+    }
+    setPreviewTasks(Array.from(uniqueTasksMap.values()));
+  }, [baseTasks, taskActions, choice.is_executed]);
 
 
   useEffect(() => {
@@ -118,7 +169,7 @@ const ChoicePreview: React.FC<ChoicePreviewProps> = ({ choice }) => {
     };
     loadBaseTasks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user_id, nextDateStr, taskActions.length]);
+  }, [user_id, dateStr, nextDateStr, taskActions.length, choice.is_executed]);
 
   const onMonthChange = (start_date: string, end_date: string) => {
     setDateStr(start_date);
