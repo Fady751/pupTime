@@ -12,10 +12,11 @@ from __future__ import annotations
 import json
 import logging
 import textwrap
-from datetime import datetime
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Any, Optional
+
+from django.utils import timezone
 
 
 # ─────────────────────────────── ANSI colour palette ───────────────────────
@@ -71,7 +72,7 @@ def _flog(line: str) -> None:
 WIDTH = 72
 
 def _now() -> str:
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    return timezone.localtime(timezone.now()).strftime("%Y-%m-%d %H:%M:%S")
 
 def _user_label(user) -> str:
     """Return a short display string for any user object (or None)."""

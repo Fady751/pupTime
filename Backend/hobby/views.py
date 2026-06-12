@@ -69,7 +69,7 @@ class FriendHobbyView(APIView):
             task_data = TaskSerializer(task, context={'request': request}).data
 
             task_data['timezone'] = None
-            task_data['created_at'] = timezone.now().isoformat()
+            task_data['created_at'] = timezone.localtime(timezone.now()).isoformat()
             task_data['override'] = 1
             task_data['is_overriding'] = False
             task_data['is_deleted'] = False
@@ -121,7 +121,7 @@ class SelfHobbyView(APIView):
             task_data = TaskSerializer(task, context={'request': request}).data
 
             task_data['timezone'] = None
-            task_data['created_at'] = timezone.now().isoformat()
+            task_data['created_at'] = timezone.localtime(timezone.now()).isoformat()
             task_data['override'] = 1
             task_data['is_overriding'] = False
             task_data['is_deleted'] = False

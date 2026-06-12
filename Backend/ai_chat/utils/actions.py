@@ -52,7 +52,7 @@ def _create_task_template(user, params):
         params.pop('task_id', None)
 
     if not params.get('start_datetime'):
-        now = timezone.now()
+        now = timezone.localtime(timezone.now())
         default_dt = now.replace(hour=9, minute=0, second=0, microsecond=0)
         if default_dt < now:
             default_dt = now

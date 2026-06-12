@@ -66,7 +66,7 @@ def get_task_tools(user, voice_message=None):
         """Returns the user's task instances for today. Always call this first when the user asks about their day."""
         from task.models import TaskOverride
 
-        today = timezone.now().date()
+        today = timezone.localtime(timezone.now()).date()
 
         overrides = (
             TaskOverride.objects.filter(
@@ -91,7 +91,7 @@ def get_task_tools(user, voice_message=None):
             dt = ov.new_datetime if ov.status == TaskOverride.STATUS_RESCHEDULED and ov.new_datetime else ov.instance_datetime
             lines.append(
                 f"- [Occurrence ID: {ov.id}] | [Master Task ID: {t.id}] | "
-                f"Title: '{t.title}' | Time: {dt.strftime('%H:%M')} | Status: {ov.status} | "
+                f"Title: '{t.title}' | Time: {timezone.localtime(dt).strftime('%H:%M')} | Status: {ov.status} | "
                 f"Priority: {t.priority} | Emoji: {t.emoji or '(none)'}"
             )
 
@@ -112,7 +112,7 @@ def get_task_tools(user, voice_message=None):
                 f"Master Task Details:\n"
                 f"- Master Task ID: {task.id}\n"
                 f"- Title: {task.title}\n"
-                f"- Start: {task.start_datetime.isoformat()}\n"
+                f"- Start: {timezone.localtime(task.start_datetime).isoformat()}\n"
                 f"- Priority: {task.priority}\n"
                 f"- Emoji: {task.emoji or 'None'}\n"
                 f"- Recurring: {task.is_recurring} (RRULE: {task.rrule or 'None'})\n"
@@ -131,7 +131,7 @@ def get_task_tools(user, voice_message=None):
                 f"- Occurrence ID: {ov.id}\n"
                 f"- Master Task ID: {t.id}\n"
                 f"- Title: {t.title}\n"
-                f"- Date: {dt.strftime('%Y-%m-%d %H:%M')}\n"
+                f"- Date: {timezone.localtime(dt).strftime('%Y-%m-%d %H:%M')}\n"
                 f"- Status: {ov.status}\n"
                 f"- Notes: {ov.notes or 'None'}"
             )
@@ -289,7 +289,7 @@ def get_task_tools(user, voice_message=None):
         if not free_slots:
             return "No free slots found."
             
-        return "Suggested gaps:\n" + "\n".join([f"- {s.strftime('%Y-%m-%d %H:%M')} ({ (e-s).total_seconds()/60:.0f} mins)" for s, e in free_slots[:5]])
+        return "Suggested gaps:\n" + "\n".join([f"- {timezone.localtime(s).strftime('%Y-%m-%d %H:%M')} ({ (e-s).total_seconds()/60:.0f} mins)" for s, e in free_slots[:5]])
 
     @tool
     def get_overdue_tasks() -> str:
@@ -310,7 +310,7 @@ def get_task_tools(user, voice_message=None):
             
         return "Overdue:\n" + "\n".join([
             f"- [Occurrence ID: {ov.id}] | [Master Task ID: {ov.task.id}] | "
-            f"Title: '{ov.task.title}' | Due: {(ov.new_datetime or ov.instance_datetime).strftime('%Y-%m-%d %H:%M')}" 
+            f"Title: '{ov.task.title}' | Due: {timezone.localtime(ov.new_datetime or ov.instance_datetime).strftime('%Y-%m-%d %H:%M')}"
             for ov in overrides
         ])
 

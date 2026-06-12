@@ -32,7 +32,7 @@ class TaskTemplate(models.Model):
         blank=True, 
         help_text="The recurrence rule. e.g., 'FREQ=DAILY;UNTIL=20301231T235959Z'"
     )
-    timezone = models.CharField(max_length=64, default='UTC', help_text="e.g., 'Africa/Cairo'")
+    timezone = models.CharField(max_length=64, default='Africa/Cairo', help_text="e.g., 'Africa/Cairo'")
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True, db_index=True)

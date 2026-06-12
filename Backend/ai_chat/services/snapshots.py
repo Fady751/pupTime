@@ -37,10 +37,10 @@ def _compute_preview_overrides(params: Dict[str, Any]) -> List[Dict[str, Any]]:
         rule         = _rrulestr(rrule_str, dtstart=start_dt.replace(microsecond=0))
         search_start = now if now > start_dt else start_dt
         instances    = rule.between(search_start.replace(microsecond=0), end_preview, inc=True)
-        return [{'date': dt.isoformat(), 'status': 'PENDING'} for dt in instances]
+        return [{'date': timezone.localtime(dt).isoformat(), 'status': 'PENDING'} for dt in instances]
 
     if now <= start_dt <= end_preview:
-        return [{'date': start_dt.isoformat(), 'status': 'PENDING'}]
+        return [{'date': timezone.localtime(start_dt).isoformat(), 'status': 'PENDING'}]
     return []
 
 
@@ -61,10 +61,10 @@ def _recompute_overrides_for_snapshot(snapshot: Dict[str, Any]) -> List[Dict[str
         rule         = _rrulestr(rrule_str, dtstart=start_dt.replace(microsecond=0))
         search_start = now if now > start_dt else start_dt
         instances    = rule.between(search_start.replace(microsecond=0), end_preview, inc=True)
-        return [{'date': dt.isoformat(), 'status': 'PENDING'} for dt in instances]
+        return [{'date': timezone.localtime(dt).isoformat(), 'status': 'PENDING'} for dt in instances]
 
     if now <= start_dt <= end_preview:
-        return [{'date': start_dt.isoformat(), 'status': 'PENDING'}]
+        return [{'date': timezone.localtime(start_dt).isoformat(), 'status': 'PENDING'}]
     return []
 
 
@@ -311,14 +311,14 @@ def _apply_override_reschedule(
         ov_dt = _parse_iso(ov.get('instance_datetime'))
         if ov_dt == old_dt:
             ov['status']       = TaskOverride.STATUS_RESCHEDULED
-            ov['new_datetime'] = parsed_dt.isoformat()
+            ov['new_datetime'] = timezone.localtime(parsed_dt).isoformat()
         if ov_dt == parsed_dt:
             ov['status'] = new_status
             found_new    = True
         updated.append(ov)
 
     if not found_new:
-        updated.append({'instance_datetime': parsed_dt.isoformat(), 'status': new_status})
+        updated.append({'instance_datetime': timezone.localtime(parsed_dt).isoformat(), 'status': new_status})
 
     snapshot['overrides'] = updated
     return snapshot

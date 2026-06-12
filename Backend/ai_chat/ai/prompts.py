@@ -13,7 +13,7 @@ def _load_app_knowledge() -> str:
         return ""
 
 def build_system_prompt(user=None) -> ChatMessage:
-    current_time = timezone.now().isoformat()
+    current_time = timezone.localtime(timezone.now()).isoformat()
 
     app_knowledge = _load_app_knowledge()
     app_knowledge_section = f"""
