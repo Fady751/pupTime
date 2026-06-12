@@ -511,7 +511,7 @@ const Schedule: React.FC<ScheduleProps> = ({
         <View style={headerRow}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Pressable onPress={() => navigation.dispatch(DrawerActions.openDrawer())} style={{ marginRight: 12 }}>
-              <Menu size={28} color={colors.text} />
+              <Menu size={28} color={colors.primary} />
             </Pressable>
             <Text style={styles.headerTitle}>📅 Schedule</Text>
           </View>

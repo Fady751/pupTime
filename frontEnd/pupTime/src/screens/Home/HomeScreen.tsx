@@ -255,7 +255,7 @@ const HomeScreen: React.FC = () => {
               onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
               style={{ marginRight: 12, padding: 4 }}
             >
-              <Menu size={28} color={colors.text} />
+              <Menu size={28} color={colors.primary} />
             </Pressable>
             <View>
               <Text style={styles.headerGreeting}>{getGreeting()} ☀️</Text>

@@ -20,7 +20,8 @@ export const createSocialTasksStyles = (colors: AppColors) =>
       width: 270,
       height: 270,
       borderRadius: 999,
-      backgroundColor: "rgba(37, 99, 235, 0.15)",
+      backgroundColor: colors.primaryLight,
+      opacity: 0.8,
     },
     glowOrbBottom: {
       position: "absolute",
@@ -29,7 +30,8 @@ export const createSocialTasksStyles = (colors: AppColors) =>
       width: 280,
       height: 280,
       borderRadius: 999,
-      backgroundColor: "rgba(16, 185, 129, 0.12)",
+      backgroundColor: colors.primaryLight,
+      opacity: 0.6,
     },
     header: {
       marginHorizontal: 16,

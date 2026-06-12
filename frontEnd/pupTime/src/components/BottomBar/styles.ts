@@ -5,7 +5,7 @@ const createStyles = (colors: AppColors) =>
   StyleSheet.create({
     container: {
       position: 'absolute',
-      bottom: Platform.OS === 'ios' ? 80 : 70,
+      bottom: Platform.OS === 'ios' ? 60 : 50,
       left: 15,
       right: 15,
       alignItems: 'center',

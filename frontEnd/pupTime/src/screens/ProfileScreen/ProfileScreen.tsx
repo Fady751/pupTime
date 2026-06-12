@@ -120,7 +120,7 @@ const ProfileSettingsScreen = ({ navigation }: { navigation: any }) => {
           <View style={styles.headerRow}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Pressable onPress={() => navigation.dispatch(DrawerActions.openDrawer())} style={{ marginRight: 12 }}>
-                <Menu color={colors.primaryDark} size={28} strokeWidth={2.5} />
+                <Menu color={colors.primary} size={28} strokeWidth={2.5} />
               </Pressable>
               <Text style={styles.headerTitle}>Profile</Text>
             </View>

@@ -166,7 +166,7 @@ const FriendsListScreen = ({ navigation }: { navigation: any }) => {
           <View>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
               <Pressable onPress={() => navigation.dispatch(DrawerActions.openDrawer())} style={{ marginRight: 12 }}>
-                <Menu size={26} color={colors.text} />
+                <Menu size={26} color={colors.primary} />
               </Pressable>
               <Text style={[styles.kicker, { marginBottom: 0 }]}>Social Hub</Text>
             </View>

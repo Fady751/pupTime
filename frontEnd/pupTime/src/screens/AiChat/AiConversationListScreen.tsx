@@ -97,11 +97,11 @@ const AiConversationListScreen: React.FC = () => {
             <View style={[styles.header, { backgroundColor: colors.surface }]}>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.openDrawer())} style={{ marginRight: 12 }}>
-                        <Menu color={colors.text} size={28} strokeWidth={2.5} />
+                        <Menu color={colors.primary} size={28} strokeWidth={2.5} />
                     </TouchableOpacity>
                     <Text style={[styles.headerTitle, { color: colors.text }]}>AI Conversations</Text>
                 </View>
-                <TouchableOpacity onPress={handleCreateNewChat} style={styles.newChatButton}>
+                <TouchableOpacity onPress={handleCreateNewChat} style={[styles.newChatButton, { backgroundColor: colors.primary, shadowColor: colors.primary }]}>
                     <Text style={styles.newChatButtonText}>+</Text>
                 </TouchableOpacity>
             </View>
@@ -117,7 +117,7 @@ const AiConversationListScreen: React.FC = () => {
                     ListEmptyComponent={
                         <View style={styles.emptyContainer}>
                             <Text style={[styles.emptyText, { color: colors.secondaryText }]}>No conversations yet.</Text>
-                            <TouchableOpacity style={styles.createButton} onPress={handleCreateNewChat}>
+                            <TouchableOpacity style={[styles.createButton, { backgroundColor: colors.primary, shadowColor: colors.primary }]} onPress={handleCreateNewChat}>
                                 <Text style={styles.createButtonText}>Start a new chat</Text>
                             </TouchableOpacity>
                         </View>
@@ -153,13 +153,11 @@ const styles = StyleSheet.create({
         fontWeight: '800',
     },
     newChatButton: {
-        backgroundColor: '#4F46E5',
         width: 48,
         height: 48,
         borderRadius: 24,
         justifyContent: 'center',
         alignItems: 'center',
-        shadowColor: '#4F46E5',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
@@ -220,11 +218,9 @@ const styles = StyleSheet.create({
         marginTop: 40,
     },
     createButton: {
-        backgroundColor: '#4F46E5',
         paddingHorizontal: 24,
         paddingVertical: 14,
         borderRadius: 999,
-        shadowColor: '#4F46E5',
         shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.3,
         shadowRadius: 12,

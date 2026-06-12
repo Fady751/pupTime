@@ -219,7 +219,7 @@ const SettingsScreen = ({ navigation }: { navigation: any }) => {
           <View style={styles.header}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
               <Pressable onPress={() => navigation.dispatch(DrawerActions.openDrawer())} style={{ marginRight: 12 }}>
-                <Menu color={colors.text} size={28} strokeWidth={2.5} />
+                <Menu color={colors.primary} size={28} strokeWidth={2.5} />
               </Pressable>
               <Text style={[styles.headerTitle, { marginBottom: 0 }]}>Settings</Text>
             </View>

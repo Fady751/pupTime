@@ -365,7 +365,7 @@ export const createStyles = (colors: AppColors) =>
     /* ── FAB ─────────────────────────────────────── */
     fab: {
       position: "absolute",
-      bottom: 100,
+      bottom: 135,
       right: 20,
       width: 64,
       height: 64,
@@ -388,7 +388,7 @@ export const createStyles = (colors: AppColors) =>
 
     /* ── Bottom Spacer ──────────────────────────── */
     bottomSpacer: {
-      height: 80,
+      height: 95,
     },
 
     /* ── Loading ─────────────────────────────────── */

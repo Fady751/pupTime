@@ -19,7 +19,8 @@ const createStyles = (colors: AppColors) =>
       width: 280,
       height: 280,
       borderRadius: 999,
-      backgroundColor: 'rgba(37, 99, 235, 0.20)',
+      backgroundColor: colors.primaryLight,
+      opacity: 0.8,
     },
     glowOrbBottom: {
       position: 'absolute',
@@ -28,7 +29,8 @@ const createStyles = (colors: AppColors) =>
       width: 300,
       height: 300,
       borderRadius: 999,
-      backgroundColor: 'rgba(16, 185, 129, 0.17)',
+      backgroundColor: colors.primaryLight,
+      opacity: 0.6,
     },
     headerCard: {
       marginHorizontal: 14,
@@ -39,10 +41,10 @@ const createStyles = (colors: AppColors) =>
       borderRadius: 26,
       backgroundColor: colors.surface,
       borderWidth: 1.5,
-      borderColor: 'rgba(37, 99, 235, 0.22)',
+      borderColor: colors.primary + '38',
       flexDirection: 'row',
       alignItems: 'center',
-      shadowColor: '#0b3b8f',
+      shadowColor: colors.primaryDark,
       shadowOffset: { width: 0, height: 10 },
       shadowOpacity: 0.2,
       shadowRadius: 18,
@@ -54,7 +56,7 @@ const createStyles = (colors: AppColors) =>
       borderRadius: 13,
       backgroundColor: colors.background,
       borderWidth: 1.2,
-      borderColor: 'rgba(37, 99, 235, 0.20)',
+      borderColor: colors.primary + '33',
       alignItems: 'center',
       justifyContent: 'center',
       marginRight: 12,
@@ -73,13 +75,20 @@ const createStyles = (colors: AppColors) =>
     headerTextBlock: {
       flex: 1,
     },
+    kickerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 4,
+    },
+    menuButtonInline: {
+      marginRight: 8,
+    },
     headerKicker: {
       fontSize: 11,
       fontWeight: '800',
       textTransform: 'uppercase',
       letterSpacing: 1.2,
-      color: '#0ea5e9',
-      marginBottom: 3,
+      color: colors.primary,
     },
     headerTitle: {
       fontSize: 30,
@@ -99,9 +108,9 @@ const createStyles = (colors: AppColors) =>
       borderRadius: 20,
       paddingVertical: 9,
       paddingHorizontal: 11,
-      backgroundColor: 'rgba(37, 99, 235, 0.13)',
+      backgroundColor: colors.primary + '21',
       borderWidth: 1,
-      borderColor: 'rgba(37, 99, 235, 0.32)',
+      borderColor: colors.primary + '52',
       alignItems: 'center',
       justifyContent: 'center',
       shadowColor: colors.primary,
@@ -153,7 +162,7 @@ const createStyles = (colors: AppColors) =>
     secondaryActionButton: {
       borderRadius: 999,
       borderWidth: 1,
-      borderColor: 'rgba(37, 99, 235, 0.20)',
+      borderColor: colors.primary + '33',
       backgroundColor: colors.surface,
       paddingHorizontal: 15,
       paddingVertical: 11,
@@ -188,8 +197,8 @@ const createStyles = (colors: AppColors) =>
       elevation: 3,
     },
     notificationCardUnread: {
-      borderColor: 'rgba(37, 99, 235, 0.45)',
-      backgroundColor: 'rgba(37, 99, 235, 0.07)',
+      borderColor: colors.primary + '73',
+      backgroundColor: colors.primary + '12',
     },
     cardHeaderRow: {
       flexDirection: 'row',
@@ -225,7 +234,7 @@ const createStyles = (colors: AppColors) =>
     typePill: {
       borderRadius: 999,
       borderWidth: 1,
-      borderColor: 'rgba(37, 99, 235, 0.20)',
+      borderColor: colors.primary + '33',
       paddingHorizontal: 10,
       paddingVertical: 4,
       alignSelf: 'flex-start',
@@ -252,8 +261,8 @@ const createStyles = (colors: AppColors) =>
       marginLeft: 10,
     },
     statusBadgeUnread: {
-      borderColor: 'rgba(37, 99, 235, 0.40)',
-      backgroundColor: 'rgba(37, 99, 235, 0.15)',
+      borderColor: colors.primary + '66',
+      backgroundColor: colors.primary + '26',
     },
     statusBadgeRead: {
       borderColor: 'rgba(100, 116, 139, 0.28)',
@@ -338,7 +347,7 @@ const createStyles = (colors: AppColors) =>
     },
     emptyStateCard: {
       borderWidth: 1,
-      borderColor: 'rgba(37, 99, 235, 0.18)',
+      borderColor: colors.primary + '2e',
       backgroundColor: colors.surface,
       borderRadius: 20,
       paddingVertical: 30,

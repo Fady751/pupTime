@@ -332,15 +332,17 @@ const NotificationsScreen = ({ navigation }: { navigation: any }) => {
         <View style={styles.glowOrbBottom} />
 
         <View style={styles.headerCard}>
-          <Pressable
-            style={({ pressed }) => [styles.backButton, { opacity: pressed ? 0.8 : 1 }]}
-            onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
-          >
-            <Menu color={colors.text} size={28} strokeWidth={2.5} />
-          </Pressable>
-
           <View style={styles.headerTextBlock}>
-            <Text style={styles.headerKicker}>Inbox</Text>
+            <View style={styles.kickerRow}>
+              <Pressable
+                style={({ pressed }) => [styles.menuButtonInline, { opacity: pressed ? 0.8 : 1 }]}
+                onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
+                hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+              >
+                <Menu color={colors.primary} size={28} strokeWidth={2.5} />
+              </Pressable>
+              <Text style={styles.headerKicker}>Inbox</Text>
+            </View>
             <Text style={styles.headerTitle}>Notifications</Text>
             <Text style={styles.headerSubtitle}>Track social activity and updates in one place.</Text>
           </View>

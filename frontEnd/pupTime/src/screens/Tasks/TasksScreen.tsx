@@ -278,7 +278,7 @@ const TasksScreen: React.FC = () => {
             </Text>
           </View>
           <Pressable style={styles.backBtn} onPress={() => navigation.dispatch(DrawerActions.openDrawer())}>
-            <Menu color={colors.primaryDark} size={28} strokeWidth={2.5} />
+            <Menu color={colors.primary} size={28} strokeWidth={2.5} />
           </Pressable>
         </View>
 

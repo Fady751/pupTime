@@ -323,7 +323,7 @@ export const createHomeStyles = (colors: AppColors, theme?: string) =>
       fontWeight: "500",
     },
     bottomSpacer: {
-      height: 115,
+      height: 95,
     },
   });
 

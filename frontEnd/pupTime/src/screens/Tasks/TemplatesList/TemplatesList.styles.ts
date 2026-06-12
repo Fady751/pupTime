@@ -296,7 +296,7 @@ export const createStyles = (colors: AppColors) =>
         /* ── FAB ─────────────────────────────────────── */
         fab: {
             position: "absolute",
-            bottom: 90,
+            bottom: 135,
             right: 20,
             width: 60,
             height: 60,
