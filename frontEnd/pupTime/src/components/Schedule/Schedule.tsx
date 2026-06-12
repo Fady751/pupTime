@@ -11,6 +11,9 @@ import {
   ActivityIndicator,
   StyleSheet,
   LayoutChangeEvent,
+  StyleProp,
+  ViewStyle,
+  TextStyle,
 } from "react-native";
 import { useNavigation, DrawerActions } from "@react-navigation/native";
 import { Menu } from "lucide-react-native";
@@ -793,30 +796,30 @@ const Schedule: React.FC<ScheduleProps> = ({
    STATIC STYLES (created once, never re-allocated)
    ═══════════════════════════════════════════════════════════ */
 
-const headerRow: Pressable["props"]["style"] = {
+const headerRow: StyleProp<ViewStyle> = {
   flexDirection: "row",
   alignItems: "center",
   justifyContent: "space-between",
 };
 
-const todayPill: Pressable["props"]["style"] = {
+const todayPill: StyleProp<ViewStyle> = {
   paddingHorizontal: 14,
   paddingVertical: 6,
   borderRadius: 16,
   backgroundColor: "#4F46E5",
 };
 
-const todayPillText: Text["props"]["style"] = {
+const todayPillText: StyleProp<TextStyle> = {
   color: "#FFF",
   fontSize: 13,
   fontWeight: "700",
 };
 
-const calGridWrapper: View["props"]["style"] = {
+const calGridWrapper: StyleProp<ViewStyle> = {
   position: "relative",
 };
 
-const loadingOverlay: View["props"]["style"] = {
+const loadingOverlay: StyleProp<ViewStyle> = {
   ...StyleSheet.absoluteFillObject,
   backgroundColor: "rgba(255,255,255,0.5)",
   alignItems: "center",
