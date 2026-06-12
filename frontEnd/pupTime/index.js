@@ -31,8 +31,10 @@ function buildPendingNavigation(data) {
             }
             return JSON.stringify({ screen: 'ChatRoom', params: { roomId } });
         }
-        case 'Report':
-            return JSON.stringify({ showReportReason: data.reason });
+        case 'Report': {
+            const reason = data.reason || (data.message && data.message.toLowerCase() !== 'you have received a warning' ? data.message : null) || 'No reason provided.';
+            return JSON.stringify({ showReportReason: reason });
+        }
         default:
             return null;
     }

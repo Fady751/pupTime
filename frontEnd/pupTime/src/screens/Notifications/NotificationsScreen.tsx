@@ -6,6 +6,8 @@ import {
   RefreshControl,
   Text,
   View,
+  Modal,
+  TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, DrawerActions } from '@react-navigation/native';
@@ -109,6 +111,7 @@ const NotificationsScreen = ({ navigation }: { navigation: any }) => {
   const [error, setError] = useState<string | null>(null);
   const [markingId, setMarkingId] = useState<number | null>(null);
   const [markingAll, setMarkingAll] = useState(false);
+  const [activeReportReason, setActiveReportReason] = useState<string | null>(null);
 
   // Pagination state
   const [page, setPage] = useState(1);
@@ -241,6 +244,12 @@ const NotificationsScreen = ({ navigation }: { navigation: any }) => {
 
     // Navigate based on type
     switch (notification.type) {
+      case 'Report': {
+        const data = (notification.data || {}) as Record<string, any>;
+        const reason = (data.reason || (typeof data.message === 'string' && data.message.toLowerCase() !== 'you have received a warning' ? data.message : null) || 'No reason provided.') as string;
+        setActiveReportReason(reason);
+        break;
+      }
       case 'Friend_Request':
       case 'Friend_Accepted':
         navigation.navigate('Friends');
@@ -424,6 +433,84 @@ const NotificationsScreen = ({ navigation }: { navigation: any }) => {
           />
         )}
       </View>
+
+      <Modal
+        visible={activeReportReason !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setActiveReportReason(null)}
+      >
+        <Pressable 
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0, 0, 0, 0.4)",
+            justifyContent: "center",
+            alignItems: "center",
+            paddingHorizontal: 20,
+          }}
+          onPress={() => setActiveReportReason(null)}
+        >
+          <Pressable 
+            style={{
+              width: "100%",
+              backgroundColor: colors.surface,
+              borderRadius: 24,
+              padding: 24,
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 10 },
+              shadowOpacity: 0.1,
+              shadowRadius: 20,
+              elevation: 8,
+              gap: 16,
+            }}
+            onPress={() => {}}
+          >
+            <Text style={{ fontSize: 20, fontWeight: "800", color: colors.error }}>
+              ⚠️ System Warning
+            </Text>
+            
+            <Text style={{ fontSize: 15, color: colors.text, fontWeight: "600", lineHeight: 22 }}>
+              Your account has been reported. Here is the reason provided:
+            </Text>
+
+            <View 
+              style={{
+                backgroundColor: colors.background,
+                borderRadius: 16,
+                padding: 16,
+                borderWidth: 1.5,
+                borderColor: colors.border,
+              }}
+            >
+              <Text 
+                style={{ 
+                  fontSize: 15, 
+                  color: colors.text, 
+                  lineHeight: 22, 
+                  fontWeight: "500" 
+                }}
+              >
+                {activeReportReason}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={{
+                backgroundColor: colors.primary,
+                borderRadius: 999,
+                paddingVertical: 12,
+                alignItems: "center",
+                marginTop: 8,
+              }}
+              onPress={() => setActiveReportReason(null)}
+            >
+              <Text style={{ color: "#FFFFFF", fontWeight: "800", fontSize: 15 }}>
+                Understood
+              </Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 };

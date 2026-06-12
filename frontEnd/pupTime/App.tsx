@@ -14,6 +14,20 @@ import { AppState, Modal, Pressable, View, Text, TouchableOpacity } from 'react-
 
 const messaging = getMessaging();
 
+function getReportReason(data?: Record<string, any>): string {
+  if (!data) return 'No reason provided.';
+  if (typeof data.reason === 'string' && data.reason.trim().length > 0) {
+    return data.reason.trim();
+  }
+  if (typeof data.message === 'string' && data.message.trim().length > 0) {
+    const msg = data.message.trim();
+    if (msg.toLowerCase() !== 'you have received a warning') {
+      return msg;
+    }
+  }
+  return 'No reason provided.';
+}
+
 /**
  * Navigate to the correct screen based on FCM notification data.
  * Works for all 4 types: Friend_Request, Friend_Accepted, Invitation, Message.
@@ -88,8 +102,8 @@ const AppContent = () => {
     const unsubscribeNotifee = notifee.onForegroundEvent(({ type, detail }) => {
       if (type === EventType.PRESS) {
         const data = detail.notification?.data as Record<string, any> | undefined;
-        if (data?.type === 'Report' && data.reason) {
-          setActiveWarningReason(data.reason);
+        if (data?.type === 'Report') {
+          setActiveWarningReason(getReportReason(data));
         } else {
           routeFromData(data);
         }
@@ -101,8 +115,8 @@ const AppContent = () => {
       const initialNotification = await notifee.getInitialNotification();
       if (initialNotification?.notification?.data) {
         const data = initialNotification.notification.data as Record<string, any>;
-        if (data.type === 'Report' && data.reason) {
-          setActiveWarningReason(data.reason);
+        if (data.type === 'Report') {
+          setActiveWarningReason(getReportReason(data));
         } else {
           const checkNav = setInterval(() => {
             if (navigationRef.isReady()) {
