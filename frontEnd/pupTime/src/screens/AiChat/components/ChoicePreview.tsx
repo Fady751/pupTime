@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text } from 'react-native';
 import { Choice, Action, SocialTaskSnapshot, SocialActionName } from '../../../types/aiConversation';
-import { floorDateByTimezone, TaskTemplate } from '../../../types/task';
+import { floorDateByTimezone, getExactlyTime, TaskTemplate } from '../../../types/task';
 import Schedule from '../../../components/Schedule/Schedule';
 import useTheme from '../../../Hooks/useTheme';
 import createChoicePreviewStyles from './ChoicePreview.styles';
@@ -71,84 +71,95 @@ const ChoicePreview: React.FC<ChoicePreviewProps> = ({ choice }) => {
     if (!choice.is_executed) {
       console.log("Applying actions to base tasks for choice preview:", { baseTasks, taskActions });
 
-      for (const action of taskActions) {
+      taskActions.forEach((action, index) => {
+        const tz = (action.params as any).timezone || (action.task_snapshot as any).timezone || undefined;
+
         if (action.action_name === 'create_TaskTemplate') {
           const new_TaskTemplate = action.task_snapshot as TaskTemplate;
-          if (!updatedTasks.some(t => t.id === new_TaskTemplate.id)) {
+          const templateId = new_TaskTemplate.id || `preview-create-${choice.id}-${index}`;
+          
+          if (!updatedTasks.some(t => t.id === templateId)) {
             const clonedOverrides = (new_TaskTemplate.overrides || []).map(o => ({
               ...o,
               id: o.id || uuid.v4().toString(),
-              instance_datetime: (o as any).date || o.instance_datetime,
+              instance_datetime: getExactlyTime((o as any).date || o.instance_datetime, tz),
             }));
             updatedTasks.unshift({
               ...new_TaskTemplate,
+              id: templateId,
               overrides: clonedOverrides,
             });
           }
         }
         else if (action.action_name === 'update_TaskTemplate') {
           const new_TaskTemplate = action.task_snapshot as TaskTemplate;
-          const index = updatedTasks.findIndex(t => t.id === action.task_snapshot.id);
-          if (index !== -1) {
+          const templateId = new_TaskTemplate.id || `preview-update-${choice.id}-${index}`;
+          const indexToUpdate = updatedTasks.findIndex(t => t.id === templateId);
+          if (indexToUpdate !== -1) {
             const now = floorDateByTimezone(new Date().toISOString());
-            const overrides = updatedTasks[index].overrides.filter(o => o.instance_datetime < now);
+            const overrides = updatedTasks[indexToUpdate].overrides.filter(o => o.instance_datetime < now);
             const clonedNewOverrides = (new_TaskTemplate.overrides || []).map(o => ({
               ...o,
               id: o.id || uuid.v4().toString(),
-              instance_datetime: (o as any).date || o.instance_datetime,
+              instance_datetime: getExactlyTime((o as any).date || o.instance_datetime, tz),
             }));
             overrides.push(...clonedNewOverrides);
-            updatedTasks[index] = { ...updatedTasks[index], ...new_TaskTemplate, overrides };
+            updatedTasks[indexToUpdate] = { ...updatedTasks[indexToUpdate], ...new_TaskTemplate, id: templateId, overrides };
           }
           else {
             const clonedOverrides = (new_TaskTemplate.overrides || []).map(o => ({
               ...o,
               id: o.id || uuid.v4().toString(),
-              instance_datetime: (o as any).date || o.instance_datetime,
+              instance_datetime: getExactlyTime((o as any).date || o.instance_datetime, tz),
             }));
             updatedTasks.unshift({
               ...new_TaskTemplate,
+              id: templateId,
               overrides: clonedOverrides,
             });
           }
         }
         else if (action.action_name === 'delete_TaskTemplate') {
-          updatedTasks = updatedTasks.filter(t => t.id !== action.task_snapshot.id);
+          const templateId = (action.task_snapshot as TaskTemplate).id || `preview-delete-${choice.id}-${index}`;
+          updatedTasks = updatedTasks.filter(t => t.id !== templateId);
         }
         else if (action.action_name === 'update_TaskOverride') {
           const new_TaskTemplate = action.task_snapshot as TaskTemplate;
-          const index = updatedTasks.findIndex(t => t.id === action.task_snapshot.id);
-          if (index !== -1) {
+          const templateId = new_TaskTemplate.id || `preview-override-${choice.id}-${index}`;
+          const indexToUpdate = updatedTasks.findIndex(t => t.id === templateId);
+          if (indexToUpdate !== -1) {
             const now = floorDateByTimezone(new Date().toISOString());
-            const overrides = updatedTasks[index].overrides.filter(o => o.instance_datetime < now);
+            const overrides = updatedTasks[indexToUpdate].overrides.filter(o => o.instance_datetime < now);
             const clonedNewOverrides = (new_TaskTemplate.overrides || []).map(o => ({
               ...o,
               id: o.id || uuid.v4().toString(),
-              instance_datetime: (o as any).date || o.instance_datetime,
+              instance_datetime: getExactlyTime((o as any).date || o.instance_datetime, tz),
             }));
             overrides.push(...clonedNewOverrides);
-            updatedTasks[index] = { ...updatedTasks[index], ...new_TaskTemplate, overrides };
+            updatedTasks[indexToUpdate] = { ...updatedTasks[indexToUpdate], ...new_TaskTemplate, id: templateId, overrides };
           }
           else {
             const clonedOverrides = (new_TaskTemplate.overrides || []).map(o => ({
               ...o,
               id: o.id || uuid.v4().toString(),
-              instance_datetime: (o as any).date || o.instance_datetime,
+              instance_datetime: getExactlyTime((o as any).date || o.instance_datetime, tz),
             }));
             updatedTasks.unshift({
               ...new_TaskTemplate,
+              id: templateId,
               overrides: clonedOverrides,
             });
           }
         }
-      }
+      });
     }
 
     // Deduplicate the entire updatedTasks array by template ID
     const uniqueTasksMap = new Map<string, TaskTemplate>();
     for (const t of updatedTasks) {
-      if (!uniqueTasksMap.has(t.id)) {
-        uniqueTasksMap.set(t.id, t);
+      const idToUse = t.id || uuid.v4().toString(); // Fallback if still no ID
+      if (!uniqueTasksMap.has(idToUse)) {
+        uniqueTasksMap.set(idToUse, { ...t, id: idToUse });
       }
     }
     setPreviewTasks(Array.from(uniqueTasksMap.values()));

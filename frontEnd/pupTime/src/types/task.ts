@@ -208,18 +208,23 @@ export const isTaskOnDate = (task: TaskTemplate, date: string): boolean => {
   }
 };
 
-export const getExactlyTime = (dateStr: string): string => {
-  const date = new Date(dateStr);
-  const d = new Date(
-    date.getFullYear(),
-    date.getMonth(),
-    date.getDate(),
-    date.getHours(),
-    date.getMinutes(),
-    0,
-    0
-  );
-  return d.toISOString();
+export const getExactlyTime = (dateStr: string, tz?: string): string => {
+  try {
+    return dayjs.tz(dateStr, tz || getCurrentTimezone()).toISOString();
+  } catch (error) {
+    console.warn(`[getExactlyTime] Failed to parse time with timezone ${tz}`, error);
+    const date = new Date(dateStr);
+    const d = new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate(),
+      date.getHours(),
+      date.getMinutes(),
+      0,
+      0
+    );
+    return d.toISOString();
+  }
 }
 
 /**
