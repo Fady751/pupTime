@@ -8,24 +8,22 @@ logger = logging.getLogger(__name__)
 def analyze_audio(audio_path: str) -> dict:
     y, sr = librosa.load(audio_path, sr=16000)
 
-    # Peak-normalize so loudness/mic-gain doesn't dominate the features.
     peak = float(np.max(np.abs(y))) if y.size else 0.0
     if peak > 1e-5:
         y = y / peak
 
-    # ── Energy ───────────────────────────────────────────────────────────────
+    # Energy 
     rms_frames = librosa.feature.rms(y=y)[0]
     rms = float(np.mean(rms_frames))
 
     # Energy trend: average RMS of second half vs first half.
-    # Negative = voice trails off (fatigue builds), Positive = voice builds energy.
     if len(rms_frames) > 4:
         mid = len(rms_frames) // 2
         energy_trend = float(np.mean(rms_frames[mid:]) - np.mean(rms_frames[:mid]))
     else:
         energy_trend = 0.0
 
-    # ── Pitch ─────────────────────────────────────────────────────────────────
+    # Pitch 
     f0, _, _ = librosa.pyin(y, fmin=75, fmax=500)
     valid_f0 = f0[~np.isnan(f0)]
 
@@ -33,15 +31,14 @@ def analyze_audio(audio_path: str) -> dict:
     pitch_std   = float(np.std(valid_f0))                if len(valid_f0) > 0 else 0.0
     pitch_range = float(np.max(valid_f0) - np.min(valid_f0)) if len(valid_f0) > 1 else 0.0
 
-    # ── Duration & silence ────────────────────────────────────────────────────
+    # Duration , silence 
     duration = librosa.get_duration(y=y, sr=sr)
     intervals = librosa.effects.split(y, top_db=25)
     speech_samples = sum(end - start for start, end in intervals)
     silence_ratio = 1.0 - (speech_samples / len(y)) if len(y) > 0 else 0.0
     speech_burst_count = int(len(intervals))
 
-    # ── Speaking rate (syllable-rate proxy via onset detection) ───────────────
-    # Onsets approximate syllable beats; dividing by net speech time gives pace.
+    #  Speaking rate (syllable-rate proxy via onset detection) 
     speech_duration = speech_samples / sr if speech_samples > 0 else duration
     if speech_duration > 0.5:
         onsets = librosa.onset.onset_detect(y=y, sr=sr, units="time")
@@ -49,7 +46,7 @@ def analyze_audio(audio_path: str) -> dict:
     else:
         speaking_rate = 0.0
 
-    # ── Spectral features ─────────────────────────────────────────────────────
+    #  Spectral features 
     zcr               = float(np.mean(librosa.feature.zero_crossing_rate(y)))
     spectral_centroid = float(np.mean(librosa.feature.spectral_centroid(y=y, sr=sr)))
     # Spectral flatness: 0 = pure tone (clean resonant voice), 1 = white noise.
@@ -87,7 +84,6 @@ def _clamp01(x: float) -> float:
 
 
 def _build_hint(mood: str, confidence: str, features: dict) -> str:
-    """Build a natural-language description of the acoustic signal for Gemini."""
     rms           = float(features.get("rms_energy", 0.0))
     pitch_std     = float(features.get("pitch_variation", 0.0))
     pitch_range   = float(features.get("pitch_range", 0.0))
@@ -159,7 +155,6 @@ def _build_hint(mood: str, confidence: str, features: dict) -> str:
 
 
 def classify_mood(features: dict) -> dict:
-    """Classify mood from acoustic features using gain-independent scoring."""
     rms           = float(features.get("rms_energy", 0.0))
     energy_trend  = float(features.get("energy_trend", 0.0))
     pitch_mean    = float(features.get("average_pitch", 0.0))
@@ -170,41 +165,38 @@ def classify_mood(features: dict) -> dict:
     flatness      = float(features.get("spectral_flatness", 0.1))
     zcr           = float(features.get("zero_crossing_rate", 0.06))
 
-    # ── Gain-independent descriptors, each normalized to 0..1 ──────────────
-    # Expressiveness: high pitch_std => animated; low => monotone.
     expressive = _clamp01(pitch_std / 45.0)
     monotone   = 1.0 - expressive
 
-    # Pitch range: wide => expressive/happy/anxious; narrow => flat/tired/sad.
+    # Pitch range: wide => expressive/happy/anxious; narrow => flat/tired/sad
     wide_range = _clamp01((pitch_range - 40.0) / 100.0)   # 0 at 40 Hz, 1 at 140 Hz
 
-    # Pauses: more silence => withdrawn (tired/sad).
+    # Pauses: more silence => withdrawn (tired/sad)
     pausey     = _clamp01((silence - 0.20) / 0.45)        # ~0 at 20%, ~1 at 65%
     continuous = 1.0 - pausey
 
-    # Pitch register: high => anxious/excited; low => tired/sad/calm.
+    # Pitch register: high => anxious/excited; low => tired/sad/calm
     high_pitch = _clamp01((pitch_mean - 150.0) / 100.0)
     low_pitch  = _clamp01((170.0 - pitch_mean) / 120.0)
 
-    # Energy (peak-normalized RMS / crest factor): low => withdrawn; high => animated.
+    # Energy (peak-normalized RMS / crest factor): low => withdrawn; high => animated
     loud = _clamp01((rms - 0.08) / 0.17)
     soft = 1.0 - loud
 
-    # Fricative/tense energy from ZCR.
+    # Fricative/tense energy from ZCR
     tense = _clamp01((zcr - 0.06) / 0.10)
 
-    # Speaking pace: slow => tired/sad; fast => anxious.
+    # Speaking pace: slow => tired/sad; fast => anxious
     slow_speech = _clamp01((2.5 - speaking_rate) / 1.5)   # 1 at ≤1.0/s, 0 at ≥2.5/s
     fast_speech = _clamp01((speaking_rate - 3.5) / 2.0)   # 0 at ≤3.5/s, 1 at ≥5.5/s
 
-    # Vocal breathiness (spectral flatness): high => tired/strained voice quality.
+    # Vocal breathiness (spectral flatness): high => tired/strained voice quality
     breathy = _clamp01((flatness - 0.05) / 0.20)          # 0 at 0.05, 1 at 0.25
 
-    # Energy trajectory: voice trailing off => building fatigue.
+    # Energy trajectory: voice trailing off => building fatigue
     trailing_off = _clamp01(-energy_trend / 0.10)
     building_up  = _clamp01(energy_trend / 0.10)
 
-    # ── Mood scores (weights sum to 1.0 per mood) ──────────────────────────
     scores = {
         "tired":   (0.25 * monotone + 0.20 * pausey   + 0.15 * slow_speech
                   + 0.15 * breathy  + 0.10 * trailing_off + 0.10 * soft + 0.05 * low_pitch),

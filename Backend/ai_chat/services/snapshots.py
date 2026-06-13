@@ -12,7 +12,6 @@ from task.views import _parse_iso
 
 
 def _one_month_context(offset_days_before: int = 0) -> Dict[str, Any]:
-    """Return a serializer context covering today → +30 days."""
     now = timezone.now()
     return {
         'start_date': now - timedelta(days=offset_days_before),
@@ -21,10 +20,6 @@ def _one_month_context(offset_days_before: int = 0) -> Dict[str, Any]:
 
 
 def _compute_preview_overrides(params: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """
-    Given create_TaskTemplate params, return a list of upcoming occurrence dicts
-    for the next 30 days.
-    """
     start_dt = _parse_iso(params.get('start_datetime'))
     if not start_dt:
         return []
@@ -45,10 +40,6 @@ def _compute_preview_overrides(params: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 
 def _recompute_overrides_for_snapshot(snapshot: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """
-    Recompute overrides for an update_TaskTemplate snapshot whose start_datetime
-    or rrule may have changed.
-    """
     start_dt = _parse_iso(snapshot.get('start_datetime'))
     if not start_dt:
         return snapshot.get('overrides', [])
@@ -69,7 +60,6 @@ def _recompute_overrides_for_snapshot(snapshot: Dict[str, Any]) -> List[Dict[str
 
 
 def _apply_start_time_patch(snapshot: Dict[str, Any], params: Dict[str, Any]) -> None:
-    """Mutate snapshot in-place: replace just the time part of start_datetime."""
     new_time_str = params.get('start_time')
     if not new_time_str or not snapshot.get('start_datetime'):
         return
@@ -84,7 +74,6 @@ def _apply_start_time_patch(snapshot: Dict[str, Any], params: Dict[str, Any]) ->
 
 
 def _clean_overrides(task_snapshot: Dict[str, Any]) -> None:
-    """Normalise the overrides list inside *task_snapshot* in-place."""
     raw = task_snapshot.get('overrides', [])
     cleaned = []
     for ov in raw:
@@ -103,10 +92,6 @@ def build_task_snapshot(
     params: Dict[str, Any],
     user,
 ) -> Tuple[Optional[Dict[str, Any]], Optional[uuid.UUID]]:
-    """
-    Return (task_snapshot, choice_id) for the given AI action.
-    """
-    # Social-task snapshots have their own shape (no overrides) — return early.
     if action_name == 'create_SocialTask':
         return _snapshot_for_social_create(params), None
     if action_name == 'update_SocialTask':
@@ -155,7 +140,6 @@ def _snapshot_for_social_create(params: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _snapshot_for_social_update(params: Dict[str, Any], user) -> Optional[Dict[str, Any]]:
-    """Preview snapshot of an existing SocialTask with the proposed edits applied."""
     from social_task.models import SocialTask
 
     social_task_id = params.get('social_task_id') or params.get('id')
@@ -181,7 +165,6 @@ def _snapshot_for_social_update(params: Dict[str, Any], user) -> Optional[Dict[s
 
 
 def _snapshot_for_create(params: Dict[str, Any]) -> Tuple[Optional[Dict], Optional[uuid.UUID]]:
-    """Build task snapshot and extract choice_id for create_TaskTemplate."""
     choice_id = None
 
     if params.get('task_id'):

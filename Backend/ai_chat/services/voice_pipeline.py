@@ -30,10 +30,6 @@ def convert_to_mp3(audio_bytes: bytes) -> bytes:
 
 
 def compute_acoustic_hint(audio_bytes: bytes) -> str | None:
-    # Run librosa acoustic analysis to extract quantitative features (RMS, silence,
-    # pitch variation, etc.) and produce a plain-English hint. The hint is injected
-    # alongside the raw audio so Gemini has both its native audio understanding AND
-    # an explicit acoustic signal — it still makes the final emotional judgement.
     acoustic_hint: str | None = None
     try:
         import soundfile as _sf

@@ -24,7 +24,7 @@ class ChatService:
     Handles persistence, AI provider interaction, and structured response processing.
     """
 
-    # ── Conversation & Message Persistence ──────────────────────
+    #  Conversation & Message Persistence 
 
     @staticmethod
     def get_or_create_conversation(
@@ -72,7 +72,7 @@ class ChatService:
             voice_duration_seconds=duration,
         )
 
-    # ── Message Preparation & AI Interaction ────────────────────
+    # Message Preparation & AI Interaction 
 
     @staticmethod
     def prepare_chat_messages(
@@ -133,7 +133,6 @@ class ChatService:
             acoustic_hint=acoustic_hint,
         )
 
-    # ── AI Response Processing ───────────────────────────────────
 
     @classmethod
     def process_ai_response(cls, conversation: Conversation, full_response: str, user) -> Message:

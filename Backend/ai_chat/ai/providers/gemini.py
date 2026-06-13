@@ -63,15 +63,12 @@ def _build_tool_defs(tools: list) -> list:
         else:
             params_schema = {"type": "object", "properties": {}}
 
-        def strip_additional_properties(schema):
+        def strip_additional_properties(schema): # gemini doesn't support title or additionalProperties in tool parameter schemas
             if isinstance(schema, dict):
                 schema.pop("additionalProperties", None)
                 schema.pop("title", None)
                 for key, value in list(schema.items()):
                     if key == "properties" and isinstance(value, dict):
-                        # Recurse into each property's schema, not the properties
-                        # dict itself — otherwise a field literally named "title"
-                        # gets popped as if it were a JSON Schema metadata key.
                         for prop_schema in value.values():
                             strip_additional_properties(prop_schema)
                     else:
@@ -124,19 +121,12 @@ class GeminiProvider(BaseAIProvider):
         except Exception as error:
             _raise_provider_error(error)
 
-    # ── Core tool-calling loop (shared by text and audio) ───────────────────
-
     def _run_tool_loop(
         self,
         lc_messages: list,
         tools: list,
         user=None,
     ) -> Generator[str, None, None]:
-        """
-        Invoke the LLM with tools bound, handle tool calls in a loop,
-        and yield the final response. Shared by stream_with_tools and
-        stream_with_tools_and_audio.
-        """
         import json
 
         tool_defs = _build_tool_defs(tools)
@@ -219,12 +209,10 @@ class GeminiProvider(BaseAIProvider):
                 yield final_text
                 break
 
-    # ── Public methods ──────────────────────────────────────────────────────
 
     def stream_with_tools(self, messages: List[ChatMessage], tools: list, user=None) -> Generator[str, None, None]:
         lc_messages = _to_langchain_messages(messages)
 
-        # Log the start of this AI request
         user_text = ""
         for m in reversed(messages):
             if m.role == "user":
@@ -243,14 +231,7 @@ class GeminiProvider(BaseAIProvider):
         user=None,
         acoustic_hint: str | None = None,
     ) -> Generator[str, None, None]:
-        """
-        Same as stream_with_tools, but the last user message is multimodal:
-        it includes the audio content alongside any text for Gemini's native
-        audio understanding. If ``acoustic_hint`` is provided it is prepended to
-        the text so Gemini has both its native audio perception AND an explicit
-        quantitative signal from the librosa classifier.
-        """
-        # Build all messages EXCEPT the last user message
+        
         lc_messages = []
         last_user_text = ""
         history = list(messages)
@@ -284,7 +265,7 @@ class GeminiProvider(BaseAIProvider):
                 ]))
             else:
                 cls = _ROLE_MAP.get(msg.role, HumanMessage)
-                # Gemini throws `400 Unable to submit request` if any message part is empty.
+                # Gemini throws [400 Unable to submit request]  if any message part is empty
                 text_content = msg.content.strip() if msg.content else ""
                 if not text_content:
                     text_content = "(Voice message without text)"
@@ -293,6 +274,7 @@ class GeminiProvider(BaseAIProvider):
         log_ai_request(f"[VOICE] {last_user_text or '(audio only)'}", round_num=1, user=user)
 
         yield from self._run_tool_loop(lc_messages, tools, user=user)
+
     def generate_conversation_title(
         self,
         user_message: str,

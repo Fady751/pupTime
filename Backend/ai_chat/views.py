@@ -261,7 +261,6 @@ class ChatView(APIView):
 
         current_conversation_id = conversation_id
 
-        #to-do : fix this line and implemnt the better approach 
         last_conversation = Conversation.objects.filter(user=request.user).order_by('-created_at').first()
         from .services.facts import check_facts_in_conversation
         if last_conversation and not conversation_id:

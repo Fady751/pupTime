@@ -53,14 +53,6 @@ class RespondToUserSchema(BaseModel):
     choices: List[Choice] = Field(default=[], description="Proposed actions. Provide choices if the user wants to create, update, or delete tasks or create or edit social tasks. Use MULTIPLE choices ONLY for mutually-exclusive alternatives the user picks between (e.g. 6 PM vs 8 PM). When the user wants several things done together, use ONE choice with multiple actions.")
 
 def get_task_tools(user, voice_message=None):
-    """
-    A 'factory' function that returns a list of tools specifically
-    to the current user.
-
-    If ``voice_message`` is provided (i.e. this is a voice chat turn), an extra
-    ``log_voice_mood`` tool is included so PUP can record the emotional state it
-    hears in the audio onto that message.
-    """
     @tool
     def get_today_tasks():
         """Returns the user's task instances for today. Always call this first when the user asks about their day."""
@@ -159,7 +151,6 @@ def get_task_tools(user, voice_message=None):
         start = _parse_iso(start_date) if start_date else now
         end = _parse_iso(end_date) if end_date else now + timedelta(days=30)
 
-        # Get occurrences (actual instances) in range
         overrides = (
             TaskOverride.objects.filter(
                 task__user=user,

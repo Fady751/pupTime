@@ -10,8 +10,6 @@ from pydantic import BaseModel, Field
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 
-#to-do 
-
 class AIResponseParser(BaseModel):
     category: str = Field(..., description="The category of the fact, e.g., 'personal_info', 'preference', 'habit', or 'other'.")
     fact: str = Field(..., description="A brief statement of the fact, ideally under 20 words.")

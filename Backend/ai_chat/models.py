@@ -3,7 +3,6 @@ from django.db import models
 from django.conf import settings
 
 class Conversation(models.Model):
-    """A chat conversation between a user and the AI assistant"""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(
