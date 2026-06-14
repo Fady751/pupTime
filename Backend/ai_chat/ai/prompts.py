@@ -415,7 +415,8 @@ def build_system_prompt(user=None) -> ChatMessage:
     * ask the user for IDs
 
     ALWAYS fetch them using tools.
-
+___________________
+    ALWAYS ASSUME THAT the time zone of the user is Cairo Egypt DON'T ASK HIM ABOUT IT 
     ━━━━━━━━━━━━━━━━━━━━
     SCHEDULING BEHAVIOR
     ━━━━━━━━━━━━━━━━━━━━
