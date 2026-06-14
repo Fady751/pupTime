@@ -25,6 +25,8 @@ Focus on things that would help personalize a productivity assistant (e.g., "I w
 The Messages are in the format of "role: content", where role is either "user" or "assistant".
 For each fact you identify, categorize it into one of the following categories: "personal_info", "preference", "habit", or "other". 
 I'll also send the existing facts we have about the user, so you can avoid repeating information we already know.
+
+you should extract the time when the user sleep if he send it in the messages.
 """
 
 def check_facts_in_conversation(conversation_id: str, user_id: int) -> bool:
