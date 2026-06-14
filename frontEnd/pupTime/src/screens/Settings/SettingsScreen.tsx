@@ -14,6 +14,10 @@ import DeleteAccountButton from "../../components/Settings/DeleteAccountButton";
 import ColorSelectionModal from "../../components/Settings/ColorSelectionModal";
 import FontSizeSelectionModal from "../../components/Settings/FontSizeSelectionModal";
 import createSettingsStyles from "../../components/Settings/Settings.styles";
+import SyncProgressModal from "../../components/Settings/SyncProgressModal";
+import syncService from "../../services/TaskService/syncService";
+import { AppMetaRepository } from "../../DB";
+import { Alert } from "react-native";
 
 export type UserSettings = {
   notifications: {
@@ -77,8 +81,85 @@ const SettingsScreen = ({ navigation }: { navigation: any }) => {
   const [settings, setSettings] = useState<UserSettings>(initialSettings);
   const [colorModalVisible, setColorModalVisible] = useState(false);
   const [fontSizeModalVisible, setFontSizeModalVisible] = useState(false);
+  const [lastSyncDate, setLastSyncDate] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState(0);
 
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isSyncing) {
+      setSyncProgress(0);
+      interval = setInterval(() => {
+        setSyncProgress(prev => {
+          if (prev >= 90) return prev;
+          return prev + Math.floor(Math.random() * 15) + 5;
+        });
+      }, 500);
+    } else {
+      setSyncProgress(100);
+    }
+    return () => clearInterval(interval);
+  }, [isSyncing]);
 
+  useEffect(() => {
+    const fetchLastSync = async () => {
+      const meta = await AppMetaRepository.get('lastSyncDate');
+      if (meta?.value) {
+        setLastSyncDate(meta.value);
+      }
+    };
+    fetchLastSync();
+  }, []);
+
+  const handleSyncData = async () => {
+    if (isSyncing) return;
+    try {
+      setIsSyncing(true);
+      await syncService.fullSync();
+      const meta = await AppMetaRepository.get('lastSyncDate');
+      if (meta?.value) {
+        setLastSyncDate(meta.value);
+      }
+      Alert.alert("Success", "Data synced successfully.");
+    } catch (e) {
+      Alert.alert("Error", "Failed to sync data.");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleResyncData = async () => {
+    if (isSyncing) return;
+    Alert.alert(
+      "Resync Data",
+      "This will reset your sync state and pull all data from the server. Continue?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Resync", 
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setIsSyncing(true);
+              await syncService.resetSyncState();
+              await syncService.fullSync();
+              const meta = await AppMetaRepository.get('lastSyncDate');
+              if (meta?.value) {
+                setLastSyncDate(meta.value);
+              } else {
+                setLastSyncDate(null);
+              }
+              Alert.alert("Success", "Data resynced successfully.");
+            } catch (e) {
+              Alert.alert("Error", "Failed to resync data.");
+            } finally {
+              setIsSyncing(false);
+            }
+          }
+        }
+      ]
+    );
+  };
 
   const colorSchemeOptions = [
     "Emerald Green",
@@ -388,6 +469,32 @@ const SettingsScreen = ({ navigation }: { navigation: any }) => {
 
 
 
+          {/* 9. Sync */}
+          <SettingsSection title="Sync Data">
+            <SettingsNavItem
+              label={isSyncing ? "Syncing..." : "Sync All Data"}
+              icon="🔄"
+              onPress={handleSyncData}
+              isFirst
+            />
+            <SettingsNavItem
+              label="Resync Data"
+              icon="⚠️"
+              onPress={handleResyncData}
+            />
+            <View style={[itemStyles.itemRow, { paddingVertical: 12 }]}>
+              <View style={itemStyles.itemLeft}>
+                <Text style={itemStyles.itemIcon}>🕒</Text>
+                <Text style={itemStyles.itemLabel}>Last Sync</Text>
+              </View>
+              <View style={itemStyles.itemValueContainer}>
+                <Text style={itemStyles.itemValue}>
+                  {lastSyncDate ? new Date(lastSyncDate).toLocaleString() : 'Never'}
+                </Text>
+              </View>
+            </View>
+          </SettingsSection>
+
           {/* 10. About */}
           <SettingsSection title="About">
             <SettingsNavItem
@@ -416,6 +523,11 @@ const SettingsScreen = ({ navigation }: { navigation: any }) => {
           currentSize={fontSize}
           onSelectSize={setFontSize}
           colors={colors}
+        />
+        <SyncProgressModal 
+          visible={isSyncing} 
+          progress={syncProgress} 
+          colors={colors} 
         />
       </View>
     </SafeAreaView>

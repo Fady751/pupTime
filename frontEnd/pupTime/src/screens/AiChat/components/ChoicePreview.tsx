@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text } from 'react-native';
 import { Choice, Action, SocialTaskSnapshot, SocialActionName } from '../../../types/aiConversation';
-import { floorDateByTimezone, getExactlyTime, TaskTemplate } from '../../../types/task';
+import { floorDateByTimezone, getExactlyTime, TaskTemplate, toLocalDateString, stripTimezoneOffset } from '../../../types/task';
 import Schedule from '../../../components/Schedule/Schedule';
 import useTheme from '../../../Hooks/useTheme';
 import createChoicePreviewStyles from './ChoicePreview.styles';
@@ -26,6 +26,7 @@ const isTaskAction = (a: Action): a is Extract<Action, { action_name: 'create_Ta
 
 // ─────────────────────────────────────────────────────────────
 
+const converter = (o: any) => o;
 const ChoicePreview: React.FC<ChoicePreviewProps> = ({ choice }) => {
   const { colors } = useTheme();
   const styles = useMemo(() => createChoicePreviewStyles(colors), [colors]);
@@ -82,7 +83,7 @@ const ChoicePreview: React.FC<ChoicePreviewProps> = ({ choice }) => {
             const clonedOverrides = (new_TaskTemplate.overrides || []).map(o => ({
               ...o,
               id: o.id || uuid.v4().toString(),
-              instance_datetime: getExactlyTime((o as any).date || o.instance_datetime, tz),
+              instance_datetime: converter((o as any).date || o.instance_datetime),
             }));
             updatedTasks.unshift({
               ...new_TaskTemplate,
@@ -101,7 +102,7 @@ const ChoicePreview: React.FC<ChoicePreviewProps> = ({ choice }) => {
             const clonedNewOverrides = (new_TaskTemplate.overrides || []).map(o => ({
               ...o,
               id: o.id || uuid.v4().toString(),
-              instance_datetime: getExactlyTime((o as any).date || o.instance_datetime, tz),
+              instance_datetime: converter((o as any).date || o.instance_datetime),
             }));
             overrides.push(...clonedNewOverrides);
             updatedTasks[indexToUpdate] = { ...updatedTasks[indexToUpdate], ...new_TaskTemplate, id: templateId, overrides };
@@ -110,7 +111,7 @@ const ChoicePreview: React.FC<ChoicePreviewProps> = ({ choice }) => {
             const clonedOverrides = (new_TaskTemplate.overrides || []).map(o => ({
               ...o,
               id: o.id || uuid.v4().toString(),
-              instance_datetime: getExactlyTime((o as any).date || o.instance_datetime, tz),
+              instance_datetime: converter((o as any).date || o.instance_datetime),
             }));
             updatedTasks.unshift({
               ...new_TaskTemplate,
@@ -133,7 +134,7 @@ const ChoicePreview: React.FC<ChoicePreviewProps> = ({ choice }) => {
             const clonedNewOverrides = (new_TaskTemplate.overrides || []).map(o => ({
               ...o,
               id: o.id || uuid.v4().toString(),
-              instance_datetime: getExactlyTime((o as any).date || o.instance_datetime, tz),
+              instance_datetime: o.status == 'RESCHEDULED'? (o as any).date: converter((o as any).date || o.instance_datetime),
             }));
             overrides.push(...clonedNewOverrides);
             updatedTasks[indexToUpdate] = { ...updatedTasks[indexToUpdate], ...new_TaskTemplate, id: templateId, overrides };
@@ -142,7 +143,7 @@ const ChoicePreview: React.FC<ChoicePreviewProps> = ({ choice }) => {
             const clonedOverrides = (new_TaskTemplate.overrides || []).map(o => ({
               ...o,
               id: o.id || uuid.v4().toString(),
-              instance_datetime: getExactlyTime((o as any).date || o.instance_datetime, tz),
+              instance_datetime: o.status == 'RESCHEDULED'? (o as any).date: converter((o as any).date || o.instance_datetime),
             }));
             updatedTasks.unshift({
               ...new_TaskTemplate,

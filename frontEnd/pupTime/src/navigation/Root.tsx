@@ -11,7 +11,7 @@ import OfflineBar from '../components/OfflineBar/offlineBar';
 import useNetworkListener from '../Hooks/RootHooks/NetworkBootstrap';
 import useAuthBootstrap from '../Hooks/RootHooks/AuthBootstrap';
 import { useEffect, useState } from 'react';
-import { AppMetaRepository } from '../DB/Repositories/AppMetaRepository';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import IntroScreen from '../screens/Intro/Intro';
 import useTheme from '../Hooks/useTheme';
 import { processWeeklyTasks } from '../services/TaskService/syncService';
@@ -27,20 +27,20 @@ export default function Root() {
   useEffect(() => {
     const checkFirstLaunch = async () => {
       try {
-        const alreadyLaunched = await AppMetaRepository.get('already_launched');
-        if (!alreadyLaunched) {
-          await AppMetaRepository.set('already_launched', 'true');
+        const alreadyLaunched = await AsyncStorage.getItem('already_launched');
+        if (alreadyLaunched === null) {
+          await AsyncStorage.setItem('already_launched', 'true');
           setShowIntro(true);
         } else {
           setShowIntro(false);
         }
       } catch (e) {
-        console.error('Failed to check already_launched app meta:', e);
-        setShowIntro(false); // Default to false if DB check fails
+        console.error('Failed to check already_launched async storage:', e);
+        setShowIntro(false); // Default to false if check fails
       }
     };
     checkFirstLaunch();
-    processWeeklyTasks().catch(e => console.error("Weekly tasks error", e));
+    // processWeeklyTasks().catch(e => console.error("Weekly tasks error", e));
   }, []);
 
   const { colors } = useTheme();

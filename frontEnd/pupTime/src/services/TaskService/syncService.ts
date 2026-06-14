@@ -244,6 +244,7 @@ export const createTemplate = async (
 	const { inserted } = await TaskService.generateLocalOverrides(templateData as TaskTemplate);
 
 	// Enqueue (camelCase — tasks.ts handles conversion via toServerTaskData)
+	// console.log(inserted);
 	await enqueueOperation('CREATE', 'TASK_TEMPLATE', localId, {
 		...task,
 		id: localId,
@@ -456,15 +457,15 @@ export const getTemplatesWithOverrides = async (
  * Get a single template with its overrides
  */
 export const getTemplateWithOverrides = async (
-	params: GetOverridesParams & {template_id: string},
+	params: GetOverridesParams & { template_id: string },
 ) => {
 	// Fire-and-forget background sync
 	fullSync().catch(() => { });
 
 	const { data: template } = await TaskTemplateRepository.filter(params);
-	if(!template) return [];
+	if (!template) return [];
 	const overrides = await TaskOverrideRepository.listByTemplate(params.template_id);
-	return [{ ...template[0], overrides, categories: [] }];
+	return [ { ...template[ 0 ], overrides, categories: [] } ];
 };
 
 /* ═══════════════════════════════════════════════════════════
@@ -500,6 +501,7 @@ export const processQueue = async (): Promise<void> => {
 			switch (`${item.operation}:${item.entity_type}`) {
 				/* ── TEMPLATE CREATE ──────────────────────── */
 				case 'CREATE:TASK_TEMPLATE': {
+					console.log("task", payload);
 					await apiCreateTemplate(payload as TaskTemplate);
 					break;
 				}

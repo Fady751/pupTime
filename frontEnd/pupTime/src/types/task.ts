@@ -210,22 +210,40 @@ export const isTaskOnDate = (task: TaskTemplate, date: string): boolean => {
 
 export const getExactlyTime = (dateStr: string, tz?: string): string => {
   try {
-    return dayjs.tz(dateStr, tz || getCurrentTimezone()).toISOString();
+    if (dateStr.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(dateStr)) {
+      return dayjs(dateStr).startOf('minute').toISOString();
+    }
+    return dayjs.tz(dateStr, tz || getCurrentTimezone()).startOf('minute').toISOString();
   } catch (error) {
     console.warn(`[getExactlyTime] Failed to parse time with timezone ${tz}`, error);
     const date = new Date(dateStr);
-    const d = new Date(
-      date.getFullYear(),
-      date.getMonth(),
-      date.getDate(),
-      date.getHours(),
-      date.getMinutes(),
+    const d = new Date(Date.UTC(
+      date.getUTCFullYear(),
+      date.getUTCMonth(),
+      date.getUTCDate(),
+      date.getUTCHours(),
+      date.getUTCMinutes(),
       0,
       0
-    );
+    ));
     return d.toISOString();
   }
 }
+
+export const stripTimezoneOffset = (dateStr: string): string => {
+  if (!dateStr) return dateStr;
+  try {
+    if (dateStr.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(dateStr)) {
+      const d = new Date(dateStr);
+      if (!isNaN(d.getTime())) {
+        return d.toISOString().slice(0, 19);
+      }
+    }
+    return dateStr;
+  } catch (error) {
+    return dateStr;
+  }
+};
 
 /**
  * Returns all occurrence Dates for a task within the next 30 days (or specified window).
@@ -255,8 +273,14 @@ export const getTaskOccurrences = (
     ruleOptions.dtstart = taskStart;
 
     const rule = new RRule(ruleOptions);
+    const tz = task.timezone || getCurrentTimezone();
 
-    return rule.between(windowStart, windowEnd, true).map(d => getExactlyTime(d.toISOString()));
+    return rule.between(windowStart, windowEnd, true).map(d => {
+      // RRule generates a Date where the UTC components match the desired local time.
+      // E.g. if the local time should be 12:00, d.toISOString() ends with T12:00:00.000Z.
+      const localTimeString = d.toISOString().slice(0, 19);
+      return dayjs.tz(localTimeString, tz).startOf('minute').toISOString();
+    });
   } catch (error) {
     console.warn(`Failed to parse recurrence for task ${task.id}`, error);
     return [];

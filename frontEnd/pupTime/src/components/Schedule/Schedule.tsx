@@ -289,13 +289,21 @@ const Schedule: React.FC<ScheduleProps> = ({
         arr.push({ template: tpl, override: ov });
       }
     }
-    // Sort each bucket by time once
-    for (const arr of map.values()) {
-      arr.sort(
+    // Sort and deduplicate each bucket by time once
+    for (const [ds, arr] of map.entries()) {
+      const seen = new Set<string>();
+      const uniqueArr = arr.filter(item => {
+        const key = `${item.template.title}-${item.template.emoji}-${item.override.status}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      uniqueArr.sort(
         (a, b) =>
           new Date(a.override.instance_datetime).getTime() -
           new Date(b.override.instance_datetime).getTime(),
       );
+      map.set(ds, uniqueArr);
     }
     return map;
   }, [tasks]);
